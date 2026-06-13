@@ -1,0 +1,236 @@
+// The command catalog: Oscine's public API contract, as pure data.
+//
+// This file is the single source of truth for every programmatic feature.
+// Three consumers:
+//   1. src/api/api.js binds each command to a handler in the running app
+//   2. plugin/server/oscine-mcp.mjs exposes each command as an MCP tool
+//      (a synced copy lives in the plugin; tools/sync-plugin.mjs keeps it
+//      identical, and the test suite fails if it drifts)
+//   3. window.oscine.api in the browser console
+//
+// No imports, no DOM, no audio: importable from node. Schemas are plain
+// JSON Schema, used directly as MCP inputSchema.
+//
+// Conventions:
+//   track  string: track id or exact track name (case-insensitive)
+//   slot   'A'..'D' or 0..3; omitted = the active slot
+//   time   beats (quarter notes, floats); a slot loops bars*4 beats
+//   pitch  MIDI note number 24..107 (60 = C4)
+//   vel    0..1
+
+export const API_VERSION = 1;
+
+const TRACK = { type: 'string', description: 'Track id or exact track name (case-insensitive), e.g. "Bass".' };
+const SLOT = { type: ['string', 'integer'], description: "Pattern slot 'A'-'D' (or 0-3). Omit for the active slot." };
+
+const NOTE_ITEM = {
+  type: 'object',
+  properties: {
+    start: { type: 'number', minimum: 0, description: 'Start position in beats from loop start (0 = the 1). 16th note = 0.25.' },
+    pitch: { type: 'integer', minimum: 24, maximum: 107, description: 'MIDI note number (60 = C4, 69 = A4).' },
+    dur: { type: 'number', exclusiveMinimum: 0, default: 0.25, description: 'Length in beats.' },
+    vel: { type: 'number', minimum: 0, maximum: 1, default: 0.85, description: 'Velocity 0-1 (drives loudness and filter).' },
+  },
+  required: ['start', 'pitch'],
+};
+
+export const COMMANDS = [
+  {
+    name: 'status',
+    description: 'Snapshot of the whole app: project, transport state, tracks with mixer settings, pattern slots with content counts, and audio-context state. Call this first to orient.',
+    readOnly: true,
+    input: { type: 'object', properties: {} },
+  },
+  {
+    name: 'transport',
+    description: 'Control playback and timing. Optionally set bpm/swing/metronome, then apply an action. Playback loops the active pattern slot. Returns transport state; if the browser audio context is suspended, the response says how to unlock it.',
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['play', 'stop', 'toggle'], description: 'Transport action to apply after any settings.' },
+        bpm: { type: 'integer', minimum: 40, maximum: 240, description: 'Tempo in beats per minute.' },
+        swing: { type: 'number', minimum: 0, maximum: 1, description: 'Swing amount: delays off-16ths. 0 = straight, ~0.15 subtle, 0.5 strong.' },
+        metronome: { type: 'boolean', description: 'Click track on/off.' },
+      },
+    },
+  },
+  {
+    name: 'project',
+    description: "Project-level operations: 'get' returns the full project JSON (the save-file format); 'new' starts a blank or demo project; 'load' replaces the project with provided JSON; 'rename' sets the song name; 'undo'/'redo' step history. All destructive actions are undoable.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'new', 'load', 'rename', 'undo', 'redo'] },
+        kind: { type: 'string', enum: ['blank', 'demo'], default: 'blank', description: "For 'new'." },
+        name: { type: 'string', description: "For 'rename' (or to name a 'new' project)." },
+        project: { type: 'object', description: "For 'load': a full project object previously returned by action 'get'." },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'list_instruments',
+    description: 'The instrument registry: every available instrument type with its full parameter schema (keys, ranges, defaults, groups), preset names, and drum lane ids. Use this to know what add_track and set_params accept.',
+    readOnly: true,
+    input: { type: 'object', properties: {} },
+  },
+  {
+    name: 'add_track',
+    description: 'Add a track of an instrument type from list_instruments (e.g. poly, fm, drums). Creates empty patterns in all four slots and selects the track.',
+    input: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', description: "Instrument type id, e.g. 'poly', 'fm', 'drums'." },
+        name: { type: 'string', description: 'Optional track name.' },
+      },
+      required: ['type'],
+    },
+  },
+  {
+    name: 'remove_track',
+    description: 'Delete a track and its patterns in all slots (undoable).',
+    input: { type: 'object', properties: { track: TRACK }, required: ['track'] },
+  },
+  {
+    name: 'rename_track',
+    description: 'Rename a track. The new name becomes its address for other tools and its label across the UI.',
+    input: {
+      type: 'object',
+      properties: { track: TRACK, name: { type: 'string' } },
+      required: ['track', 'name'],
+    },
+  },
+  {
+    name: 'select_track',
+    description: "Select a track in the UI: the center editor follows (piano roll for synths, step grid for drums), and the on-screen keyboard plays it.",
+    input: { type: 'object', properties: { track: TRACK }, required: ['track'] },
+  },
+  {
+    name: 'set_mix',
+    description: "Set a track's mixer channel: fader gain, pan, mute, solo, and FX send levels. Only provided fields change.",
+    input: {
+      type: 'object',
+      properties: {
+        track: TRACK,
+        gain: { type: 'number', minimum: 0, maximum: 1, description: 'Fader level (audio-tapered; 0.8 is unity-ish).' },
+        pan: { type: 'number', minimum: -1, maximum: 1, description: '-1 hard left, 0 center, 1 hard right.' },
+        mute: { type: 'boolean' },
+        solo: { type: 'boolean' },
+        sendDelay: { type: 'number', minimum: 0, maximum: 1, description: 'Send level into the shared tempo-synced delay.' },
+        sendReverb: { type: 'number', minimum: 0, maximum: 1, description: 'Send level into the shared reverb.' },
+      },
+      required: ['track'],
+    },
+  },
+  {
+    name: 'set_master',
+    description: 'Set master volume and the shared FX buses: delay division/feedback/return and reverb size/return. Only provided fields change.',
+    input: {
+      type: 'object',
+      properties: {
+        volume: { type: 'number', minimum: 0, maximum: 1.2, description: 'Master output level.' },
+        delayDiv: { type: 'number', enum: [0.25, 0.5, 0.75, 1, 1.5, 2], description: 'Delay time in beats: 0.25=1/16, 0.5=1/8, 0.75=dotted 1/8, 1=1/4, 1.5=dotted 1/4, 2=1/2.' },
+        delayFeedback: { type: 'number', minimum: 0, maximum: 0.9 },
+        delayReturn: { type: 'number', minimum: 0, maximum: 1 },
+        verbSize: { type: 'number', minimum: 0.4, maximum: 6, description: 'Reverb tail length in seconds.' },
+        verbReturn: { type: 'number', minimum: 0, maximum: 1 },
+      },
+    },
+  },
+  {
+    name: 'set_params',
+    description: "Shape a track's sound: optionally apply a preset (from list_instruments), then set individual instrument parameters on top. Values are validated against the instrument's schema and clamped to range. Returns the resulting params.",
+    input: {
+      type: 'object',
+      properties: {
+        track: TRACK,
+        preset: { type: 'string', description: "Preset name, or 'init' for defaults. Applied before params." },
+        params: {
+          type: 'object',
+          description: 'Map of param key -> value, e.g. {"cutoff": 800, "resonance": 8}. Keys per list_instruments.',
+          additionalProperties: { type: ['number', 'string', 'boolean'] },
+        },
+      },
+      required: ['track'],
+    },
+  },
+  {
+    name: 'get_notes',
+    description: 'Read the melodic pattern of a synth track in a slot: notes sorted by start, plus loop length. (Drum tracks use get_steps.)',
+    readOnly: true,
+    input: { type: 'object', properties: { track: TRACK, slot: SLOT }, required: ['track'] },
+  },
+  {
+    name: 'set_notes',
+    description: "Write the melodic pattern of a synth track (undoable). mode 'replace' sets the whole pattern (the usual way to compose), 'add' appends notes, 'remove' deletes by id, 'clear' empties it. Notes use beats/MIDI/velocity per the note schema.",
+    input: {
+      type: 'object',
+      properties: {
+        track: TRACK,
+        mode: { type: 'string', enum: ['replace', 'add', 'remove', 'clear'] },
+        notes: { type: 'array', items: NOTE_ITEM, description: "For 'replace'/'add'." },
+        ids: { type: 'array', items: { type: 'string' }, description: "For 'remove': note ids from get_notes." },
+        slot: SLOT,
+      },
+      required: ['track', 'mode'],
+    },
+  },
+  {
+    name: 'get_steps',
+    description: 'Read the drum pattern of a drum track in a slot: one velocity array (16th-note steps, 0 = off) per lane, plus loop length. (Synth tracks use get_notes.)',
+    readOnly: true,
+    input: { type: 'object', properties: { track: TRACK, slot: SLOT }, required: ['track'] },
+  },
+  {
+    name: 'set_steps',
+    description: "Write drum lanes (undoable). lanes maps lane id -> velocity array (one value per 16th step; 0 = off; arrays are padded/truncated to the slot length). mode 'merge' changes only the provided lanes, 'replace' also clears the lanes you omit, 'clear' empties the whole pattern. Lane ids per list_instruments (kick, snare, clap, chat, ohat, ltom, htom, ride).",
+    input: {
+      type: 'object',
+      properties: {
+        track: TRACK,
+        mode: { type: 'string', enum: ['merge', 'replace', 'clear'] },
+        lanes: {
+          type: 'object',
+          description: 'e.g. {"kick": [1,0,0,0, 1,0,0,0, ...], "chat": [0,0,0.7,0, ...]}',
+          additionalProperties: { type: 'array', items: { type: 'number', minimum: 0, maximum: 1 } },
+        },
+        slot: SLOT,
+      },
+      required: ['track', 'mode'],
+    },
+  },
+  {
+    name: 'slots',
+    description: "Pattern slots A-D are four scenes sharing the same tracks. 'list' shows each slot's bars and content; 'select' switches the playing slot (while playing, the switch queues and lands at the next loop boundary); 'set_bars' changes a slot's loop length (1/2/4/8 bars); 'copy' duplicates one slot's patterns into another.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'select', 'set_bars', 'copy'] },
+        slot: SLOT,
+        bars: { type: 'integer', enum: [1, 2, 4, 8], description: "For 'set_bars'." },
+        from: SLOT,
+        to: SLOT,
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'preview',
+    description: 'Audition a sound immediately on the user\'s speakers without touching any pattern: a pitch on a synth track, or a lane hit on a drum track. Useful to check a patch before composing.',
+    input: {
+      type: 'object',
+      properties: {
+        track: TRACK,
+        pitch: { type: 'integer', minimum: 24, maximum: 107, description: 'For synth tracks.' },
+        lane: { type: 'string', description: "For drum tracks: lane id, e.g. 'kick'." },
+        vel: { type: 'number', minimum: 0, maximum: 1, default: 0.9 },
+        dur: { type: 'number', minimum: 0.05, maximum: 8, default: 0.6, description: 'Synth note length in seconds.' },
+      },
+      required: ['track'],
+    },
+  },
+];
+
+export function getCommand(name) {
+  return COMMANDS.find(c => c.name === name);
+}
