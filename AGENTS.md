@@ -2,8 +2,9 @@
 
 Guidance for AI agents and humans working in the Oscine codebase. Oscine
 is itself agent-controllable at runtime (MCP + OSC); this file is about
-editing its *source*. Read `README.md` for what the app is and
-`docs/landscape.md` for where it's headed.
+editing its *source*. Read `README.md` for what the app is, `ROADMAP.md`
+for what's planned next (and what's already shipped), and
+`docs/landscape.md` for the competitive research behind those calls.
 
 ## The one rule that matters
 
