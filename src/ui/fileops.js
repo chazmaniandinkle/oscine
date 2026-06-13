@@ -14,6 +14,37 @@ export function importProjectFile(file, store) {
   return coreImport(file, store);
 }
 
+// Audio + link sharing go through the command API so the UI exercises the
+// exact same path as MCP/OSC/console callers (the catalog-parity contract).
+
+export async function exportWav(api) {
+  toast('Rendering audio…');
+  try {
+    const res = await api.execute('export_wav', {});
+    toast(`Exported ${res.filename} (${res.durationSec}s)`);
+  } catch (err) {
+    toast('Export failed: ' + err.message);
+  }
+}
+
+export async function copyShareLink(api) {
+  try {
+    const { url } = await api.execute('share', { action: 'link' });
+    let copied = false;
+    if (navigator.clipboard?.writeText) {
+      try { await navigator.clipboard.writeText(url); copied = true; } catch { /* fall through */ }
+    }
+    toast(copied ? 'Share link copied to clipboard' : 'Share link ready (copy from the address bar)');
+    // Fallback when the clipboard API is unavailable: surface the link in the
+    // address bar. replaceState avoids pushing a Back/Forward history entry.
+    if (!copied && typeof history !== 'undefined' && history.replaceState) {
+      history.replaceState(null, '', url);
+    }
+  } catch (err) {
+    toast('Could not build share link: ' + err.message);
+  }
+}
+
 export function demoOrBlank(store, which) {
   const ok = window.confirm(
     `Replace "${store.project.name}" with a ${which === 'demo' ? 'demo song' : 'blank project'}? ` +

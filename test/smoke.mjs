@@ -198,6 +198,22 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
     previewNote: (...a) => previews.push(['note', ...a]),
     previewHit: (...a) => previews.push(['hit', ...a]),
     getLevel: () => 0,
+    // Stand in for the OfflineAudioContext render (browser-only): hand back a
+    // tiny stereo buffer so the export_wav handler's encode path runs in node.
+    renderToBuffer: async ({ slotIndex = 0, loops = 2, sampleRate = 44100 } = {}) => {
+      const frames = 64;
+      const data = new Float32Array(frames);
+      for (let i = 0; i < frames; i++) data[i] = Math.sin(i / 4) * 0.5;
+      return {
+        buffer: {
+          numberOfChannels: 2,
+          sampleRate,
+          duration: frames / sampleRate,
+          getChannelData: () => data,
+        },
+        durationSec: frames / sampleRate, sampleRate, channels: 2, loops, slotIndex,
+      };
+    },
   };
   const transportStub = {
     playing: false,
@@ -311,6 +327,32 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   await api.execute('preview', { track: 'Drums', lane: 'kick' });
   check('preview routes by kind', previews[0][0] === 'note' && previews[1][0] === 'hit');
 
+  const wav = await api.execute('export_wav', { slot: 'A', loops: 3 });
+  check('export_wav renders + reports metadata',
+    wav.ok && wav.filename.endsWith('.wav') && wav.channels === 2 && wav.loops === 3 &&
+    wav.bytes > 44 && wav.slot === 'A');
+
+  let wavErr = null;
+  try { await api.execute('export_wav', { sampleRate: 96000 }); } catch (e) { wavErr = e.message; }
+  check('export_wav rejects bad sample rate', /44100 or 48000/.test(wavErr ?? ''));
+
+  const link = await api.execute('share', { action: 'link' });
+  check('share link returns a #s= URL', /#s=/.test(link.url) && link.fragmentChars > 0);
+
+  // Round-trip: encode the current song to a link, mutate, then open the link.
+  await api.execute('project', { action: 'rename', name: 'Shared Tune' });
+  const link2 = await api.execute('share', { action: 'link' });
+  await api.execute('project', { action: 'new', kind: 'blank' });
+  check('project replaced before open', store.project.name !== 'Shared Tune');
+  const opened = await api.execute('share', { action: 'open', url: link2.url });
+  check('share open loads the song from the link', opened.ok && store.project.name === 'Shared Tune');
+  await api.execute('project', { action: 'undo' });
+  check('share open is undoable', store.project.name !== 'Shared Tune');
+
+  let shareErr = null;
+  try { await api.execute('share', { action: 'open', url: 'https://x/#nope=1' }); } catch (e) { shareErr = e.message; }
+  check('share open rejects a URL with no share data', /share data/.test(shareErr ?? ''));
+
   const undone = await api.execute('project', { action: 'undo' });
   check('project undo via API', undone.ok === true);
 
@@ -321,6 +363,58 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   check('project new + named', fresh.project === 'API Song' && store.project.tracks.length === 0);
   await api.execute('project', { action: 'undo' });
   check('project new is undoable', store.project.tracks.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[4b] WAV encoder + song-in-URL codec');
+const { encodeWav } = await import(`${ROOT}/src/core/wav.js`);
+const share = await import(`${ROOT}/src/core/share.js`);
+
+{
+  // WAV: a known 2ch / 4-frame buffer produces a valid 44-byte header + data.
+  const L = new Float32Array([0, 1, -1, 0.5]);
+  const R = new Float32Array([0, -1, 1, -0.5]);
+  const bytes = encodeWav([L, R], 44100);
+  const str = (o, n) => String.fromCharCode(...bytes.slice(o, o + n));
+  const dv = new DataView(bytes.buffer);
+  check('wav header is RIFF/WAVE with fmt+data chunks',
+    str(0, 4) === 'RIFF' && str(8, 4) === 'WAVE' && str(12, 4) === 'fmt ' && str(36, 4) === 'data');
+  check('wav fmt: PCM, 2ch, 44100, 16-bit',
+    dv.getUint16(20, true) === 1 && dv.getUint16(22, true) === 2 &&
+    dv.getUint32(24, true) === 44100 && dv.getUint16(34, true) === 16);
+  check('wav size = 44 + frames*channels*2', bytes.length === 44 + 4 * 2 * 2 &&
+    dv.getUint32(40, true) === 4 * 2 * 2);
+  check('wav full-scale samples quantize to int16 extremes',
+    dv.getInt16(44 + 1 * 4, true) === 0x7fff && dv.getInt16(44 + 1 * 4 + 2, true) === -0x8000);
+
+  let wavThrew = null;
+  try { encodeWav([], 44100); } catch (e) { wavThrew = e.message; }
+  check('encodeWav rejects empty channel list', /at least one channel/.test(wavThrew ?? ''));
+
+  // Share codec: a full project round-trips through a URL fragment, note ids
+  // are stripped from the wire form (regenerated on load), patterns survive.
+  const proj = demoProject();
+  const url = share.buildShareUrl(proj, 'https://oscine.app/');
+  check('buildShareUrl emits an #s= fragment under the given base',
+    url.startsWith('https://oscine.app/#s=') && share.fragmentFromUrl(url)?.length > 0);
+
+  const back = share.decodeFragmentToProject(share.fragmentFromUrl(url));
+  check('share round-trips name/bpm/tracks/slots',
+    back.name === proj.name && back.bpm === proj.bpm &&
+    back.tracks.length === proj.tracks.length && back.slots.length === 4);
+  const leadId = proj.tracks.find(t => t.name === 'Lead').id;
+  const origNotes = proj.slots[0].patterns[leadId].notes;
+  const backNotes = back.slots[0].patterns[leadId].notes;
+  check('share preserves note data', backNotes.length === origNotes.length &&
+    backNotes[0].pitch === origNotes[0].pitch && backNotes[0].start === origNotes[0].start);
+  check('share wire form omits note ids (kept compact)', backNotes.every(n => n.id === undefined));
+  check('decoded project still validates as loadable', !!validateProject(JSON.parse(JSON.stringify(back))));
+
+  check('projectFromUrl returns null when no fragment is present',
+    share.projectFromUrl('https://oscine.app/') === null);
+  let decErr = null;
+  try { share.decodeFragmentToProject('!!!not-base64!!!'); } catch (e) { decErr = e.message; }
+  check('decode rejects a malformed fragment', /malformed/.test(decErr ?? ''));
 }
 
 // ---------------------------------------------------------------------------

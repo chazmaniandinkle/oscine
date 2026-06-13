@@ -9,7 +9,9 @@
 import { COMMANDS, getCommand, API_VERSION } from './commands.js';
 import { SLOT_NAMES, BAR_CHOICES, demoProject, createProject, validateProject } from '../core/schema.js';
 import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/instruments/index.js';
-import { clamp, deepClone, midiName } from '../core/util.js';
+import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
+import { encodeWav } from '../core/wav.js';
+import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {
@@ -457,5 +459,57 @@ export class CommandAPI {
       this.engine.previewNote(t.id, clamp(Math.round(pitch), 24, 107), clamp(vel, 0, 1), clamp(dur, 0.05, 8));
     }
     return { ok: true, played: kind === 'drums' ? `${t.name}:${lane}` : `${t.name}:${midiName(pitch)}`, hint: this.audioHint() };
+  }
+
+  safeName() {
+    return this.store.project.name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'song';
+  }
+
+  async cmd_export_wav({ slot, loops = 2, tailSeconds, sampleRate = 44100 }) {
+    const slotIdx = this.resolveSlot(slot);
+    const loopCount = clamp(Math.round(loops), 1, 16);
+    if (![44100, 48000].includes(sampleRate)) throw new Error('sampleRate must be 44100 or 48000.');
+
+    const { buffer } = await this.engine.renderToBuffer({
+      slotIndex: slotIdx, loops: loopCount, tailSeconds, sampleRate,
+    });
+
+    const channels = [];
+    for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+    const bytes = encodeWav(channels, buffer.sampleRate);
+
+    const filename = `${this.safeName()}.wav`;
+    downloadBlob(filename, bytes, 'audio/wav');
+
+    return {
+      ok: true,
+      filename,
+      slot: SLOT_NAMES[slotIdx],
+      loops: loopCount,
+      durationSec: Math.round(buffer.duration * 1000) / 1000,
+      sampleRate: buffer.sampleRate,
+      channels: buffer.numberOfChannels,
+      bytes: bytes.length,
+    };
+  }
+
+  cmd_share({ action = 'link', url }) {
+    const { store } = this;
+    if (action === 'link') {
+      const link = buildShareUrl(store.project);
+      const fragment = fragmentFromUrl(link);
+      return { url: link, chars: link.length, fragmentChars: fragment?.length ?? 0, project: store.project.name };
+    }
+    if (action === 'open') {
+      if (!url) throw new Error("action 'open' needs a 'url' (an Oscine share link or its '#s=...' fragment).");
+      const fragment = fragmentFromUrl(url);
+      if (!fragment) throw new Error("No share data in that URL (expected a '#s=...' fragment).");
+      const project = decodeFragmentToProject(fragment); // validates; throws on bad data
+      store.checkpoint();
+      store.project = project;
+      store.afterReplace();
+      return { ok: true, project: store.project.name, hint: 'Previous project is one undo away.' };
+    }
+    throw new Error(`Bad action '${action}'. Use 'link' or 'open'.`);
   }
 }

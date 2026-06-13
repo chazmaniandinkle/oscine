@@ -229,6 +229,30 @@ export const COMMANDS = [
       required: ['track'],
     },
   },
+  {
+    name: 'export_wav',
+    description: 'Bounce the song to a 16-bit WAV file and download it in the browser. Renders one pattern slot (default the active one) repeated `loops` times through the full mix and shared master FX, then a tail so reverb and delay ring out. Returns the file metadata (does not return the audio bytes).',
+    input: {
+      type: 'object',
+      properties: {
+        slot: SLOT,
+        loops: { type: 'integer', minimum: 1, maximum: 16, default: 2, description: 'How many times to repeat the slot loop.' },
+        tailSeconds: { type: 'number', minimum: 0, maximum: 12, description: 'Extra time after the last note for FX to decay. Defaults to reverb size + 1.5s.' },
+        sampleRate: { type: 'integer', enum: [44100, 48000], default: 44100, description: 'Output sample rate.' },
+      },
+    },
+  },
+  {
+    name: 'share',
+    description: "Song-as-link sharing. Action 'link' encodes the whole project into a URL fragment and returns a shareable link: the entire song travels in the URL with no upload, because Oscine projects are a few KB of pattern data rather than audio. Action 'open' loads a song from such a link (undoable).",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['link', 'open'], default: 'link' },
+        url: { type: 'string', description: "For 'open': a full Oscine share URL or just its '#s=...' fragment." },
+      },
+    },
+  },
 ];
 
 export function getCommand(name) {
