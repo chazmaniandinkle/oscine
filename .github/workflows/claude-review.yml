@@ -1,0 +1,68 @@
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Skip drafts, and skip PRs from forks (they have no access to the
+    # secret, and we never run untrusted fork code with our credentials).
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # CLAUDE.md (-> AGENTS.md) is read automatically for full context.
+          # The invariants below are the ones whose violation is easy to
+          # miss in a diff and expensive to undo, so they are stated inline.
+          prompt: |
+            You are reviewing a pull request for Oscine, an API-first,
+            agent-native browser synth composer. Read AGENTS.md for the
+            full architecture contract. Give a concise, actionable review
+            and prioritize these project-specific invariants over generic
+            style nits:
+
+            1. Catalog is the contract. Any new user-facing capability must
+               exist as a command in src/api/commands.js with a cmd_ handler
+               in src/api/api.js. Flag UI features added without a
+               corresponding command (this breaks UI/MCP/OSC parity).
+            2. Generated mirror. plugin/app/ is produced by
+               tools/sync-plugin.mjs. Flag any direct edit to plugin/app/,
+               and flag app changes that did not re-run the sync (the smoke
+               suite checks drift, but call it out early).
+            3. Layer boundaries. src/core/ has no DOM or audio and must stay
+               node-importable; src/engine/ is audio only and never mutates
+               the project; src/ui/ never touches audio nodes directly. Flag
+               cross-layer reaches.
+            4. Test coverage of the contract. A new command should get a
+               headless check in test/smoke.mjs; a new OSC address should get
+               a routing-table entry. Flag additions that ship without it.
+            5. Zero runtime dependencies and no build step. Flag any new
+               runtime dependency or required build.
+            6. Versioning. Plugin or sidecar changes should bump the version
+               in plugin/.claude-plugin/plugin.json and SERVER_VERSION.
+            7. Voice. In human-facing docs (README, docs/, public copy) flag
+               em-dashes and AI-tell vocabulary (leverage, robust, seamless,
+               cutting-edge, delve). Code comments are exempt.
+
+            Note correctness, security, and audio-timing concerns where you
+            see them. Be specific and brief; approve cleanly when it is good.
+          claude_args: |
+            --max-turns 6

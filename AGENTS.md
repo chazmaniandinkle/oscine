@@ -76,6 +76,17 @@ Add coverage when you add behavior. The smoke suite is the contract guard:
 new commands get a headless execution check, new OSC addresses get a
 routing-table entry.
 
+## Automation that enforces this
+
+- **CI** (`.github/workflows/ci.yml`) runs the syntax sweep, smoke suite
+  (on node 20 and 22), and the full MCP+OSC e2e on every push and PR. A
+  red build means a broken contract; fix it rather than merging past it.
+- **Claude review** (`.github/workflows/claude-review.yml`) reviews each
+  PR against the invariants in this file. **@claude**
+  (`.github/workflows/claude.yml`) answers questions and makes changes
+  on demand in issues and PRs. Both need the repo's `ANTHROPIC_API_KEY`
+  secret; they no-op on fork PRs by design.
+
 ## Conventions
 
 - **Versioning**: bump `plugin/.claude-plugin/plugin.json` and
