@@ -2,7 +2,7 @@
 
 import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast } from './widgets.js';
 import { SLOT_NAMES, BAR_CHOICES } from '../core/schema.js';
-import { exportProject, importProjectFile, demoOrBlank } from './fileops.js';
+import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink } from './fileops.js';
 
 export class TransportBar {
   constructor(host, app) {
@@ -99,6 +99,8 @@ export class TransportBar {
 
     const fileBtn = Btn('File', () => {
       openMenu(fileBtn, [
+        { label: 'Copy share link', onPick: () => copyShareLink(app.api) },
+        { label: 'Export audio (.wav)', onPick: () => exportWav(app.api) },
         { label: 'Export song (.json)', onPick: () => exportProject(store) },
         { label: 'Import song…', onPick: () => this.pickImport() },
         { label: 'New: blank', onPick: () => demoOrBlank(store, 'blank') },

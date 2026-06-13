@@ -40,7 +40,14 @@ export function deepClone(obj) {
 
 // Trigger a file download in the browser.
 export function downloadText(filename, text, mime = 'application/json') {
-  const blob = new Blob([text], { type: mime });
+  downloadBlob(filename, new Blob([text], { type: mime }));
+}
+
+// Download arbitrary bytes (Uint8Array/ArrayBuffer/Blob) as a file. No-op
+// outside a browser so the command layer stays importable in node tests.
+export function downloadBlob(filename, data, mime = 'application/octet-stream') {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') return;
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

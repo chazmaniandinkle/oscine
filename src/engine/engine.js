@@ -14,6 +14,7 @@ import { getCtx, ensureRunning } from './context.js';
 import { createInstrument, getInstrumentDef } from './instruments/index.js';
 import { DelayFX } from './effects/delay.js';
 import { ReverbFX } from './effects/reverb.js';
+import { renderProjectToBuffer } from './render.js';
 import { throttle } from '../core/util.js';
 
 export class AudioEngine {
@@ -209,6 +210,14 @@ export class AudioEngine {
     const ch = this.channels.get(trackId);
     ch?.instrument.trigger(laneId, this.ctx.currentTime + 0.003, vel);
     if (ch) this.emitTrigger(trackId);
+  }
+
+  // -- offline render (WAV export) -------------------------------------------
+  // Bounce the current project to an AudioBuffer without touching the live
+  // graph. Delegates to render.js, which builds its own OfflineAudioContext.
+
+  renderToBuffer(opts = {}) {
+    return renderProjectToBuffer(this.store.project, opts);
   }
 
   // -- metering --------------------------------------------------------------

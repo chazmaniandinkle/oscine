@@ -44,7 +44,16 @@ until a user gesture.
 
 Transport bar: play/stop, tempo (drag the bpm number), swing, metronome,
 pattern slots A-D, bar length per slot, undo/redo, song name, File menu
-(export/import JSON, new project), master level.
+(copy share link, export audio WAV, export/import JSON, new project),
+master level.
+
+Two ways to get a song out. "Copy share link" packs the whole project
+into the URL itself (a few KB of pattern data, no upload), so a link is
+the song; open that link and Oscine loads it before the UI draws.
+"Export audio (.wav)" bounces the active slot through the full mix and
+master FX with an OfflineAudioContext and downloads a 16-bit WAV. Both
+run through the same command catalog as everything else, so Claude can
+trigger them over MCP (`oscine_share`, `oscine_export_wav`) too.
 
 Pattern slots are four independent pattern sets sharing the same tracks,
 like scenes. Click a slot (or keys 1-4) to switch; while playing, the
@@ -220,8 +229,6 @@ The bones are placed for these, roughly in order of effort:
 - Automation: params already flow through `store.setTrackParam`;
   automation lanes are time-indexed param events scheduled in the same
   windows as notes.
-- WAV export: render the schedule into an OfflineAudioContext instead of
-  the live one.
 - Audio/sample tracks: a new instrument kind ('audio') whose patterns
   hold clip references; decodeAudioData + AudioBufferSourceNode slots
   into the existing channel strip unchanged.

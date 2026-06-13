@@ -20,11 +20,12 @@ const SNAP_CHOICES = [
 ];
 
 export class App {
-  constructor(rootEl, { store, bus, engine, transport }) {
+  constructor(rootEl, { store, bus, engine, transport, api }) {
     this.store = store;
     this.bus = bus;
     this.engine = engine;
     this.transport = transport;
+    this.api = api;
 
     rootEl.textContent = '';
 

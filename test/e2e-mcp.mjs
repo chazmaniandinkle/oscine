@@ -83,7 +83,7 @@ try {
 
   const list = await rpc('tools/list');
   const tools = list.result?.tools ?? [];
-  check('tools/list exposes open_app + all 17 catalog commands', tools.length === 18,
+  check('tools/list exposes open_app + all 19 catalog commands', tools.length === 20,
     `got ${tools.length}`);
   check('tool names are oscine_-prefixed with schemas',
     tools.every(t => t.name.startsWith('oscine_') && t.inputSchema?.type === 'object'));
@@ -162,6 +162,20 @@ try {
 
   const undo = await callTool('oscine_project', { action: 'undo' });
   check('undo through full chain', undo.json?.ok === true);
+
+  // -- Share loop: real OfflineAudioContext render + song-in-URL ------------------
+  // export_wav runs an actual offline bounce in headless Chromium, the one
+  // path node smoke tests can only stub.
+  const wav = await callTool('oscine_export_wav', { slot: 'A', loops: 1 });
+  check('export_wav renders a real WAV through the full chain',
+    !wav.isError && wav.json?.ok === true && wav.json?.channels === 2 &&
+    wav.json?.bytes > 44 && wav.json?.durationSec > 0,
+    `got ${wav.text}`);
+
+  const link = await callTool('oscine_share', { action: 'link' });
+  check('share link encodes the song into a URL', !link.isError && /#s=/.test(link.json?.url ?? ''));
+  const reopened = await callTool('oscine_share', { action: 'open', url: link.json?.url });
+  check('share open reloads the song from its link', !reopened.isError && reopened.json?.ok === true);
 
   // -- OSC gateway: real UDP in and out ------------------------------------------
   {

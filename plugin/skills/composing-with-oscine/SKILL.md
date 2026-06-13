@@ -29,6 +29,7 @@ Oscine is a live browser app. Tools act on the user's actual session: they hear 
 - Sound design: start from a preset (`oscine_set_params preset:"Acid Bass"`), then nudge params. `oscine_preview` auditions a pitch or drum hit without editing patterns.
 - Mixing: `oscine_set_mix` for level/pan/mute/solo and delay/reverb sends; `oscine_set_master` for the shared FX character.
 - Everything structural is undoable (`oscine_project action:undo`), so edit boldly.
+- Sharing the result: `oscine_share action:"link"` returns a URL with the whole song packed into it (no upload), good for handing the user something to open or post. `oscine_export_wav` bounces the active slot to a downloaded WAV (set `loops` for length, `slot` to pick a section).
 
 ## Caveats
 
