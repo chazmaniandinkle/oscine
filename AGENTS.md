@@ -84,8 +84,9 @@ routing-table entry.
 - **Claude review** (`.github/workflows/claude-review.yml`) reviews each
   PR against the invariants in this file. **@claude**
   (`.github/workflows/claude.yml`) answers questions and makes changes
-  on demand in issues and PRs. Both need the repo's `ANTHROPIC_API_KEY`
-  secret; they no-op on fork PRs by design.
+  on demand in issues and PRs. Both authenticate with the repo's
+  `CLAUDE_CODE_OAUTH_TOKEN` secret (a Claude Pro/Max token from
+  `claude setup-token`); they no-op on fork PRs by design.
 
 ## Conventions
 

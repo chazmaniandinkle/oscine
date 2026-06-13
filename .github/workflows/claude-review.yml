@@ -28,7 +28,9 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Billed against the repo owner's Claude Pro/Max subscription via
+          # an OAuth token (claude setup-token), not a metered API key.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # CLAUDE.md (-> AGENTS.md) is read automatically for full context.
           # The invariants below are the ones whose violation is easy to
           # miss in a diff and expensive to undo, so they are stated inline.
