@@ -1,0 +1,22 @@
+{
+  "name": "oscine",
+  "version": "1.3.1",
+  "private": true,
+  "description": "Browser synth composer with an API-first core: MCP plugin for Claude, OSC gateway for controllers, zero runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://chazmaniandinkle.github.io/oscine/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chazmaniandinkle/oscine.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "test:e2e": "node test/e2e-mcp.mjs",
+    "sync-plugin": "node tools/sync-plugin.mjs",
+    "start": "python3 -m http.server 8443"
+  }
+}

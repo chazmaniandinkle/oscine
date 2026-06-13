@@ -1,5 +1,7 @@
 # Oscine
 
+[![CI](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml/badge.svg)](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml)
+
 A synth composer that runs entirely in the browser. No build step, no
 dependencies, no samples: every sound is synthesized live with Web Audio,
 and a whole song saves as a few KB of JSON.

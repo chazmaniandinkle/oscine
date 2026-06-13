@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Contract + unit checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Fast fail: every source/plugin/test file must parse. (plugin/app is a
+      # generated mirror, excluded; its drift is checked by the smoke suite.)
+      - name: Syntax sweep
+        run: |
+          fail=0
+          for f in $(find src test tools plugin/server -name '*.js' -o -name '*.mjs' | grep -v '/plugin/app/'); do
+            node --check "$f" || { echo "SYNTAX FAIL $f"; fail=1; }
+          done
+          test "$fail" -eq 0
+
+      # The contract guard: import graph, store/undo, scheduler math, every
+      # API command executed headless, OSC codec + routing table, and
+      # plugin-bundle drift (tools/sync-plugin.mjs --check). Zero deps.
+      - name: Smoke suite
+        run: npm test
+
+  e2e:
+    name: Full MCP + OSC chain (headless browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Dev-only tooling, never committed as a dependency: install Playwright
+      # plus a Chromium build transiently so the e2e can drive the real app.
+      - name: Install Playwright Chromium
+        run: |
+          npm i --no-save playwright@^1
+          npx playwright install --with-deps chromium
+
+      - name: Resolve browser path
+        id: browser
+        run: echo "path=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_OUTPUT"
+
+      # Spawns the real sidecar, speaks MCP over stdio, loads the app it
+      # serves in headless Chromium, and drives the whole chain including
+      # real OSC UDP packets in and the position/meter stream out.
+      - name: End-to-end
+        env:
+          CHROME_BIN: ${{ steps.browser.outputs.path }}
+        run: npm run test:e2e
