@@ -81,12 +81,22 @@ routing-table entry.
 - **CI** (`.github/workflows/ci.yml`) runs the syntax sweep, smoke suite
   (on node 20 and 22), and the full MCP+OSC e2e on every push and PR. A
   red build means a broken contract; fix it rather than merging past it.
+- **Required checks**: those three CI jobs are required status checks on
+  `main`, so a PR cannot merge until they pass. Admins can still push to
+  `main` directly (`enforce_admins` is off) for the current solo
+  workflow; tighten this when contributors arrive.
 - **Claude review** (`.github/workflows/claude-review.yml`) reviews each
-  PR against the invariants in this file. **@claude**
+  PR against this contract and reads CI results. It is advisory: the
+  action cannot submit a formal approval, so CI is the gate and the
+  review is the intelligence on top. **@claude**
   (`.github/workflows/claude.yml`) answers questions and makes changes
   on demand in issues and PRs. Both authenticate with the repo's
   `CLAUDE_CODE_OAUTH_TOKEN` secret (a Claude Pro/Max token from
   `claude setup-token`); they no-op on fork PRs by design.
+- **Memory**: `CLAUDE.md` imports this file via `@AGENTS.md`, so the
+  contract loads automatically. Path-scoped reinforcements live in
+  `.claude/rules/` and load only when Claude touches matching files, for
+  both the PR reviewer and local Claude Code.
 
 ## Conventions
 
