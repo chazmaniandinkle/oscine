@@ -25,7 +25,25 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
 const BASE_PORT = Number(process.env.OSCINE_PORT || 7321);
 const OSC_PORT = Number(process.env.OSCINE_OSC_PORT || 7340);
-const SERVER_VERSION = '1.2.0';
+const SERVER_VERSION = '1.3.0';
+
+// Bridge origin policy: localhost is always allowed; hosted copies of the
+// app (e.g. GitHub Pages) must be allowlisted via OSCINE_ALLOWED_ORIGINS
+// (comma-separated origins). Without this, any website you visit could
+// connect to the local bridge and drive your session.
+const ALLOWED_ORIGINS = (process.env.OSCINE_ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function originAllowed(origin) {
+  if (!origin) return true; // non-browser clients send no Origin header
+  try {
+    const u = new URL(origin);
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return true;
+    return ALLOWED_ORIGINS.includes(u.origin);
+  } catch {
+    return false;
+  }
+}
 
 const log = (...args) => console.error('[oscine-mcp]', ...args);
 
@@ -248,6 +266,11 @@ function startHttp(port, attemptsLeft = 9) {
     const key = req.headers['sec-websocket-key'];
     const urlPath = new URL(req.url, 'http://x').pathname;
     if (urlPath !== '/bridge' || !key) {
+      socket.destroy();
+      return;
+    }
+    if (!originAllowed(req.headers.origin)) {
+      log(`bridge rejected origin ${req.headers.origin} (set OSCINE_ALLOWED_ORIGINS to allow)`);
       socket.destroy();
       return;
     }

@@ -13,14 +13,26 @@ without a rewrite. See "Growing it into a DAW" below.
 
 ## Run it
 
-Two ways:
+Three ways:
 
-1. Claude plugin (recommended): install `oscine.plugin`. Claude Desktop
-   runs the sidecar, which serves the app at `http://127.0.0.1:7321/`.
-   Ask Claude to "open oscine", or open the URL yourself.
-2. Dev server: `./start.sh` (or `python3 -m http.server 8443`) from the
+1. Hosted: https://chazmaniandinkle.github.io/oscine/ -- the app is
+   static files, so the repo serves it directly via GitHub Pages.
+   Projects autosave to your browser's localStorage; export/import JSON
+   for real files. If the Oscine sidecar (from the Claude plugin) is
+   running on your machine, the hosted page connects to it
+   automatically, which lights up MCP and OSC control of the page
+   you're looking at. (Chrome/Edge/Firefox allow a secure page to reach
+   127.0.0.1; Safari blocks it, so use option 2 or 3 there.)
+2. Claude plugin: install `oscine.plugin`. Claude Desktop runs the
+   sidecar, which serves the app at `http://127.0.0.1:7321/`. Ask
+   Claude to "open oscine", or open the URL yourself.
+3. Dev server: `./start.sh` (or `python3 -m http.server 8443`) from the
    repo, then open the printed URL. Any static server works; one is
    required because native ES modules don't load over `file://`.
+
+The sidecar only accepts bridge connections from localhost plus origins
+in `OSCINE_ALLOWED_ORIGINS` (the plugin pre-allows this repo's Pages
+URL), so arbitrary websites can't reach your session.
 
 First open loads a small demo song ("First Light"). Press Space. Click
 once anywhere first if you hear nothing: browsers keep audio suspended

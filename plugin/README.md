@@ -70,6 +70,11 @@ source port). Subscribers receive `/oscine/position bar beat` and
 
 - `OSCINE_PORT` (env in `.mcp.json`): HTTP/bridge port, default 7321.
 - `OSCINE_OSC_PORT`: OSC UDP port, default 7340.
+- `OSCINE_ALLOWED_ORIGINS`: comma-separated origins allowed to connect
+  to the bridge in addition to localhost. Ships allowing the project's
+  GitHub Pages URL so the hosted app can use your local sidecar; add
+  your own fork's Pages origin here. Everything else is rejected, so
+  random websites cannot drive your session.
 
 ## Development
 

@@ -3,7 +3,9 @@
     "oscine": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/server/oscine-mcp.mjs"],
-      "env": {}
+      "env": {
+        "OSCINE_ALLOWED_ORIGINS": "https://chazmaniandinkle.github.io"
+      }
     }
   }
 }
