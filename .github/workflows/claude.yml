@@ -19,6 +19,7 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
+  actions: read # lets @claude read CI results when asked to debug failures
 
 jobs:
   claude:
@@ -29,7 +30,7 @@ jobs:
       (github.event.review && contains(github.event.review.body, '@claude')) ||
       (github.event.issue && contains(github.event.issue.body, '@claude'))
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -37,5 +38,7 @@ jobs:
         with:
           # Max subscription via OAuth token (claude setup-token).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          additional_permissions: |
+            actions: read
           claude_args: |
             --max-turns 12

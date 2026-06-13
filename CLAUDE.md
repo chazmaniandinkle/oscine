@@ -1,7 +1,9 @@
-# CLAUDE.md
+@AGENTS.md
 
-See [AGENTS.md](./AGENTS.md). This project keeps a single canonical guide
-for agents and humans rather than per-tool copies, matching its own
-single-source-of-truth design. Everything Claude Code needs (architecture
-invariants, the catalog-is-the-contract rule, test commands, the
-sync-plugin step, and the voice rules for public docs) lives there.
+<!--
+Claude Code reads CLAUDE.md, not AGENTS.md, so this file imports the
+canonical contract above (loaded in full at session start). Keep shared
+guidance in AGENTS.md; path-scoped reinforcements live in .claude/rules/
+and load automatically when Claude touches matching files. Add only
+Claude-specific notes below this comment.
+-->

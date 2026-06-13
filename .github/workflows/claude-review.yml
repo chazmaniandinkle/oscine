@@ -8,6 +8,7 @@ permissions:
   contents: read
   pull-requests: write
   id-token: write
+  actions: read # lets the reviewer read CI results and job logs
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
@@ -22,7 +23,7 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -33,48 +34,35 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Posts a live tracking comment and the final review to the PR.
           track_progress: true
-          # CLAUDE.md (-> AGENTS.md) is read automatically for full context.
-          # The invariants below are the ones whose violation is easy to
-          # miss in a diff and expensive to undo, so they are stated inline.
+          # Grants the reviewer the github_ci MCP tools to read CI results.
+          additional_permissions: |
+            actions: read
+          # The contract lives in AGENTS.md (auto-loaded via CLAUDE.md) and
+          # the path-scoped rules in .claude/rules/ load for the files this
+          # PR touches. The prompt only sets priorities and posting rules,
+          # so updating the contract never means editing this workflow.
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            You are reviewing a pull request for Oscine, an API-first,
-            agent-native browser synth composer. The PR branch is already
-            checked out. Read AGENTS.md for the full architecture contract.
-            Give a concise, actionable review and prioritize these
-            project-specific invariants over generic style nits:
+            Review this pull request for Oscine. The project contract is in
+            AGENTS.md (loaded automatically via CLAUDE.md), and the
+            path-scoped rules in .claude/rules/ load for the files this PR
+            touches. Prioritize those project invariants over generic style
+            nits: command-catalog parity, the generated plugin/app mirror
+            and its sync, layer boundaries, test coverage for new commands
+            and OSC addresses, zero runtime dependencies, version bumps, and
+            doc voice (no em-dashes or AI-tell vocabulary in human-facing
+            docs). Also flag correctness, security, and audio-timing issues.
 
-            1. Catalog is the contract. Any new user-facing capability must
-               exist as a command in src/api/commands.js with a cmd_ handler
-               in src/api/api.js. Flag UI features added without a
-               corresponding command (this breaks UI/MCP/OSC parity).
-            2. Generated mirror. plugin/app/ is produced by
-               tools/sync-plugin.mjs. Flag any direct edit to plugin/app/,
-               and flag app changes that did not re-run the sync.
-            3. Layer boundaries. src/core/ has no DOM or audio and must stay
-               node-importable; src/engine/ is audio only and never mutates
-               the project; src/ui/ never touches audio nodes directly. Flag
-               cross-layer reaches.
-            4. Test coverage of the contract. A new command should get a
-               headless check in test/smoke.mjs; a new OSC address should get
-               a routing-table entry. Flag additions that ship without it.
-            5. Zero runtime dependencies and no build step. Flag any new
-               runtime dependency or required build.
-            6. Versioning. Plugin or sidecar changes should bump the version
-               in plugin/.claude-plugin/plugin.json and SERVER_VERSION.
-            7. Voice. In human-facing docs (README, docs/, public copy) flag
-               em-dashes and AI-tell vocabulary (leverage, robust, seamless,
-               cutting-edge, delve). Code comments are exempt.
+            CI runs the contract guards on this PR. If a check failed, read
+            the logs with the github_ci tools and factor it into your
+            review. Be specific and brief; approve cleanly when it is good.
 
-            Note correctness, security, and audio-timing concerns where you
-            see them. Be specific and brief; approve cleanly when it is good.
-
-            Use `gh pr comment` for top-level feedback. Use
+            Use `gh pr comment` for top-level feedback and
             `mcp__github_inline_comment__create_inline_comment` (with
             `confirmed: true`) to flag specific lines. Only post GitHub
             comments; do not submit the review as a chat message.
           claude_args: |
             --max-turns 20
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,mcp__github_ci__get_ci_status,mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
