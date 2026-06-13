@@ -15,7 +15,7 @@ import { createInstrument, getInstrumentDef } from './instruments/index.js';
 import { DelayFX } from './effects/delay.js';
 import { ReverbFX } from './effects/reverb.js';
 import { renderProjectToBuffer } from './render.js';
-import { throttle } from '../core/util.js';
+import { throttle, faderGain } from '../core/util.js';
 
 export class AudioEngine {
   constructor(store, bus) {
@@ -130,10 +130,7 @@ export class AudioEngine {
     for (const tr of tracks) {
       const ch = this.channels.get(tr.id);
       if (!ch) continue;
-      const audible = !tr.channel.mute && (!anySolo || tr.channel.solo);
-      // Audio-taper the linear fader value.
-      const gain = audible ? Math.pow(tr.channel.gain, 2) * 1.4 : 0;
-      ch.chanGain.gain.setTargetAtTime(gain, t, 0.015);
+      ch.chanGain.gain.setTargetAtTime(faderGain(tr.channel, anySolo), t, 0.015);
       ch.panner.pan.setTargetAtTime(tr.channel.pan, t, 0.015);
       ch.sendDelay.gain.setTargetAtTime(tr.channel.sendDelay, t, 0.02);
       ch.sendReverb.gain.setTargetAtTime(tr.channel.sendReverb, t, 0.02);

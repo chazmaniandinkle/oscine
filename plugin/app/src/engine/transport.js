@@ -12,6 +12,8 @@
 // scheduling steady in background tabs; add song-position (bar offset)
 // instead of always starting at 0.
 
+import { swingOffsetSec } from '../core/util.js';
+
 export class Transport {
   constructor(ctx, store, bus) {
     this.ctx = ctx;
@@ -70,14 +72,10 @@ export class Transport {
   }
 
   // Swing: delays grid positions that land on odd 16ths. Amount 0..1 maps
-  // to 0..55% of a 16th. Applied per-event by the engine.
+  // to 0..55% of a 16th. Applied per-event by the engine. The math is shared
+  // with the offline renderer via core/util so the two can't diverge.
   swingOffset(localBeat) {
-    const swing = this.store.project.swing;
-    if (swing <= 0.001) return 0;
-    const pos16 = localBeat * 4;
-    const idx = Math.round(pos16);
-    if (Math.abs(pos16 - idx) > 0.02 || idx % 2 === 0) return 0;
-    return swing * 0.55 * (this.secPerBeat / 4);
+    return swingOffsetSec(localBeat, this.store.project.swing, this.secPerBeat);
   }
 
   // -- run loop ------------------------------------------------------------

@@ -35,7 +35,11 @@ export async function copyShareLink(api) {
       try { await navigator.clipboard.writeText(url); copied = true; } catch { /* fall through */ }
     }
     toast(copied ? 'Share link copied to clipboard' : 'Share link ready (copy from the address bar)');
-    if (!copied && typeof location !== 'undefined') location.hash = url.split('#')[1] ?? '';
+    // Fallback when the clipboard API is unavailable: surface the link in the
+    // address bar. replaceState avoids pushing a Back/Forward history entry.
+    if (!copied && typeof history !== 'undefined' && history.replaceState) {
+      history.replaceState(null, '', url);
+    }
   } catch (err) {
     toast('Could not build share link: ' + err.message);
   }

@@ -18,6 +18,9 @@
 //   /oscine/project/undo   /oscine/project/redo
 //   /oscine/cmd <name> [json-args]    escape hatch to the full catalog
 // Track names: '_' matches ' ' (OSC addresses can't contain spaces).
+// Note: export_wav and share have no first-class /oscine/* address (a WAV
+// download and a clipboard link aren't realtime control). Reach them via
+// /oscine/cmd, e.g.  /oscine/cmd export_wav   or   /oscine/cmd share .
 //
 // Subscription (feedback):
 //   /oscine/subscribe [port]    register sender (default: source port)

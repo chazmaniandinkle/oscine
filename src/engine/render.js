@@ -12,24 +12,14 @@
 // transport.js (beats -> time, swing on odd 16ths).
 
 import { EventBus } from '../core/bus.js';
+import { faderGain, swingOffsetSec } from '../core/util.js';
 import { createInstrument, getInstrumentDef } from './instruments/index.js';
 import { DelayFX } from './effects/delay.js';
 import { ReverbFX } from './effects/reverb.js';
 
-// Mirror of AudioEngine.applyMixState's fader taper, so levels match.
-function faderGain(channel, anySolo) {
-  const audible = !channel.mute && (!anySolo || channel.solo);
-  return audible ? Math.pow(channel.gain, 2) * 1.4 : 0;
-}
-
-// Mirror of Transport.swingOffset: delay odd 16ths by up to 55% of a 16th.
-function swingOffset(localBeat, swing, secPerBeat) {
-  if (swing <= 0.001) return 0;
-  const pos16 = localBeat * 4;
-  const idx = Math.round(pos16);
-  if (Math.abs(pos16 - idx) > 0.02 || idx % 2 === 0) return 0;
-  return swing * 0.55 * (secPerBeat / 4);
-}
+// The mixer taper (faderGain) and swing math (swingOffsetSec) are shared with
+// the live engine and transport via core/util, so an export matches playback
+// by construction rather than by keeping two copies in step.
 
 // Render `project` to an AudioBuffer.
 //   slotIndex   which pattern slot to bounce (default 0 / A)
@@ -62,7 +52,11 @@ export async function renderProjectToBuffer(project, {
 
   // A throwaway store-shim + bus: the FX classes read project.fx/bpm and
   // subscribe to a bus. We give them a private bus so nothing leaks, and a
-  // minimal store exposing what they read.
+  // minimal store exposing what they read. Note: this bus never emits after
+  // construction, so DelayFX/ReverbFX must derive every parameter (including
+  // the BPM-synced delay time and the reverb IR) from project at init -- which
+  // they do today. If an FX class ever starts depending on a later bus event,
+  // that value would be missing here and exports would drift from playback.
   const bus = new EventBus();
   const storeShim = { project };
 
@@ -126,7 +120,7 @@ export async function renderProjectToBuffer(project, {
           for (const lane of def.lanes) {
             const vel = pattern.steps?.[lane.id]?.[idx] || 0;
             if (vel > 0) {
-              const time = passStart + localBeat * secPerBeat + swingOffset(localBeat, project.swing, secPerBeat);
+              const time = passStart + localBeat * secPerBeat + swingOffsetSec(localBeat, project.swing, secPerBeat);
               instrument.trigger(lane.id, time, vel);
             }
           }
@@ -134,7 +128,7 @@ export async function renderProjectToBuffer(project, {
       } else {
         for (const note of pattern.notes ?? []) {
           if (note.start >= loopBeats - 1e-9) continue; // beyond the loop: silent
-          const time = passStart + note.start * secPerBeat + swingOffset(note.start, project.swing, secPerBeat);
+          const time = passStart + note.start * secPerBeat + swingOffsetSec(note.start, project.swing, secPerBeat);
           instrument.noteOn(time, note.pitch, note.vel, note.dur * secPerBeat);
         }
       }
