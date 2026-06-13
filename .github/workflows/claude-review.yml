@@ -31,15 +31,20 @@ jobs:
           # Billed against the repo owner's Claude Pro/Max subscription via
           # an OAuth token (claude setup-token), not a metered API key.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Posts a live tracking comment and the final review to the PR.
+          track_progress: true
           # CLAUDE.md (-> AGENTS.md) is read automatically for full context.
           # The invariants below are the ones whose violation is easy to
           # miss in a diff and expensive to undo, so they are stated inline.
           prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
             You are reviewing a pull request for Oscine, an API-first,
-            agent-native browser synth composer. Read AGENTS.md for the
-            full architecture contract. Give a concise, actionable review
-            and prioritize these project-specific invariants over generic
-            style nits:
+            agent-native browser synth composer. The PR branch is already
+            checked out. Read AGENTS.md for the full architecture contract.
+            Give a concise, actionable review and prioritize these
+            project-specific invariants over generic style nits:
 
             1. Catalog is the contract. Any new user-facing capability must
                exist as a command in src/api/commands.js with a cmd_ handler
@@ -47,8 +52,7 @@ jobs:
                corresponding command (this breaks UI/MCP/OSC parity).
             2. Generated mirror. plugin/app/ is produced by
                tools/sync-plugin.mjs. Flag any direct edit to plugin/app/,
-               and flag app changes that did not re-run the sync (the smoke
-               suite checks drift, but call it out early).
+               and flag app changes that did not re-run the sync.
             3. Layer boundaries. src/core/ has no DOM or audio and must stay
                node-importable; src/engine/ is audio only and never mutates
                the project; src/ui/ never touches audio nodes directly. Flag
@@ -66,5 +70,11 @@ jobs:
 
             Note correctness, security, and audio-timing concerns where you
             see them. Be specific and brief; approve cleanly when it is good.
+
+            Use `gh pr comment` for top-level feedback. Use
+            `mcp__github_inline_comment__create_inline_comment` (with
+            `confirmed: true`) to flag specific lines. Only post GitHub
+            comments; do not submit the review as a chat message.
           claude_args: |
             --max-turns 20
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
