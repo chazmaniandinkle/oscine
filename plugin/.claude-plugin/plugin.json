@@ -1,6 +1,6 @@
 {
   "name": "oscine",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Compose music with Claude in Oscine, a browser synth composer. The plugin runs a sidecar that serves the app and exposes every feature (tracks, synth params, piano-roll notes, drum steps, mixer, pattern slots, transport) as MCP tools, plus an OSC gateway for TouchOSC, Max/MSP, Pd, SuperCollider, and other controllers.",
   "author": {
     "name": "Chaz"

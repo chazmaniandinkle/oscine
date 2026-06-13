@@ -625,6 +625,18 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 .pad-key { font-family: var(--mono); font-size: 10px; color: var(--dim); }
 .pad-label { font-weight: 700; }
 
+.src-link {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  z-index: 60;
+  color: var(--dim);
+  opacity: 0.55;
+  line-height: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.src-link:hover { opacity: 1; color: var(--text); }
+
 .bridge-dot {
   width: 8px;
   height: 8px;
