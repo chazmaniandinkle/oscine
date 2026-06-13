@@ -67,4 +67,4 @@ jobs:
             Note correctness, security, and audio-timing concerns where you
             see them. Be specific and brief; approve cleanly when it is good.
           claude_args: |
-            --max-turns 6
+            --max-turns 20
