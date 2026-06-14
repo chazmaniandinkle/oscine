@@ -105,6 +105,13 @@ routing-table entry.
   `SERVER_VERSION` in `plugin/server/oscine-mcp.mjs` on any plugin/sidecar
   change, then resync and repackage
   (`cd plugin && zip -r oscine.plugin . -x "*.DS_Store"`).
+- **Releasing**: after a version bump merges to `main`, update the local
+  install with `npm run release:local` (refreshes the marketplace and runs
+  `claude plugin update oscine`). The repo root is itself a plugin
+  marketplace (`.claude-plugin/marketplace.json`, plugin `source: ./plugin`);
+  install via `claude plugin marketplace add chazmaniandinkle/oscine` rather
+  than uploading the `.plugin` (uploads can't be updated). See
+  `plugin/README.md` > Installing & updating locally.
 - **Undo model**: a gesture calls `store.checkpoint()` once before
   mutating; continuous param/mixer tweaks deliberately stay out of
   history. Structural edits (notes, steps, tracks, slots, presets) are

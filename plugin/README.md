@@ -85,9 +85,39 @@ source port). Subscribers receive `/oscine/position bar beat` and
   your own fork's Pages origin here. Everything else is rejected, so
   random websites cannot drive your session.
 
+## Installing & updating locally
+
+Install Oscine as a **marketplace** plugin, not by uploading the `.plugin`
+file. Uploaded ("My Uploads") plugins have no update path — every release
+needs a manual re-upload — whereas a marketplace install updates with one
+command.
+
+One-time setup (remove any uploaded copy first, via Settings):
+
+```sh
+claude plugin marketplace add chazmaniandinkle/oscine   # or a local path:
+# claude plugin marketplace add /path/to/synth-composer  (test before merge)
+claude plugin install oscine@oscine
+```
+
+After each release (once it's merged to `main`):
+
+```sh
+npm run release:local        # = claude plugin marketplace refresh oscine
+                             #   && claude plugin update oscine
+```
+
+Then restart Claude (or `/reload-plugins`) and reopen the app tab. The repo
+root is itself the marketplace (`.claude-plugin/marketplace.json`, plugin
+`source: ./plugin`), so the same repo serves both GitHub and local installs.
+
 ## Development
 
 The app under `app/` is a synced copy of the Oscine repo (see the repo's
 `tools/sync-plugin.mjs`). Edit the repo, run the sync, repackage.
+
+For inner-loop work, skip install entirely: `npm run plugin:dev`
+(`claude --plugin-dir ./plugin`) loads this plugin directly and
+`/reload-plugins` picks up edits without repackaging.
 
 Requires node 18+ on PATH.
