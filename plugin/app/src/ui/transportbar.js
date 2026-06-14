@@ -15,7 +15,10 @@ export class TransportBar {
 
     // -- left: identity + transport --
     const left = el('div', 'tb-group');
-    left.appendChild(el('div', 'logo', 'OSCINE'));
+    const logo = el('div', 'logo');
+    logo.appendChild(el('span', 'logo-mark'));        // themeable cardinal mark (CSS mask)
+    logo.appendChild(el('span', 'logo-word', 'OSCINE'));
+    left.appendChild(logo);
 
     this.playBtn = el('button', 'btn play-btn', '▶');
     this.playBtn.title = 'Play/Stop (Space)';

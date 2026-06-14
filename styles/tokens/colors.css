@@ -1,0 +1,105 @@
+/* ============================================================
+   Oscine — Color tokens
+   A dark, flat, DAW-grade palette. Elevation is expressed by
+   layered surface values (bg-0 → bg-3) and 1px hairlines, never
+   by drop shadows. The single brand accent is "Cardinal" red.
+   ============================================================ */
+
+:root {
+  /* ---- Surfaces (deepest → highest elevation) ----
+     bg-0 is the canvas/editor floor; bg-1 is chrome (bars, panels);
+     bg-2 is controls (buttons, strips, inputs); bg-3 is hover/raised. */
+  --bg-0: #0b0d12;   /* app canvas, piano-roll/step-grid floor */
+  --bg-1: #11141c;   /* transport bar, side panels, mixer, footer */
+  --bg-2: #171b26;   /* buttons, inputs, mixer strips, menus */
+  --bg-3: #1e2330;   /* hover / selected / raised surface */
+
+  /* ---- Hairlines ---- */
+  --line: #232839;        /* default 1px divider / control border */
+  --line-soft: #1b2030;   /* quieter divider (list rows) */
+  --line-strong: #2e3650; /* button hover border, emphasis */
+
+  /* ---- Text ---- */
+  --text: #dbe1f0;        /* primary copy + control labels */
+  --dim: #76809a;         /* secondary / metadata / muted labels */
+  --text-faint: #3a4154;  /* tertiary, key-cap hints on piano keys */
+
+  /* ---- Cardinal accent (the UI accent red) ----
+     Hue-locked ramp anchored on cardinal-500. Tuned for a near-black
+     ground: saturated but not neon. The logo's brand red is --brand-red. */
+  --cardinal-700: #a41117; /* deepest — pressed / shadow tints */
+  --cardinal-600: #cf1921; /* strong accent / pressed */
+  --cardinal-500: #e33a41; /* default interactive accent */
+  --cardinal-400: #ed484d; /* hover / brighter highlight */
+
+  --brand-red: #ef382f;    /* the logo's exact red — for lockups/brand surfaces */
+
+  --accent: var(--cardinal-500);
+  --accent-strong: var(--cardinal-600);
+  --accent-soft: rgba(227, 58, 65, 0.16);   /* tinted fills, hover bg */
+  --accent-line: rgba(227, 58, 65, 0.55);
+  --accent-ink: #ffffff;                      /* text/glyph ON an accent fill */
+
+  /* ---- Semantic status ---- */
+  --warn: #ff6f47;        /* destructive, mute, clipping (coral-orange) */
+  --warn-soft: rgba(255, 111, 71, 0.18);
+  --good: #5ce0a8;        /* success, solo-safe, connection live (mint) */
+  --good-soft: rgba(92, 224, 168, 0.16);
+  --hot: #ffd166;         /* meter mid-band warning (amber) */
+
+  /* ---- Editor floor (piano roll / step grid) ---- */
+  --roll-bg: #0e1118;
+  --roll-row-alt: #121521;
+  --roll-line: #1a1f30;
+  --roll-beat: #222842;
+  --roll-bar: #2e3554;
+
+  /* ---- Control internals ---- */
+  --knob-track: #262c40;   /* unfilled knob arc / fader rail */
+  --fader-cap: #cdd5ea;    /* the light fader thumb */
+  --key-white: #d7dcea;    /* piano white key */
+  --key-black: #20242f;    /* piano black key */
+
+  /* ---- Track identity palette ----
+     Assigned per track in order; multi-hued by design so lanes stay
+     legible against the single red accent. Mirrors TRACK_COLORS in
+     src/core/schema.js (the runtime source of truth). */
+  --track-1: #ff8a5c;  /* orange  */
+  --track-2: #5ce0a8;  /* mint    */
+  --track-3: #7aa2ff;  /* blue    */
+  --track-4: #e87bff;  /* violet  */
+  --track-5: #ffd166;  /* amber   */
+  --track-6: #5cc8ff;  /* cyan    */
+  --track-7: #ff5c7a;  /* pink    */
+  --track-8: #a8e05c;  /* lime    */
+}
+
+/* ============================================================
+   Accent themes — the accent is configurable. Scope any subtree
+   with data-accent to retint every accent-driven control.
+   Cardinal is the default (declared on :root above).
+   ============================================================ */
+
+[data-accent="ember"] {
+  --accent: #ff8a4c;
+  --accent-strong: #f06a2a;
+  --accent-soft: rgba(255, 138, 76, 0.16);
+  --accent-line: rgba(255, 138, 76, 0.55);
+  --accent-ink: #1a0d05;
+}
+
+[data-accent="signal"] {              /* the original Oscine periwinkle */
+  --accent: #7aa2ff;
+  --accent-strong: #5c87f5;
+  --accent-soft: rgba(122, 162, 255, 0.16);
+  --accent-line: rgba(122, 162, 255, 0.55);
+  --accent-ink: #0b0d12;
+}
+
+[data-accent="verdant"] {
+  --accent: #5ce0a8;
+  --accent-strong: #2fc486;
+  --accent-soft: rgba(92, 224, 168, 0.16);
+  --accent-line: rgba(92, 224, 168, 0.55);
+  --accent-ink: #04140d;
+}

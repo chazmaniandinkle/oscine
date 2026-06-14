@@ -25,7 +25,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
 const BASE_PORT = Number(process.env.OSCINE_PORT || 7321);
 const OSC_PORT = Number(process.env.OSCINE_OSC_PORT || 7340);
-const SERVER_VERSION = '1.4.0';
+const SERVER_VERSION = '1.5.0';
 
 // Bridge origin policy: localhost is always allowed; hosted copies of the
 // app (e.g. GitHub Pages) must be allowlisted via OSCINE_ALLOWED_ORIGINS

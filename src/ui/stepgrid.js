@@ -63,8 +63,8 @@ export class StepGrid {
 
     const scroll = el('div', 'sg-scroll');
     const grid = el('div', 'sg-grid');
-    grid.style.gridTemplateColumns = `92px repeat(${steps}, var(--step-size))`;
-    grid.style.gridTemplateRows = `20px repeat(${def.lanes.length}, var(--step-size))`;
+    grid.style.gridTemplateColumns = `92px repeat(${steps}, var(--step))`;
+    grid.style.gridTemplateRows = `20px repeat(${def.lanes.length}, var(--step))`;
 
     // Header row: beat numbers.
     grid.appendChild(el('div', 'sg-corner'));

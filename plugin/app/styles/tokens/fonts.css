@@ -1,0 +1,58 @@
+/* ============================================================
+   Oscine — Fonts (self-hosted, zero external network)
+   The product UI leads with the platform system stack so it loads
+   instantly and feels native to the OS. Two webfonts carry the
+   "instrument + API" voice on branded/technical surfaces:
+     · Space Grotesk — display / wordmark (mechanical, precise)
+     · JetBrains Mono — data, readouts, code, the technical voice
+   ------------------------------------------------------------
+   Both are SIL OFL licensed and shipped from styles/fonts/ as a
+   latin woff2 subset — no Google Fonts CDN, no build step. They
+   ride into the plugin bundle automatically (sync-plugin mirrors
+   styles/ recursively). font-display:swap keeps the app readable
+   before the binaries arrive.
+   ============================================================ */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-700.woff2') format('woff2');
+}

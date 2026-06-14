@@ -1,0 +1,57 @@
+/* ============================================================
+   Oscine — Typography tokens
+   Two voices: a platform system sans for dense product UI, and a
+   monospace for everything numeric/technical (readouts, params,
+   code, the wordmark). Display headings use Space Grotesk.
+   The product runs SMALL and dense — 12px is the UI base.
+   Families resolve to self-hosted webfonts (see fonts.css) and fall
+   back to the platform stack, so the app still renders before the
+   font binaries load.
+   ============================================================ */
+
+:root {
+  /* ---- Families ---- */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  --font-display: 'Space Grotesk', var(--font-ui);
+
+  /* ---- Type scale (px) ----
+     Product chrome lives between 9 and 13px; editorial scales above. */
+  --fs-micro: 9px;    /* knob values, key caps, dense meta */
+  --fs-2xs: 10px;     /* control labels, track sub-text */
+  --fs-xs: 11px;      /* small UI labels, section eyebrows */
+  --fs-sm: 12px;      /* UI base — body of the app */
+  --fs-md: 13px;      /* readouts, primary buttons, emphasis */
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --fs-3xl: 40px;
+  --fs-4xl: 56px;     /* hero / marketing display */
+
+  /* ---- Weights ---- */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-black: 800;    /* the wordmark weight */
+
+  /* ---- Line height ---- */
+  --lh-tight: 1.1;
+  --lh-snug: 1.3;
+  --lh-body: 1.5;
+
+  /* ---- Letter-spacing ----
+     Uppercase eyebrows and labels are widely tracked; the wordmark
+     is the widest at 0.22em. */
+  --ls-tight: -0.01em;
+  --ls-normal: 0;
+  --ls-label: 0.1em;     /* uppercase panel/section labels */
+  --ls-eyebrow: 0.12em;
+  --ls-wordmark: 0.22em; /* OSCINE wordmark */
+
+  /* ---- Semantic roles ---- */
+  --text-body: var(--fs-sm);
+  --text-label: var(--fs-2xs);
+  --text-readout: var(--fs-md);
+  --text-wordmark: var(--fs-md);
+}
