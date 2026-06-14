@@ -152,7 +152,19 @@ export class TransportBar {
     b.on('ui:metronome', ({ value }) => this.metroCtl.set(value));
     b.on('bridge:status', ({ connected, url }) => {
       this.bridgeDot.classList.toggle('on', connected);
+      if (!connected) { this.bridgeDot.classList.remove('multi', 'inactive'); this.bridgeDot.textContent = ''; }
       this.bridgeDot.title = connected ? `MCP bridge: connected (${url})` : 'MCP bridge: not connected';
+    });
+    b.on('bridge:sessions', ({ active, peers }) => {
+      const multi = peers > 1;
+      this.bridgeDot.classList.toggle('multi', multi);
+      this.bridgeDot.classList.toggle('inactive', multi && !active);
+      this.bridgeDot.textContent = multi ? String(peers) : '';
+      this.bridgeDot.title = !multi
+        ? 'MCP bridge: connected'
+        : active
+          ? `MCP bridge: this tab is the active session (${peers} tabs open)`
+          : `MCP bridge: background session — another tab is active (${peers} tabs open)`;
     });
     b.on('settings:changed', ({ key }) => {
       if (key === 'bpm') this.bpmCtl.set(store.project.bpm);

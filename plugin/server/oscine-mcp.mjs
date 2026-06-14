@@ -20,12 +20,13 @@ import { join, extname, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMANDS } from '../app/src/api/commands.js';
 import { OscGateway } from './osc-gateway.js';
+import { SessionRegistry } from './sessions.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
 const BASE_PORT = Number(process.env.OSCINE_PORT || 7321);
 const OSC_PORT = Number(process.env.OSCINE_OSC_PORT || 7340);
-const SERVER_VERSION = '1.5.0';
+const SERVER_VERSION = '1.6.0';
 
 // Bridge origin policy: localhost is always allowed; hosted copies of the
 // app (e.g. GitHub Pages) must be allowlisted via OSCINE_ALLOWED_ORIGINS
@@ -164,16 +165,28 @@ class WSConn {
 // ---------------------------------------------------------------------------
 // App connection state + command forwarding.
 
-let appConn = null;       // WSConn of the most recent app
-let appInfo = null;       // hello payload
+const registry = new SessionRegistry(); // every connected app instance
 let nextCmdId = 1;
-const pending = new Map(); // id -> {resolve, reject, timer}
+const pending = new Map(); // id -> {resolve, reject, timer, conn}
 let actualPort = null;
 let gateway = null;       // OSC gateway (assigned at startup)
 
+// Stream the 10Hz state snapshot from the active instance (the OSC surface
+// follows whichever instance is active).
 function setAppStreaming(on) {
-  if (appConn && !appConn.closed) {
-    appConn.send(JSON.stringify({ type: 'stream', on }));
+  const s = registry.active;
+  if (s && !s.conn.closed) s.conn.send(JSON.stringify({ type: 'stream', on }));
+}
+
+// Tell each connected instance whether it is the active target and how many
+// peers exist, so the app can show a multi-session indicator.
+function broadcastSessions() {
+  const peers = registry.size;
+  for (const s of registry.list()) {
+    const conn = registry.get(s.id)?.conn;
+    if (conn && !conn.closed) {
+      conn.send(JSON.stringify({ type: 'session', id: s.id, active: s.active, peers }));
+    }
   }
 }
 
@@ -186,30 +199,51 @@ function notConnectedError() {
   );
 }
 
-function callApp(name, args, timeoutMs = 15000) {
+// Translate a failed registry.resolve() into an actionable error.
+function targetError(r) {
+  if (r.error === 'not-connected') return notConnectedError();
+  const ids = r.sessions.map(s => `${s.id}${s.project ? ` ("${s.project}")` : ''}`).join(', ');
+  if (r.error === 'ambiguous') {
+    return new Error(
+      `${r.sessions.length} Oscine instances are open and none is active. ` +
+      `Pass session:<id> or run oscine_sessions select. Instances: ${ids}.`
+    );
+  }
+  return new Error(`No open Oscine instance matches that target. Instances: ${ids || '(none)'}.`);
+}
+
+// Route a command to a session. `selector` is an instance id / clientId /
+// project name, or null to use the active instance.
+function callApp(name, args, timeoutMs = 15000, selector = null) {
   return new Promise((resolveP, rejectP) => {
-    if (!appConn || appConn.closed) return rejectP(notConnectedError());
+    const r = registry.resolve(selector);
+    if (r.error) return rejectP(targetError(r));
+    const conn = r.session.conn;
     const id = nextCmdId++;
     const timer = setTimeout(() => {
       pending.delete(id);
-      rejectP(new Error(`Oscine app did not respond within ${timeoutMs / 1000}s (is the tab still open?).`));
+      rejectP(new Error(`Oscine instance did not respond within ${timeoutMs / 1000}s (is the tab still open?).`));
     }, timeoutMs);
-    pending.set(id, { resolve: resolveP, reject: rejectP, timer });
-    appConn.send(JSON.stringify({ type: 'cmd', id, name, args }));
+    pending.set(id, { resolve: resolveP, reject: rejectP, timer, conn });
+    conn.send(JSON.stringify({ type: 'cmd', id, name, args }));
   });
 }
 
-function handleAppMessage(raw) {
+function handleAppMessage(conn, raw) {
   let msg;
   try { msg = JSON.parse(raw); } catch { return; }
   if (msg.type === 'hello') {
-    appInfo = msg;
-    log(`app connected: project "${msg.project}" (api v${msg.apiVersion})`);
+    const { id, staleConn } = registry.hello(conn.sessionId, msg);
+    conn.sessionId = id;
+    if (staleConn && !staleConn.closed && staleConn !== conn) staleConn.close();
+    log(`app connected: project "${msg.project}" [${id}] (api v${msg.apiVersion}); ${registry.size} instance(s)`);
     if (gateway && gateway.subscribers.size > 0) setAppStreaming(true);
+    broadcastSessions();
     return;
   }
   if (msg.type === 'event') {
-    if (msg.name === 'state') gateway?.relayState(msg.data);
+    // Only the active instance feeds the OSC state stream.
+    if (msg.name === 'state' && registry.activeId === conn.sessionId) gateway?.relayState(msg.data);
     return;
   }
   if (msg.type === 'result') {
@@ -220,6 +254,20 @@ function handleAppMessage(raw) {
     if (msg.ok) p.resolve(msg.result);
     else p.reject(new Error(msg.error?.message ?? 'Command failed in the app.'));
   }
+}
+
+function handleAppClose(conn) {
+  const removed = registry.removeByConn(conn);
+  if (removed === null) return; // conn already replaced by a reconnect
+  log(`app disconnected [${removed}]; ${registry.size} instance(s) left`);
+  for (const [id, p] of pending) {
+    if (p.conn === conn) {
+      clearTimeout(p.timer);
+      p.reject(new Error('Oscine instance disconnected mid-command.'));
+      pending.delete(id);
+    }
+  }
+  broadcastSessions();
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +288,7 @@ async function serveStatic(req, res) {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (urlPath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ server: 'oscine-mcp', version: SERVER_VERSION, appConnected: !!(appConn && !appConn.closed) }));
+    res.end(JSON.stringify({ server: 'oscine-mcp', version: SERVER_VERSION, appConnected: registry.size > 0, instances: registry.size }));
     return;
   }
   const rel = urlPath === '/' ? 'index.html' : urlPath.slice(1);
@@ -281,22 +329,12 @@ function startHttp(port, attemptsLeft = 9) {
       `Sec-WebSocket-Accept: ${wsAccept(key)}\r\n\r\n`
     );
     const conn = new WSConn(socket, {
-      onMessage: handleAppMessage,
-      onClose: () => {
-        if (appConn === conn) {
-          appConn = null;
-          appInfo = null;
-          log('app disconnected');
-          for (const [id, p] of pending) {
-            clearTimeout(p.timer);
-            p.reject(new Error('Oscine app disconnected mid-command.'));
-            pending.delete(id);
-          }
-        }
-      },
+      onMessage: (raw) => handleAppMessage(conn, raw),
+      onClose: () => handleAppClose(conn),
     });
-    if (appConn && !appConn.closed) appConn.close(); // newest tab wins
-    appConn = conn;
+    // Register the instance; do NOT close other tabs. Each tab is its own
+    // addressable session, so two open tabs no longer fight over one slot.
+    conn.sessionId = registry.add(conn);
   });
 
   server.on('error', (err) => {
@@ -323,13 +361,38 @@ const OPEN_APP_TOOL = {
   inputSchema: { type: 'object', properties: {} },
 };
 
+const SESSIONS_TOOL = {
+  name: 'oscine_sessions',
+  description: "List the open Oscine instances (browser tabs) connected to this sidecar, or choose which one commands target. With several tabs open, commands go to the active instance unless you pass a `session` argument; call this to see what's open and to switch the active instance.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list', 'select'], description: "'list' (default) shows the open instances; 'select' makes one active." },
+      session: { type: 'string', description: "For 'select': the instance id (from list), its clientId, or its exact project name." },
+    },
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+};
+
+// Optional targeting arg injected into every project command so a specific
+// instance can be addressed without first calling oscine_sessions select.
+const SESSION_ARG = {
+  type: 'string',
+  description: 'Optional. Target a specific open Oscine instance by id (from oscine_sessions), clientId, or project name. Omit to use the active instance.',
+};
+
 function toolList() {
   return [
     OPEN_APP_TOOL,
+    SESSIONS_TOOL,
     ...COMMANDS.map(c => ({
       name: `oscine_${c.name}`,
       description: c.description,
-      inputSchema: c.input,
+      // Clone the catalog schema and add `session`; never mutate COMMANDS.
+      inputSchema: {
+        ...c.input,
+        properties: { ...(c.input.properties || {}), session: SESSION_ARG },
+      },
       annotations: { readOnlyHint: !!c.readOnly, openWorldHint: false },
     })),
   ];
@@ -355,7 +418,7 @@ function openBrowser(url) {
 async function waitForApp(ms) {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
-    if (appConn && !appConn.closed) return true;
+    if (registry.size > 0) return true;
     await new Promise(r => setTimeout(r, 200));
   }
   return false;
@@ -363,8 +426,17 @@ async function waitForApp(ms) {
 
 async function dispatchTool(name, args) {
   if (name === 'oscine_open_app') {
-    if (appConn && !appConn.closed) {
-      return { ok: true, alreadyOpen: true, url: appUrl(), note: 'App is already connected.' };
+    if (registry.size > 0) {
+      return {
+        ok: true,
+        alreadyOpen: true,
+        url: appUrl(),
+        instances: registry.size,
+        active: registry.active?.id ?? null,
+        note: registry.size > 1
+          ? `${registry.size} instances are open; the newest is active. Use oscine_sessions to see or change the target.`
+          : 'App is already connected.',
+      };
     }
     const launched = await openBrowser(appUrl());
     const connected = await waitForApp(6000);
@@ -378,20 +450,40 @@ async function dispatchTool(name, args) {
     };
   }
 
+  if (name === 'oscine_sessions') {
+    const action = args.action || 'list';
+    if (action === 'select') {
+      const s = registry.setActive(args.session);
+      if (!s) {
+        return { ok: false, error: `No open Oscine instance matches "${args.session ?? ''}".`, sessions: registry.list() };
+      }
+      broadcastSessions();
+      return { ok: true, active: s.id, sessions: registry.list() };
+    }
+    return { active: registry.active?.id ?? null, count: registry.size, sessions: registry.list() };
+  }
+
   const cmdName = name.replace(/^oscine_/, '');
-  if (cmdName === 'status' && (!appConn || appConn.closed)) {
+  const selector = args?.session ?? null;
+  const forwardArgs = { ...(args || {}) };
+  delete forwardArgs.session;
+
+  if (cmdName === 'status' && registry.size === 0) {
     return {
       server: 'oscine-mcp',
       version: SERVER_VERSION,
       url: appUrl(),
       appConnected: false,
+      sessions: [],
       osc: gateway?.info(),
       hint: 'The Oscine app is not open. Call oscine_open_app to launch it, then retry.',
     };
   }
-  const result = await callApp(cmdName, args);
+  const result = await callApp(cmdName, forwardArgs, 15000, selector);
   if (cmdName === 'status' && result && typeof result === 'object') {
     result.osc = gateway?.info(); // udp control surface: port + subscriber count
+    result.sessions = registry.list();
+    result.activeSession = registry.active?.id ?? null;
   }
   return result;
 }

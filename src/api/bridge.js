@@ -62,6 +62,8 @@ export class Bridge {
         app: 'oscine',
         apiVersion: this.api.version,
         project: this.api.store.project.name,
+        clientId: this.clientId(),     // stable per browser tab; lets the
+        title: tabTitle(),             // sidecar treat each tab as one session
       }));
       this.bus.emit('bridge:status', { connected: true, url });
       console.info(`[oscine] MCP bridge connected: ${url}`);
@@ -76,6 +78,12 @@ export class Bridge {
       }
       if (msg.type === 'stream') {
         this.setStreaming(msg.on);
+        return;
+      }
+      if (msg.type === 'session') {
+        // Sidecar tells us whether this tab is the active command target and
+        // how many instances are connected, for a multi-session indicator.
+        this.bus.emit('bridge:sessions', { id: msg.id, active: !!msg.active, peers: msg.peers ?? 1 });
         return;
       }
       if (msg.type !== 'cmd') return;
@@ -102,6 +110,23 @@ export class Bridge {
   scheduleReconnect() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.connect(), 2500);
+  }
+
+  // A stable id for this browser tab, persisted so a reconnect (network
+  // blip, sidecar restart) is recognised as the same session rather than a
+  // new one. Per-tab via sessionStorage; falls back to a volatile id.
+  clientId() {
+    try {
+      let id = sessionStorage.getItem('oscine.clientId');
+      if (!id) {
+        id = 'c-' + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem('oscine.clientId', id);
+      }
+      return id;
+    } catch {
+      this._volatileId ??= 'c-' + Math.random().toString(36).slice(2, 10);
+      return this._volatileId;
+    }
   }
 
   // State streaming for the sidecar's OSC subscribers: compact snapshot
@@ -138,3 +163,7 @@ export class Bridge {
 }
 
 const round3 = (v) => Math.round(v * 1000) / 1000;
+
+const tabTitle = () => {
+  try { return document.title || 'Oscine'; } catch { return 'Oscine'; }
+};

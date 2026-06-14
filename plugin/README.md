@@ -8,7 +8,7 @@ Desktop manages for you.
 
 One node process, spawned via this plugin's `.mcp.json`:
 
-- speaks MCP over stdio (18 `oscine_*` tools)
+- speaks MCP over stdio (every catalog command plus `oscine_open_app` and `oscine_sessions`)
 - serves the bundled app at `http://127.0.0.1:7321/` (next free port if busy)
 - hosts the WebSocket bridge the app connects back through
 - runs an OSC gateway on `udp://127.0.0.1:7340` for hardware and
@@ -29,6 +29,15 @@ set_params, get_notes, set_notes, get_steps, set_steps, slots, preview.
 The tool catalog is generated from the app's own command registry
 (`app/src/api/commands.js`), so app capability and MCP surface cannot
 drift apart.
+
+`oscine_sessions` is a sidecar-level tool (it has no app command): it
+lists the open Oscine instances (browser tabs) and selects which one is
+the active command target. Each connected tab is a stable, addressable
+session — opening a second tab no longer evicts the first. Commands go to
+the active (most recently opened) instance by default; pass a `session`
+argument (instance id, clientId, or project name) on any command to route
+it elsewhere, and `status` reports every open instance so multiple tabs
+are visible rather than silently fought over.
 
 ## OSC
 

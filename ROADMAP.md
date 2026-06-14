@@ -12,6 +12,11 @@ as a catalog command first, UI second (see `AGENTS.md`).
   command catalog surfaced as MCP tools plus an OSC in/out gateway.
 - Share loop (v1.4.0): WAV export via an offline render, and song-in-URL (the
   whole project encoded in a link, no upload, because projects are a few KB).
+- Multi-instance sessions (v1.6.0): the sidecar tracks every connected app tab
+  as an addressable session instead of letting a single connection slot thrash
+  between tabs. Commands target the active (newest) instance by default; an
+  `oscine_sessions` tool lists/selects instances and a `session` argument routes
+  any command to a specific one, with the open instances surfaced in `status`.
 
 ## Now: song mode
 
