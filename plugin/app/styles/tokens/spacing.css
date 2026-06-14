@@ -1,0 +1,61 @@
+/* ============================================================
+   Oscine — Spacing, radius, elevation, motion
+   Tight, grid-like rhythm built on a 2px base unit. Corners are
+   modestly rounded (5–9px). Elevation is layered surfaces + 1px
+   lines; drop shadows appear ONLY on floating layers (menus,
+   toasts, fader caps).
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (2px base) ---- */
+  --sp-0: 0;
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 10px;
+  --sp-6: 12px;
+  --sp-7: 14px;
+  --sp-8: 16px;
+  --sp-10: 20px;
+  --sp-12: 24px;
+  --sp-16: 32px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 5px;   /* steps, menu items, mini chips */
+  --radius: 7px;      /* buttons, panels, inputs, strips (default) */
+  --radius-md: 8px;   /* play button */
+  --radius-lg: 9px;   /* pads, toasts */
+  --radius-pill: 999px;
+  --radius-round: 50%;
+
+  /* ---- Control sizing (the physical instrument scale) ---- */
+  --knob: 34px;        /* knob diameter */
+  --knob-sm: 28px;
+  --step: 26px;        /* step-grid cell */
+  --row-h: 34px;       /* editor-bar / compact row height */
+  --hit-min: 28px;     /* minimum interactive target in dense chrome */
+
+  /* ---- Elevation (floating layers only) ---- */
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.55);  /* menus, dialogs */
+  --shadow-toast: 0 8px 28px rgba(0, 0, 0, 0.5);  /* toasts */
+  --shadow-cap: 0 1px 4px rgba(0, 0, 0, 0.5);     /* fader thumb */
+  --glow-accent: 0 0 0 2px var(--accent-soft);    /* focus ring tint */
+
+  /* ---- Motion ----
+     Fast and functional. UI feedback is 60–120ms; nothing bounces.
+     Only two looping animations exist: the queued-slot pulse and
+     the LED hit flash. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --dur-instant: 60ms;   /* step toggle */
+  --dur-fast: 120ms;     /* button bg/border */
+  --dur: 150ms;          /* opacity, color */
+  --dur-slow: 250ms;     /* toast in/out */
+
+  /* ---- Z-index ladder ---- */
+  --z-mixer: 10;
+  --z-srclink: 60;
+  --z-menu: 100;
+  --z-toast: 200;
+}
