@@ -509,6 +509,16 @@ console.log('\n[6] plugin bundle integrity');
   const skill = readFileSync(join(ROOT, 'plugin/skills/composing-with-oscine/SKILL.md'), 'utf8');
   check('skill has frontmatter name + description', /^---\nname: composing-with-oscine\ndescription: /.test(skill));
 
+  // Repo-root marketplace: makes the repo an updatable plugin source so
+  // releases land via `claude plugin update` instead of a manual re-upload.
+  const market = JSON.parse(readFileSync(join(ROOT, '.claude-plugin/marketplace.json'), 'utf8'));
+  check('marketplace.json valid (name kebab-case, has plugins)',
+    /^[a-z0-9-]+$/.test(market.name) && Array.isArray(market.plugins) && market.plugins.length >= 1);
+  const oscineEntry = market.plugins.find(p => p.name === pluginJson.name);
+  check('marketplace lists the oscine plugin', !!oscineEntry);
+  check('marketplace plugin source resolves to the plugin dir',
+    !!oscineEntry && existsSync(join(ROOT, oscineEntry.source, '.claude-plugin/plugin.json')));
+
   const { execSync } = await import('node:child_process');
   let syncOk = true;
   try { execSync(`node ${join(ROOT, 'tools/sync-plugin.mjs')} --check`, { stdio: 'pipe' }); }

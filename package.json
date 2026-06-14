@@ -17,6 +17,8 @@
     "test": "node test/smoke.mjs",
     "test:e2e": "node test/e2e-mcp.mjs",
     "sync-plugin": "node tools/sync-plugin.mjs",
-    "start": "python3 -m http.server 8443"
+    "start": "python3 -m http.server 8443",
+    "plugin:dev": "claude --plugin-dir ./plugin",
+    "release:local": "sh tools/release-local.sh"
   }
 }

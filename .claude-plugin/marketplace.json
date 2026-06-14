@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "oscine",
+  "description": "Oscine, the browser-native synth composer with an API-first core. Install from here so updates arrive with `claude plugin update` instead of a manual re-upload.",
+  "owner": {
+    "name": "Chaz"
+  },
+  "plugins": [
+    {
+      "name": "oscine",
+      "description": "Compose music with Claude in Oscine, a browser synth composer. Runs a sidecar that serves the app and exposes every feature (tracks, synth params, piano-roll notes, drum steps, mixer, pattern slots, transport) as MCP tools, plus an OSC gateway for hardware/software control surfaces.",
+      "source": "./plugin",
+      "category": "creativity",
+      "homepage": "https://github.com/chazmaniandinkle/oscine",
+      "keywords": ["music", "synth", "daw", "sequencer", "composition", "web-audio"]
+    }
+  ]
+}
