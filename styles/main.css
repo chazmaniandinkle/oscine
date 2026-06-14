@@ -646,6 +646,24 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
   transition: background 0.3s;
 }
 .bridge-dot.on { background: var(--good); }
+/* Multi-instance: the dot grows into a small count chip. Active session
+   reads as good; a background tab reads as warn so it's clear another tab
+   holds the agent's focus. */
+.bridge-dot.multi {
+  width: auto;
+  height: 14px;
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-bold);
+  color: var(--bg-0);
+}
+.bridge-dot.multi.inactive { background: var(--warn); }
 
 /* ---------- menus & toast ---------- */
 

@@ -517,6 +517,61 @@ console.log('\n[6] plugin bundle integrity');
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[7] sidecar session registry (multi-instance routing)');
+{
+  const { SessionRegistry } = await import(`${ROOT}/plugin/server/sessions.js`);
+
+  check('empty registry reports not-connected', new SessionRegistry().resolve(null).error === 'not-connected');
+
+  // Newest connection becomes active; a lone session resolves with no selector.
+  const reg = new SessionRegistry();
+  const cA = { tag: 'A' };
+  const idA = reg.add(cA);
+  reg.hello(idA, { clientId: 'ca', project: 'First Light' });
+  check('one instance resolves without a selector', reg.resolve(null).session?.conn === cA);
+  check('newest instance is active', reg.active?.conn === cA);
+
+  // A second tab does NOT evict the first (no more "newest kills old"); it
+  // becomes active, but both remain addressable.
+  const cB = { tag: 'B' };
+  const idB = reg.add(cB);
+  reg.hello(idB, { clientId: 'cb', project: 'Redwing' });
+  check('second instance keeps the first alive', reg.size === 2);
+  check('newest tab is the default target', reg.resolve(null).session?.conn === cB);
+  check('explicit id targets the older tab', reg.resolve(idA).session?.conn === cA);
+  check('selector by project name targets correctly', reg.resolve('First Light').session?.conn === cA);
+  check('selector by clientId targets correctly', reg.resolve('cb').session?.conn === cB);
+  check('unknown selector is a loud no-match', reg.resolve('nope').error === 'no-match');
+  check('list() exposes id/project/active for discovery',
+    reg.list().length === 2 && reg.list().every(s => 'id' in s && 'active' in s && 'project' in s));
+
+  // Same clientId reconnecting folds into the existing session (one tab =
+  // one session) and hands back the stale conn to close.
+  const cB2 = { tag: 'B2' };
+  const idB2 = reg.add(cB2);
+  const fold = reg.hello(idB2, { clientId: 'cb', project: 'Redwing' });
+  check('reconnect with same clientId does not add a session', reg.size === 2);
+  check('reconnect folds into the original session id', fold.id === idB && fold.staleConn === cB);
+  check('folded session now points at the new conn', reg.get(idB)?.conn === cB2);
+
+  // Closing a tab drops only that session and re-homes active.
+  reg.setActive(idB);
+  reg.removeByConn(cB2);
+  check('closing a tab removes just that session', reg.size === 1 && reg.resolve(null).session?.conn === cA);
+
+  // Defensive: many instances with no active set -> loud ambiguity, not a
+  // silent guess (this is the failure mode that caused the split-brain).
+  const amb = new SessionRegistry();
+  const p = {}, q = {};
+  amb.hello(amb.add(p), { clientId: 'p' });
+  amb.hello(amb.add(q), { clientId: 'q' });
+  amb.activeId = null; // simulate no chosen target
+  const r = amb.resolve(null);
+  check('multiple instances with no active target is ambiguous, not silent',
+    r.error === 'ambiguous' && r.sessions.length === 2);
+}
+
+// ---------------------------------------------------------------------------
 console.log('');
 if (failures) {
   console.error(`${failures} check(s) FAILED`);

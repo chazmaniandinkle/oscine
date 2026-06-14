@@ -83,8 +83,11 @@ try {
 
   const list = await rpc('tools/list');
   const tools = list.result?.tools ?? [];
-  check('tools/list exposes open_app + all 19 catalog commands', tools.length === 20,
+  check('tools/list exposes open_app + sessions + all 19 catalog commands', tools.length === 21,
     `got ${tools.length}`);
+  check('oscine_sessions meta-tool is present', tools.some(t => t.name === 'oscine_sessions'));
+  check('catalog tools carry the optional session targeting arg',
+    tools.find(t => t.name === 'oscine_set_notes')?.inputSchema?.properties?.session?.type === 'string');
   check('tool names are oscine_-prefixed with schemas',
     tools.every(t => t.name.startsWith('oscine_') && t.inputSchema?.type === 'object'));
   check('read-only tools annotated',
