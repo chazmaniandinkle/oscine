@@ -118,24 +118,41 @@ off most riding on top of a timeline and insert chains that already exist, and
 the asset layer should be specced once, before A ships, so the project format
 isn't migrated twice.
 
-## Later: performance capture (jam mode)
+## Later: performance ledger (agent-observable capture)
 
-A live looper for playing in, not just stepping notes. Record-arm today writes
-quantized notes straight into the active pattern; jam mode captures a free take
-you can replay, loop, trim, and overdub before committing it.
+The deeper version of jam mode, and the feature that makes Oscine a real
+agent-jam instrument: an always-on, beat-stamped log of everything you play that
+an agent can read and act on after the fact. The command catalog already lets a
+model drive the app (the controller role). The ledger adds the other half, the
+observer role: the model can see what you actually played and shape it, without
+you arming a recording first.
 
-- Shape: a take is a timestamped buffer of live events (notes now, mapped
-  control moves later) recorded against the transport, kept separate from the
-  quantized pattern. Transport controls loop and replay it, a snip trims it to a
-  region, overdub layers more passes, and a commit quantizes the take down into
-  a pattern or slot using the existing note model.
-- Dependencies: a take sits at absolute positions, like an audio clip, so it
-  wants the linear timeline from the arrangement jump, and it pairs with
-  automation once control moves are captured. It is the performance sibling of
-  the audio-clip work in Later: sampling and shares the scene-chain-versus-linear
-  question (see Decision gates).
-- Agent-jam angle: a captured take is also something the model can read, snip,
-  and rearrange, so the looper and the agent surface reinforce each other.
+- The ledger: a bounded, rolling log of live input events (notes with pitch,
+  velocity, and on/off times; control and pad moves later), each stamped with its
+  transport position (slot, bar, beat) and clock time. It captures while you riff
+  whether or not record-arm is on, and stays local and ephemeral like the rest of
+  the MIDI state. The shipped velocity monitor is the seed of this: it already
+  records raw input, and the ledger generalizes it to full, timed events.
+- Read it: a catalog command (for example `history`) returns recent events as raw
+  data plus a quantized note view. Because it is a catalog command it surfaces as
+  an MCP tool and an OSC address for free, so the agent can see the shape of what
+  was just played and reason about it (the phrase, the key, the groove).
+- Act on it: grab a slice by beat range, by recency (the last phrase), or by
+  letting the agent resolve a description from the shape, then write it to a track
+  through the existing notes command, kept exact or quantized and cleaned. Nothing
+  new is needed to write; the slice-to-notes step reuses the record-arm quantize
+  path.
+- Jam mode rides on top: replay, loop, snip, and overdub become consumers of the
+  ledger rather than a separate capture system. The ledger is the substrate.
+
+Harness-agnostic by construction. The whole loop is catalog commands, so it is
+MCP and OSC, so any agent system that speaks MCP can drive it, not just one
+client. Claude Code is the surface we optimize for first because it is the daily
+driver here, and pairing it with voice makes the loop feel live (riff, ask out
+loud, the agent grabs it), but none of the substrate is tied to a single harness.
+
+Depends on the linear timeline (a captured slice sits at absolute positions, like
+an audio clip) and builds on the MIDI input and velocity work already shipped.
 
 ## Later: other
 
@@ -179,13 +196,19 @@ Each names the question, the trigger that forces it, and the current leaning.
    project. Leaning: global, since the controller is the user's hardware and one
    map should drive any song; keep it in local config like the current MIDI
    state, and leave a per-project override for later if a real need shows up.
-7. **Takes as first-class objects** (*forced inside jam mode*). Whether a
-   recorded take is a scratch buffer that always commits down to a pattern, or a
-   first-class timeline object that loops and layers on its own. This rides on
-   the scene-chain-versus-linear call (gate 3): if the linear timeline lands,
-   takes are clips on it; if not, they stay scratch buffers that quantize into
-   slots. Leaning: start as scratch buffers that commit to patterns (cheap,
-   reuses the note model), and promote them to clips when the linear timeline
-   exists.
+7. **Takes as first-class objects** (*forced inside the performance ledger*).
+   Whether a grabbed slice is a scratch buffer that always commits down to a
+   pattern, or a first-class timeline object that loops and layers on its own.
+   This rides on the scene-chain-versus-linear call (gate 3): if the linear
+   timeline lands, slices are clips on it; if not, they stay scratch buffers that
+   quantize into slots. Leaning: start as scratch buffers that commit to patterns
+   (cheap, reuses the note model), and promote them to clips when the linear
+   timeline exists.
+8. **Ledger scope and window** (*forced before the performance ledger*). How much
+   to capture and for how long: always-on versus armed, and how far back the
+   rolling window holds. Leaning: always-on while the app is open, a few minutes
+   of rolling history, kept local and ephemeral (never persisted to the project
+   or uploaded), and cleared on project load. The agent reads it live through the
+   catalog command rather than from any saved file.
 
 Full rationale and the competitive picture live in `docs/landscape.md`.
