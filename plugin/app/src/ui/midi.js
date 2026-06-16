@@ -44,6 +44,13 @@ export class MidiInput {
     // 'midi:claim' is take-over intent (from the command/UI): forcibly steal the
     // lock from whichever tab holds it, then bind here.
     this.bus.on('midi:claim', () => this.takeOver());
+    // Injected MIDI (from the 'midi' command's 'input' action, fed by the OSC
+    // gateway and the midi-osc bridge tool): run the raw bytes through the SAME
+    // onMessage the hardware path uses, so velocity shaping, the monitor,
+    // record-arm, and drum-lane mapping all apply identically. This is the whole
+    // point of injection: it works even when WebMIDI is disabled or unavailable,
+    // because onMessage reads only e.data and never depends on this.access.
+    this.bus.on('midi:inject', ({ bytes }) => this.onMessage({ data: bytes }));
     this.bus.on('transport:state', ({ playing }) => { if (!playing) this.endTake(); });
 
     this.wireCrosstab();

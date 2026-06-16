@@ -21,6 +21,7 @@
 //   /oscine/midi/floor <f>      (0..1 min output velocity for soft presses)
 //   /oscine/midi/curve <f>      (gamma; <1 boosts soft presses, >1 softens)
 //   /oscine/midi/claim          (take single-tab MIDI ownership for this tab)
+//   /oscine/midi/in <status> <d1> [d2]   (raw MIDI in; used by the bridge tool)
 //   /oscine/cmd <name> [json-args]    escape hatch to the full catalog
 // Track names: '_' matches ' ' (OSC addresses can't contain spaces).
 // Note: export_wav and share have no first-class /oscine/* address (a WAV
@@ -127,6 +128,7 @@ export function routeOsc(address, args = []) {
       if (p2 === 'floor') return { cmd: 'midi', args: { action: 'set', floor: num(args[0], 0) } };
       if (p2 === 'curve') return { cmd: 'midi', args: { action: 'set', curve: num(args[0], 1) } };
       if (p2 === 'claim') return { cmd: 'midi', args: { action: 'claim' } };
+      if (p2 === 'in') return { cmd: 'midi', args: { action: 'input', bytes: args.slice(0, 3).map(a => Math.round(num(a, 0))) } };
       return { error: `unknown midi op ${p2}` };
     }
 

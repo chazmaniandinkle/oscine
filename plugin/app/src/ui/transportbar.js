@@ -276,10 +276,13 @@ export class TransportBar {
   // Cheap text update for the velocity readout: raw last/min/max the user has
   // played plus the current floor/curve, so the shaping can be tuned by feel.
   // Hidden while MIDI is off; a fixed-velocity override is called out instead.
+  // Injected MIDI (the 'input' action / OSC bridge) feeds observeMidiVelocity
+  // too, so keep the readout visible whenever the monitor has seen notes even if
+  // WebMIDI is disabled — that's the surface where injection matters most.
   paintMidiVel() {
     const m = this.store.ui.midi;
     const vm = m.velMonitor || { last: 0, min: 0, max: 0, count: 0 };
-    if (!m.enabled) {
+    if (!m.enabled && !vm.count) {
       this.midiVelEl.textContent = '';
       this.midiVelEl.title = '';
       this.midiVelEl.classList.remove('on');
