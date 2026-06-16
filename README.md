@@ -1,5 +1,6 @@
-# Oscine
 
+# Oscine
+![Oscine Logo](https://raw.githubusercontent.com/chazmaniandinkle/oscine/refs/heads/main/styles/brand/oscine-master.svg)
 [![CI](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml/badge.svg)](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml)
 
 A synth composer that runs entirely in the browser. No build step, no
