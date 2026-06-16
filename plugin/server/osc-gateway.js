@@ -16,6 +16,9 @@
 //   /oscine/slot/select <A-D|0-3>   /slot/bars <n> [slot]
 //   /oscine/slot/copy <from> <to>
 //   /oscine/project/undo   /oscine/project/redo
+//   /oscine/midi/enable <0|1>   /oscine/midi/channel <0-16>
+//   /oscine/midi/record <0|1>   (0 = omni channel; the app binds the device)
+//   /oscine/midi/claim          (take single-tab MIDI ownership for this tab)
 //   /oscine/cmd <name> [json-args]    escape hatch to the full catalog
 // Track names: '_' matches ' ' (OSC addresses can't contain spaces).
 // Note: export_wav and share have no first-class /oscine/* address (a WAV
@@ -110,6 +113,18 @@ export function routeOsc(address, args = []) {
     case 'project':
       if (p2 === 'undo' || p2 === 'redo') return { cmd: 'project', args: { action: p2 } };
       return { error: `unknown project op ${p2}` };
+
+    case 'midi': {
+      if (p2 === 'enable') {
+        return onOff(args[0] ?? 1)
+          ? { cmd: 'midi', args: { action: 'enable' } }
+          : { cmd: 'midi', args: { action: 'disable' } };
+      }
+      if (p2 === 'channel') return { cmd: 'midi', args: { action: 'set', channel: Math.round(num(args[0], 0)) } };
+      if (p2 === 'record') return { cmd: 'midi', args: { action: 'set', record: onOff(args[0]) } };
+      if (p2 === 'claim') return { cmd: 'midi', args: { action: 'claim' } };
+      return { error: `unknown midi op ${p2}` };
+    }
 
     case 'cmd': {
       const name = String(args[0] ?? '');

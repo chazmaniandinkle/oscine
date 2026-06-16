@@ -215,6 +215,22 @@ export const COMMANDS = [
     },
   },
   {
+    name: 'midi',
+    description: "Live WebMIDI hardware input. A connected controller (e.g. an AKAI MPK Mini) plays the selected track through the engine's preview path; record-arm captures played notes/steps into the active pattern quantized to the grid; the controller's knobs (CC) drive the selected instrument's params. Device binding happens in the browser app: when no app is connected (a headless agent context) these actions just configure the state the app applies once it is present. Only one browser tab binds the hardware at a time (single-tab ownership): a second tab defers and 'status' reports owner/peers/ownerElsewhere so you can tell which tab holds it; 'claim' takes ownership over for the calling tab. Actions: 'status' reports current config, enumerated devices, and ownership; 'enable'/'disable' turn WebMIDI on/off; 'select' picks an input device by id or name substring; 'set' changes the listen channel and/or record-arm; 'map' binds a CC number to a numeric param of the selected track's instrument; 'learn' arms the next incoming CC to bind to a param; 'clear_map' removes one CC mapping (with 'cc') or all of them; 'claim' takes MIDI ownership for this tab away from another tab that holds it.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['status', 'enable', 'disable', 'select', 'set', 'map', 'learn', 'clear_map', 'claim'] },
+        device: { type: 'string', description: "For 'select': input device id or a case-insensitive name substring." },
+        channel: { type: 'integer', minimum: 0, maximum: 16, description: '0 = omni; 1..16 listen on that channel only.' },
+        record: { type: 'boolean', description: 'Record-arm: capture played notes/steps into the active pattern, quantized.' },
+        cc: { type: 'integer', minimum: 0, maximum: 127, description: "For 'map': controller CC number." },
+        param: { type: 'string', description: "For 'map'/'learn': a numeric param key of the selected track's instrument (see list_instruments)." },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'preview',
     description: 'Audition a sound immediately on the user\'s speakers without touching any pattern: a pitch on a synth track, or a lane hit on a drum track. Useful to check a patch before composing.',
     input: {

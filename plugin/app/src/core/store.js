@@ -27,6 +27,19 @@ export class Store {
       snap: 0.25,        // beats; 0.25 = 16th note
       metronome: false,
       mixerOpen: true,
+      midi: {
+        enabled: false,     // user wants WebMIDI active
+        inputId: null,      // preferred input device id; null = first available
+        channel: 0,         // 0 = omni; 1..16 = listen on that channel only
+        record: false,      // record-arm
+        knobs: {},          // { [ccNumber:int]: paramKey:string } for selected instrument
+        learnParam: null,   // when a string, the next incoming CC binds to this param
+        available: false,   // runtime: WebMIDI present + access granted
+        inputName: null,    // runtime: bound input's display name
+        devices: [],        // runtime: [{ id, name }]
+        owner: false,       // runtime: this tab currently holds MIDI ownership
+        peers: 1,           // runtime: count of live same-origin tabs (>=1 = self)
+      },
     };
     this.undoStack = [];
     this.redoStack = [];
@@ -299,6 +312,51 @@ export class Store {
   setMetronome(on) {
     this.ui.metronome = !!on;
     this.emit('ui:metronome', { value: this.ui.metronome });
+  }
+
+  // -- MIDI input config (ephemeral ui state; NOT part of the project) --------
+  // The WebMIDI hardware manager lives in the browser (src/ui/midi.js); these
+  // actions hold the config it applies and the runtime device state it reports.
+  // Config writes emit 'midi:config' (the manager reacts); runtime writes emit
+  // 'midi:status' (the UI indicator reacts). Splitting the two events avoids a
+  // feedback loop between the manager and the state it publishes.
+
+  configureMidi(patch) {
+    const m = this.ui.midi;
+    if ('enabled' in patch) m.enabled = !!patch.enabled;
+    if ('record' in patch) m.record = !!patch.record;
+    if ('channel' in patch) m.channel = clamp(Math.round(patch.channel), 0, 16);
+    if ('inputId' in patch) m.inputId = patch.inputId == null ? null : String(patch.inputId);
+    if ('knobs' in patch) m.knobs = patch.knobs ?? {};
+    this.emit('midi:config', {});
+  }
+
+  mapMidiKnob(cc, paramKey) {
+    const c = clamp(Math.round(cc), 0, 127);
+    if (paramKey == null) delete this.ui.midi.knobs[c];
+    else this.ui.midi.knobs[c] = String(paramKey);
+    if (this.ui.midi.learnParam === paramKey) this.ui.midi.learnParam = null;
+    this.emit('midi:config', {});
+  }
+
+  armMidiLearn(paramKey) {
+    this.ui.midi.learnParam = paramKey ? String(paramKey) : null;
+    this.emit('midi:config', {});
+  }
+
+  // Intent only: ask this tab to take MIDI ownership away from a peer that
+  // currently holds it. The browser MIDI manager (src/ui/midi.js) reacts to
+  // 'midi:claim' and performs the actual Web Lock steal + device bind; this
+  // store action stays pure so it runs headless (no navigator/window).
+  requestMidiClaim() {
+    this.emit('midi:claim', {});
+  }
+
+  // Runtime fields only (available, inputName, devices, resolved inputId).
+  // Called by the UI manager to publish observed device state.
+  reportMidi(patch) {
+    Object.assign(this.ui.midi, patch);
+    this.emit('midi:status', {});
   }
 
   // -- serialization -------------------------------------------------------------------

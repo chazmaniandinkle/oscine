@@ -10,15 +10,27 @@ import { getCtx, ensureRunning } from './engine/context.js';
 import { AudioEngine } from './engine/engine.js';
 import { Transport } from './engine/transport.js';
 import { CommandAPI } from './api/api.js';
-import { Bridge } from './api/bridge.js';
+import { Bridge, clientId } from './api/bridge.js';
+import { CrossTab } from './api/crosstab.js';
 import { App } from './ui/app.js';
 import { projectFromUrl } from './core/share.js';
 
+// One stable per-tab id, shared by autosave (per-tab project keys), the
+// bridge (session identity), and cross-tab coordination. Derived before
+// anything that needs it so all three key off the same tab.
+const tabId = clientId();
+
 const bus = new EventBus();
-const store = new Store(bus, loadInitialProject());
+const store = new Store(bus, loadInitialProject(tabId));
 const engine = new AudioEngine(store, bus);
 const transport = new Transport(getCtx(), store, bus);
-attachAutosave(store, bus);
+attachAutosave(store, bus, tabId);
+
+// Same-origin cross-tab coordination: presence roster + exclusive ownership
+// of shared hardware (MIDI). Fully feature-detected; a no-op on browsers
+// without BroadcastChannel / Web Locks.
+const crosstab = new CrossTab(tabId, { title: tabTitle() });
+crosstab.start();
 
 // API-first: the command API is the canonical programmatic surface
 // (same store/engine/transport calls the UI uses). The bridge exposes it
@@ -32,7 +44,7 @@ bridge.start();
 // rather than the autosaved one. Bad/foreign fragments are ignored.
 maybeLoadSharedSong(store);
 
-const app = new App(document.getElementById('app'), { store, bus, engine, transport, api });
+const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab });
 
 // Autoplay policy: resume the context on the first gesture anywhere.
 const unlock = () => { ensureRunning(); };
@@ -41,7 +53,7 @@ window.addEventListener('keydown', unlock, { once: true });
 
 // Console access for poking at the internals (and future scripting).
 // Try: oscine.api.execute('status').then(console.log)
-window.oscine = { bus, store, engine, transport, app, api, bridge };
+window.oscine = { bus, store, engine, transport, app, api, bridge, crosstab };
 
 // Load a song carried in the page URL's #s= fragment, replacing the freshly
 // loaded autosave. Runs before the UI is built, so this is a plain swap (no
@@ -54,4 +66,8 @@ function maybeLoadSharedSong(store) {
   } catch (err) {
     console.warn('[oscine] ignoring unreadable share link:', err.message);
   }
+}
+
+function tabTitle() {
+  try { return document.title || 'Oscine'; } catch { return 'Oscine'; }
 }
