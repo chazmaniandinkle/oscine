@@ -224,12 +224,20 @@ Already shipped:
 - MIDI input: plug in a MIDI controller, enable MIDI from the transport
   bar, and play the selected track. Record-arm captures the notes (or
   drum steps) quantized to the grid, and you can map knobs to instrument
-  params. Only one tab owns the hardware at a time: enable MIDI in one
-  tab and a second tab defers, offering a "Take over" control that claims
-  ownership for itself. Autosave is per-tab keyed now, so two open tabs
-  no longer clobber each other's work in localStorage. Also drivable
-  through the `midi` command (including a `claim` action to take MIDI
-  ownership for the current tab) and the `/oscine/midi/*` OSC addresses.
+  params. Incoming velocity is shaped in software so stiff mini-keys
+  still play loud: set a floor (the loudness of the softest press), a
+  curve (gamma; below 1 makes soft presses more sensitive), or an
+  optional fixed velocity that ignores the controller entirely. A
+  velocity monitor reports the raw values you play back (last, min, max,
+  count, and the recent run) so you can match the curve to your
+  controller by feel. Only one tab owns the hardware at a time: enable
+  MIDI in one tab and a second tab defers, offering a "Take over" control
+  that claims ownership for itself. Autosave is per-tab keyed now, so two
+  open tabs no longer clobber each other's work in localStorage. Also
+  drivable through the `midi` command (`set` takes floor/curve/fixed,
+  `monitor` reads the raw spread, and `claim` takes MIDI ownership for
+  the current tab) and the `/oscine/midi/*` OSC addresses (including
+  `/oscine/midi/floor` and `/oscine/midi/curve`).
 
 The bones are placed for these, roughly in order of effort:
 

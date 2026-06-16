@@ -93,6 +93,13 @@ export class TransportBar {
     this.midiBtn = Btn('MIDI', () => this.openMidiMenu(), 'mini midi-btn');
     right.appendChild(this.midiBtn);
 
+    // Compact velocity readout next to the MIDI button: last/min/max raw values
+    // and the current floor + curve, so the shaping can be tuned by feel. Shown
+    // only while MIDI is enabled; updated as a cheap text swap on 'midi:velocity'
+    // (raw plays) and 'midi:config' (floor/curve/fixed edits).
+    this.midiVelEl = el('span', 'midi-vel');
+    right.appendChild(this.midiVelEl);
+
     const undoBtn = Btn('↶', () => store.undo(), 'icon-btn');
     undoBtn.title = 'Undo (Cmd/Ctrl+Z)';
     const redoBtn = Btn('↷', () => store.redo(), 'icon-btn');
@@ -173,7 +180,8 @@ export class TransportBar {
           : `MCP bridge: background session — another tab is active (${peers} tabs open)`;
     });
     b.on('midi:status', () => this.paintMidi());
-    b.on('midi:config', () => this.paintMidi());
+    b.on('midi:config', () => { this.paintMidi(); this.paintMidiVel(); });
+    b.on('midi:velocity', () => this.paintMidiVel());
     b.on('settings:changed', ({ key }) => {
       if (key === 'bpm') this.bpmCtl.set(store.project.bpm);
       if (key === 'swing') this.swingCtl.set(store.project.swing);
@@ -191,6 +199,7 @@ export class TransportBar {
 
     this.paintSlots();
     this.paintMidi();
+    this.paintMidiVel();
   }
 
   pickImport() {
@@ -262,6 +271,36 @@ export class TransportBar {
           : bound
             ? `MIDI input: ${m.inputName} (${chan})${m.record ? ' — record-armed' : ''}`
             : 'MIDI input: enabled, no device bound';
+  }
+
+  // Cheap text update for the velocity readout: raw last/min/max the user has
+  // played plus the current floor/curve, so the shaping can be tuned by feel.
+  // Hidden while MIDI is off; a fixed-velocity override is called out instead.
+  paintMidiVel() {
+    const m = this.store.ui.midi;
+    const vm = m.velMonitor || { last: 0, min: 0, max: 0, count: 0 };
+    if (!m.enabled) {
+      this.midiVelEl.textContent = '';
+      this.midiVelEl.title = '';
+      this.midiVelEl.classList.remove('on');
+      return;
+    }
+    this.midiVelEl.classList.add('on');
+    const floor = `flr ${Math.round((m.velFloor || 0) * 100)}%`;
+    const curve = `crv ${(m.velCurve || 1).toFixed(2)}`;
+    if (m.velFixed > 0) {
+      // Fixed mode ignores incoming velocity; show what every note will play at.
+      this.midiVelEl.textContent = `vel fixed ${Math.round(m.velFixed * 100)}%`;
+      this.midiVelEl.title = `MIDI velocity: fixed at ${Math.round(m.velFixed * 100)}% (incoming velocity ignored)`;
+      return;
+    }
+    const raw = vm.count
+      ? `vel ${vm.last} (${vm.min}–${vm.max})`
+      : 'vel —';
+    this.midiVelEl.textContent = `${raw} · ${floor} · ${curve}`;
+    this.midiVelEl.title = vm.count
+      ? `Raw note velocity — last ${vm.last}, min ${vm.min}, max ${vm.max} over ${vm.count} note${vm.count === 1 ? '' : 's'}. Shaping: floor ${Math.round((m.velFloor || 0) * 100)}%, curve ${(m.velCurve || 1).toFixed(2)}.`
+      : `No notes played yet. Shaping: floor ${Math.round((m.velFloor || 0) * 100)}%, curve ${(m.velCurve || 1).toFixed(2)}.`;
   }
 
   paintSlots() {
