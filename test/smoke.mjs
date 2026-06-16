@@ -366,6 +366,213 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[4c] midi command: WebMIDI config state (headless)');
+{
+  // The 'midi' command only reads/writes ephemeral store.ui.midi and returns
+  // JSON; the browser-only WebMIDI manager (src/ui/midi.js) applies it when a
+  // device is present. So it runs headlessly with no navigator. Device binding
+  // is exercised in the browser-driven e2e, not here.
+  const bus = new EventBus();
+  const store = new Store(bus, demoProject());
+  // status() (exercised below for the compact midi field) reads transport
+  // position, so this block needs a real transport stub, not an empty object.
+  const transportStub = { getPosition() { return { playing: false, localBeat: 0, loopBeats: 8 }; } };
+  const api = new CommandAPI({ store, engine: {}, transport: transportStub, bus });
+
+  const s0 = await api.execute('midi', { action: 'status' });
+  check('midi status has the documented shape (disabled, omni, no record)',
+    s0.enabled === false && s0.channel === 0 && s0.record === false &&
+    typeof s0.knobs === 'object' && Array.isArray(s0.devices) && typeof s0.available === 'boolean');
+
+  const en = await api.execute('midi', { action: 'enable' });
+  check('midi enable flips enabled true', en.enabled === true && store.ui.midi.enabled === true);
+  const dis = await api.execute('midi', { action: 'disable' });
+  check('midi disable flips enabled false', dis.enabled === false && store.ui.midi.enabled === false);
+
+  const set = await api.execute('midi', { action: 'set', channel: 7, record: true });
+  check('midi set applies channel + record', set.channel === 7 && set.record === true &&
+    store.ui.midi.channel === 7 && store.ui.midi.record === true);
+
+  // map: select a real synth track first, then bind a CC to a numeric param
+  // key that actually exists on its instrument.
+  await api.execute('select_track', { track: 'Bass' });
+  const bass = store.project.tracks.find(t => t.name === 'Bass');
+  const synthKey = (await api.execute('list_instruments')).instruments
+    .find(d => d.type === bass.instrument.type).params
+    .find(p => p.type !== 'select').key; // a numeric (knob) param, e.g. 'cutoff'
+  const mapped = await api.execute('midi', { action: 'map', cc: 1, param: synthKey });
+  check('midi map binds cc -> selected-track param',
+    mapped.knobs[1] === synthKey && store.ui.midi.knobs[1] === synthKey);
+
+  let unknownParam = null;
+  try { await api.execute('midi', { action: 'map', cc: 2, param: 'definitelyNotAParam' }); }
+  catch (e) { unknownParam = e.message; }
+  check('midi map rejects an unknown param with the key list',
+    /definitelyNotAParam/.test(unknownParam ?? '') && new RegExp(synthKey).test(unknownParam ?? ''));
+
+  // map/learn require a selected synth track; with none selected they error.
+  store.ui.selectedTrackId = null;
+  let noTrack = null;
+  try { await api.execute('midi', { action: 'map', cc: 3, param: synthKey }); }
+  catch (e) { noTrack = e.message; }
+  check('midi map with no selected track errors', !!noTrack);
+  store.selectTrack(bass.id);
+
+  // A non-numeric (select-type) param cannot be CC-mapped.
+  const selectKey = (await api.execute('list_instruments')).instruments
+    .find(d => d.type === bass.instrument.type).params
+    .find(p => p.type === 'select').key; // e.g. 'osc1Wave'
+  let nonNumeric = null;
+  try { await api.execute('midi', { action: 'map', cc: 4, param: selectKey }); }
+  catch (e) { nonNumeric = e.message; }
+  check('midi map rejects a non-numeric (select) param', !!nonNumeric);
+
+  const learned = await api.execute('midi', { action: 'learn', param: synthKey });
+  check('midi learn arms learnParam + returns a note',
+    store.ui.midi.learnParam === synthKey && typeof learned.note === 'string' && learned.note.length > 0);
+
+  const clear = await api.execute('midi', { action: 'clear_map', cc: 1 });
+  check('midi clear_map removes the mapping', clear.knobs[1] === undefined && store.ui.midi.knobs[1] === undefined);
+
+  // status() carries a compact midi field for the orient-first snapshot.
+  await api.execute('midi', { action: 'map', cc: 5, param: synthKey });
+  const st = await api.execute('status');
+  check('status includes a compact midi field',
+    st.midi && st.midi.enabled === false && st.midi.channel === 7 &&
+    st.midi.record === true && st.midi.knobs === Object.keys(store.ui.midi.knobs).length);
+
+  // Single-tab ownership: status() reports who holds the hardware. The lock and
+  // peer roster live in the browser (src/api/crosstab.js + src/ui/midi.js); the
+  // handler just surfaces the runtime fields. Headless has no crosstab, so the
+  // values default sanely (owner defined-but-stable, peers a number, and
+  // ownerElsewhere only true when a peer owns it and we don't).
+  const own = await api.execute('midi', { action: 'status' });
+  check('midi status reports owner/peers/ownerElsewhere shape',
+    typeof own.owner === 'boolean' && typeof own.peers === 'number' &&
+    typeof own.ownerElsewhere === 'boolean');
+  check('midi ownerElsewhere is consistent with owner (not both true)',
+    !(own.owner && own.ownerElsewhere));
+
+  // 'claim' sets the take-over intent (store.requestMidiClaim()) and returns
+  // state; the actual Web Lock steal happens in the UI manager. Headless with no
+  // crosstab/app it is a harmless no-op that still returns a midiState object.
+  const claimed = await api.execute('midi', { action: 'claim' });
+  check('midi claim returns midiState() without throwing headlessly',
+    typeof claimed === 'object' && typeof claimed.enabled === 'boolean' &&
+    typeof claimed.owner === 'boolean' && typeof claimed.peers === 'number' &&
+    typeof claimed.knobs === 'object');
+
+  // OSC routing-table additions for /oscine/midi/*. (routeOsc is also exercised
+  // in section [5]; imported here under an alias to keep this block standalone.)
+  const { routeOsc: routeOscMidi } = await import(`${ROOT}/plugin/server/osc-gateway.js`);
+  const midiRoutes = [
+    ['/oscine/midi/enable', [1], { cmd: 'midi', args: { action: 'enable' } }],
+    ['/oscine/midi/enable', [0], { cmd: 'midi', args: { action: 'disable' } }],
+    ['/oscine/midi/channel', [10], { cmd: 'midi', args: { action: 'set', channel: 10 } }],
+    ['/oscine/midi/record', [1], { cmd: 'midi', args: { action: 'set', record: true } }],
+    ['/oscine/midi/claim', [], { cmd: 'midi', args: { action: 'claim' } }],
+  ];
+  let midiRouteOk = true;
+  for (const [addr, args, want] of midiRoutes) {
+    const got = routeOscMidi(addr, args);
+    if (JSON.stringify(got) !== JSON.stringify(want)) {
+      midiRouteOk = false;
+      console.error(`      route ${addr} ${JSON.stringify(args)}: got ${JSON.stringify(got)}`);
+    }
+  }
+  check(`midi OSC routes map ${midiRoutes.length} addresses correctly`, midiRouteOk);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[4d] cross-tab coordination + per-tab autosave (node no-op safe)');
+{
+  // CrossTab wraps browser-only platform APIs (BroadcastChannel, navigator.locks,
+  // document visibility). Under node those are absent, so it must construct and
+  // run as a benign no-op: no throws, ever. We keep these assertions resilient to
+  // a node build that DOES expose a global BroadcastChannel (some do) by checking
+  // for no-throw + sane types rather than a specific supported value.
+  const { CrossTab } = await import(`${ROOT}/src/api/crosstab.js`);
+
+  let ct = null, ctThrew = null;
+  try { ct = new CrossTab('test-id', { title: 'smoke' }); } catch (e) { ctThrew = e.message; }
+  check('CrossTab constructs without throwing under node', ct && !ctThrew, ctThrew ?? '');
+  check('CrossTab.supported / locksSupported are booleans (feature-detected)',
+    typeof ct.supported === 'boolean' && typeof ct.locksSupported === 'boolean');
+
+  let startThrew = null;
+  try { ct.start(); ct.start(); } catch (e) { startThrew = e.message; } // idempotent
+  check('CrossTab.start() is idempotent and does not throw', startThrew === null, startThrew ?? '');
+
+  check('CrossTab.peers is an array (includes self in the degraded path)',
+    Array.isArray(ct.peers));
+
+  let onPresenceThrew = null, unsub = null;
+  try { unsub = ct.onPresence(() => {}); } catch (e) { onPresenceThrew = e.message; }
+  check('CrossTab.onPresence returns an unsubscribe fn without throwing',
+    onPresenceThrew === null && typeof unsub === 'function', onPresenceThrew ?? '');
+  unsub?.();
+
+  let setOwnThrew = null;
+  try { ct.setOwn('midi', true); ct.setOwn('midi', false); } catch (e) { setOwnThrew = e.message; }
+  check('CrossTab.setOwn does not throw', setOwnThrew === null, setOwnThrew ?? '');
+
+  // claim() must resolve truthy without throwing (degraded path resolves true:
+  // "no enforcement available"). With a global BroadcastChannel present it may
+  // still resolve a boolean either way; we only require truthy + no throw here,
+  // mirroring the contract's degraded behavior.
+  let claimVal = null, claimThrew = null;
+  try { claimVal = await ct.claim('midi'); } catch (e) { claimThrew = e.message; }
+  check('CrossTab.claim() resolves truthy without throwing',
+    claimThrew === null && !!claimVal, claimThrew ?? `value ${claimVal}`);
+  check('CrossTab.owns(resource) is a boolean', typeof ct.owns('midi') === 'boolean');
+
+  let onLostThrew = null;
+  try { ct.onLost('midi', () => {}); } catch (e) { onLostThrew = e.message; }
+  check('CrossTab.onLost registers without throwing', onLostThrew === null, onLostThrew ?? '');
+
+  // post/on are typed-message helpers; on() ignores messages from self.
+  let msgThrew = null, offMsg = null;
+  try { offMsg = ct.on('hello', () => {}); ct.post('hello', { x: 1 }); } catch (e) { msgThrew = e.message; }
+  check('CrossTab.on/post do not throw and on() returns an unsubscribe',
+    msgThrew === null && typeof offMsg === 'function', msgThrew ?? '');
+  offMsg?.();
+
+  let releaseThrew = null;
+  try { ct.release('midi'); } catch (e) { releaseThrew = e.message; }
+  check('CrossTab.release does not throw', releaseThrew === null, releaseThrew ?? '');
+
+  let stopThrew = null;
+  try { ct.stop(); } catch (e) { stopThrew = e.message; }
+  check('CrossTab.stop() does not throw (Web Locks auto-release on close)',
+    stopThrew === null, stopThrew ?? '');
+
+  // persist.js may use localStorage but stays guarded so node-side imports and
+  // calls never throw. attachAutosave/loadInitialProject take a clientId now;
+  // with no real localStorage in node they must no-op / stay in-memory-safe.
+  const persist = await import(`${ROOT}/src/core/persist.js`);
+  check('persist.js exports attachAutosave + loadInitialProject',
+    typeof persist.attachAutosave === 'function' && typeof persist.loadInitialProject === 'function');
+
+  let loadThrew = null, loaded = null;
+  try { loaded = persist.loadInitialProject('client-abc'); } catch (e) { loadThrew = e.message; }
+  check('loadInitialProject(clientId) does not throw under node and returns a project',
+    loadThrew === null && loaded && Array.isArray(loaded.tracks), loadThrew ?? '');
+
+  let attachThrew = null;
+  try {
+    const abus = new EventBus();
+    const astore = new Store(abus, demoProject());
+    persist.attachAutosave(astore, abus, 'client-abc');
+    // Fire a project-mutating event; the debounced save must not throw even with
+    // no real localStorage (guarded write).
+    astore.checkpoint();
+    astore.setSetting('bpm', 128);
+  } catch (e) { attachThrew = e.message; }
+  check('attachAutosave(store, bus, clientId) wires up without throwing',
+    attachThrew === null, attachThrew ?? '');
+}
+
+// ---------------------------------------------------------------------------
 console.log('\n[4b] WAV encoder + song-in-URL codec');
 const { encodeWav } = await import(`${ROOT}/src/core/wav.js`);
 const share = await import(`${ROOT}/src/core/share.js`);

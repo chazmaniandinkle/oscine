@@ -142,6 +142,13 @@ export class CommandAPI {
       tracks: p.tracks.map(t => this.trackSummary(t)),
       slots: p.slots.map((_, i) => this.slotSummary(i)),
       history: { canUndo: store.canUndo, canRedo: store.canRedo },
+      midi: {
+        enabled: store.ui.midi.enabled,
+        input: store.ui.midi.inputName,
+        channel: store.ui.midi.channel,
+        record: store.ui.midi.record,
+        knobs: Object.keys(store.ui.midi.knobs).length,
+      },
     };
   }
 
@@ -438,6 +445,119 @@ export class CommandAPI {
         store.copySlot(f, tt);
         return { copied: `${SLOT_NAMES[f]} -> ${SLOT_NAMES[tt]}`, slots: store.project.slots.map((_, i) => this.slotSummary(i)) };
       }
+      default:
+        throw new Error(`Bad action '${action}'.`);
+    }
+  }
+
+  // -- MIDI input ------------------------------------------------------------
+  // Pure config surface: reads/writes store.ui.midi and returns JSON. The
+  // WebMIDI hardware lives in the browser (src/ui/midi.js); this handler never
+  // touches navigator/window so it stays runnable headless (tests, sidecar).
+
+  midiState() {
+    const m = this.store.ui.midi;
+    const peers = m.peers ?? 1;
+    return {
+      available: m.available,
+      enabled: m.enabled,
+      input: { id: m.inputId, name: m.inputName },
+      channel: m.channel,
+      record: m.record,
+      learn: m.learnParam,
+      devices: m.devices.map(d => ({ ...d })),
+      knobs: { ...m.knobs },
+      owner: !!m.owner,                               // this tab holds MIDI
+      peers,                                          // live same-origin tabs
+      ownerElsewhere: m.enabled && !m.owner && peers > 1, // a peer holds it, not us
+    };
+  }
+
+  // Validate a param key as a real numeric (knob) param on the selected track's
+  // instrument, returning the resolved key. Throws actionable errors otherwise.
+  resolveMidiParam(param) {
+    const trackId = this.store.ui.selectedTrackId;
+    const track = trackId && this.store.getTrack(trackId);
+    if (!track) throw new Error('No track selected. Use select_track first, then map a knob to its instrument.');
+    const def = getInstrumentDef(track.instrument.type);
+    const p = def.params.find(x => x.key === param);
+    if (!p) {
+      const keys = def.params.filter(x => x.type !== 'select').map(x => x.key).join(', ');
+      throw new Error(`No param '${param}' on ${def.label}. Numeric params: ${keys}.`);
+    }
+    if (p.type === 'select') {
+      const keys = def.params.filter(x => x.type !== 'select').map(x => x.key).join(', ');
+      throw new Error(`Param '${param}' on ${def.label} is a selector, not a knob; only numeric params map to a CC. Numeric params: ${keys}.`);
+    }
+    return p.key;
+  }
+
+  cmd_midi({ action, device, channel, record, cc, param }) {
+    const { store } = this;
+    switch (action) {
+      case 'status':
+        return this.midiState();
+      case 'enable':
+        store.configureMidi({ enabled: true });
+        return this.midiState();
+      case 'disable':
+        store.configureMidi({ enabled: false });
+        return this.midiState();
+      case 'select': {
+        if (!device) throw new Error("action 'select' needs a 'device' (input id or name substring).");
+        const devices = store.ui.midi.devices;
+        if (!devices.length) {
+          store.configureMidi({ inputId: device });
+          return { ...this.midiState(), note: 'No MIDI devices are enumerated in this context; the browser app will bind this input id when it connects.' };
+        }
+        const needle = String(device).toLowerCase();
+        const match = devices.find(d => d.id === device) ||
+          devices.find(d => String(d.name).toLowerCase().includes(needle));
+        if (!match) {
+          const names = devices.map(d => `"${d.name}"`).join(', ');
+          throw new Error(`No MIDI input '${device}'. Devices: ${names}.`);
+        }
+        store.configureMidi({ inputId: match.id });
+        store.reportMidi({ inputName: match.name });
+        return this.midiState();
+      }
+      case 'set': {
+        if (channel === undefined && record === undefined) {
+          throw new Error("action 'set' needs at least one of 'channel' or 'record'.");
+        }
+        const patch = {};
+        if (channel !== undefined) {
+          const ch = Math.round(Number(channel));
+          if (Number.isNaN(ch) || ch < 0 || ch > 16) throw new Error('channel must be an integer 0..16 (0 = omni).');
+          patch.channel = ch;
+        }
+        if (record !== undefined) patch.record = !!record;
+        store.configureMidi(patch);
+        return this.midiState();
+      }
+      case 'map': {
+        if (cc === undefined) throw new Error("action 'map' needs a 'cc' (controller CC number 0..127).");
+        if (param === undefined) throw new Error("action 'map' needs a 'param' (a numeric param key of the selected track's instrument).");
+        const key = this.resolveMidiParam(param);
+        store.mapMidiKnob(cc, key);
+        return this.midiState();
+      }
+      case 'learn': {
+        if (param === undefined) throw new Error("action 'learn' needs a 'param' (a numeric param key of the selected track's instrument).");
+        const key = this.resolveMidiParam(param);
+        store.armMidiLearn(key);
+        return { ...this.midiState(), note: 'Turn a knob/control on the device to bind it.' };
+      }
+      case 'clear_map':
+        if (cc !== undefined) store.mapMidiKnob(cc, null);
+        else store.configureMidi({ knobs: {} });
+        return this.midiState();
+      case 'claim':
+        // Take MIDI ownership for this tab. Intent only: the browser MIDI
+        // manager reacts to 'midi:claim' and steals the lock + binds. Headless
+        // (no app/coordinator) this is a harmless no-op that still returns state.
+        store.requestMidiClaim();
+        return { ...this.midiState(), note: 'Taking MIDI ownership for this tab.' };
       default:
         throw new Error(`Bad action '${action}'.`);
     }

@@ -115,18 +115,10 @@ export class Bridge {
   // A stable id for this browser tab, persisted so a reconnect (network
   // blip, sidecar restart) is recognised as the same session rather than a
   // new one. Per-tab via sessionStorage; falls back to a volatile id.
+  // Delegates to the shared clientId() so the bridge, autosave, and
+  // cross-tab coordination all agree on one id per tab.
   clientId() {
-    try {
-      let id = sessionStorage.getItem('oscine.clientId');
-      if (!id) {
-        id = 'c-' + Math.random().toString(36).slice(2, 10);
-        sessionStorage.setItem('oscine.clientId', id);
-      }
-      return id;
-    } catch {
-      this._volatileId ??= 'c-' + Math.random().toString(36).slice(2, 10);
-      return this._volatileId;
-    }
+    return clientId();
   }
 
   // State streaming for the sidecar's OSC subscribers: compact snapshot
@@ -167,3 +159,22 @@ const round3 = (v) => Math.round(v * 1000) / 1000;
 const tabTitle = () => {
   try { return document.title || 'Oscine'; } catch { return 'Oscine'; }
 };
+
+// Stable per-tab id, shared by the bridge, autosave keys, and cross-tab
+// coordination so they all key off the same tab identity. Persisted in
+// sessionStorage (survives a reload, distinct per tab); falls back to a
+// volatile id if storage is unavailable.
+let volatileClientId = null;
+export function clientId() {
+  try {
+    let id = sessionStorage.getItem('oscine.clientId');
+    if (!id) {
+      id = 'c-' + Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem('oscine.clientId', id);
+    }
+    return id;
+  } catch {
+    volatileClientId ??= 'c-' + Math.random().toString(36).slice(2, 10);
+    return volatileClientId;
+  }
+}

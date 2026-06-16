@@ -10,6 +10,7 @@ import { StepGrid } from './stepgrid.js';
 import { Inspector } from './inspector.js';
 import { Mixer } from './mixer.js';
 import { KeyboardBar } from './keyboard.js';
+import { MidiInput } from './midi.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
 const SNAP_CHOICES = [
@@ -20,12 +21,16 @@ const SNAP_CHOICES = [
 ];
 
 export class App {
-  constructor(rootEl, { store, bus, engine, transport, api }) {
+  constructor(rootEl, { store, bus, engine, transport, api, crosstab }) {
     this.store = store;
     this.bus = bus;
     this.engine = engine;
     this.transport = transport;
     this.api = api;
+    // Cross-tab coordination substrate (presence + exclusive ownership of
+    // shared hardware). Set before MidiInput so its init() can read it.
+    // May be undefined in headless/test contexts; the MIDI manager guards.
+    this.crosstab = crosstab;
 
     rootEl.textContent = '';
 
@@ -71,6 +76,8 @@ export class App {
     this.inspector = new Inspector(inspectorPanel, this);
     this.mixer = new Mixer(mixerHost, this);
     this.keys = new KeyboardBar(keysHost, this);
+    this.midi = new MidiInput(this);
+    this.midi.init();
 
     this.editorHost = editorHost;
     this.emptyState = el('div', 'editor-empty', 'Add a track to start composing.');

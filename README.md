@@ -219,6 +219,18 @@ cover everything below that line, including the entire MCP path.
 
 ## Growing it into a DAW
 
+Already shipped:
+
+- MIDI input: plug in a MIDI controller, enable MIDI from the transport
+  bar, and play the selected track. Record-arm captures the notes (or
+  drum steps) quantized to the grid, and you can map knobs to instrument
+  params. Only one tab owns the hardware at a time: enable MIDI in one
+  tab and a second tab defers, offering a "Take over" control that claims
+  ownership for itself. Autosave is per-tab keyed now, so two open tabs
+  no longer clobber each other's work in localStorage. Also drivable
+  through the `midi` command (including a `claim` action to take MIDI
+  ownership for the current tab) and the `/oscine/midi/*` OSC addresses.
+
 The bones are placed for these, roughly in order of effort:
 
 - Song arrangement: a timeline view that sequences slot patterns into a
@@ -233,8 +245,6 @@ The bones are placed for these, roughly in order of effort:
 - Audio/sample tracks: a new instrument kind ('audio') whose patterns
   hold clip references; decodeAudioData + AudioBufferSourceNode slots
   into the existing channel strip unchanged.
-- MIDI input: WebMIDI -> engine.previewOn; recording is appending to the
-  active pattern with transport-quantized timestamps.
 - Worker clock: move the setInterval tick into a Worker so background
   tabs keep steady time.
 - More automation surfaces: the command catalog is transport-agnostic;

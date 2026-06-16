@@ -36,3 +36,5 @@ Oscine is a live browser app. Tools act on the user's actual session: they hear 
 - If a tool errors with "Oscine isn't open", use `oscine_open_app` — never tell the user it failed without trying that first.
 - `oscine_transport action:play` loops the active slot from its top; there is no song arrangement yet.
 - Param tweaks are not in undo history (matches the UI); patterns, tracks, slots, and presets are.
+- Hardware MIDI input exists: a plugged-in controller plays the selected track, record-arm captures quantized notes/steps, and knobs map to params. The `midi` command (`status`, `enable`, `disable`, `select`, `set`, `map`, `learn`, `clear_map`, `claim`) controls it; the device binding happens in the browser tab.
+- MIDI ownership is single-tab: only one tab binds the hardware at a time, and `midi` with `action:"claim"` takes ownership over for the current tab.

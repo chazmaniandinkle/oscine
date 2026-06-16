@@ -665,6 +665,16 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 }
 .bridge-dot.multi.inactive { background: var(--warn); }
 
+/* MIDI control: compact button in the transport's right group. 'on' when a
+   device is bound; 'armed' overrides to the warn color when record is live. */
+.midi-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.midi-btn.armed {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+  color: var(--warn);
+  animation: pulse 0.8s infinite alternate;
+}
+
 /* ---------- menus & toast ---------- */
 
 .menu {

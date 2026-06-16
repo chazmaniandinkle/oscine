@@ -87,6 +87,12 @@ export class TransportBar {
     this.bridgeDot.title = 'MCP bridge: not connected';
     right.appendChild(this.bridgeDot);
 
+    // Compact MIDI control: opens a menu built live from store.ui.midi
+    // (enable/disable, record-arm, device pick). The MidiInput manager owns
+    // the hardware and reacts to the 'midi:config' events these emit.
+    this.midiBtn = Btn('MIDI', () => this.openMidiMenu(), 'mini midi-btn');
+    right.appendChild(this.midiBtn);
+
     const undoBtn = Btn('↶', () => store.undo(), 'icon-btn');
     undoBtn.title = 'Undo (Cmd/Ctrl+Z)';
     const redoBtn = Btn('↷', () => store.redo(), 'icon-btn');
@@ -166,6 +172,8 @@ export class TransportBar {
           ? `MCP bridge: this tab is the active session (${peers} tabs open)`
           : `MCP bridge: background session — another tab is active (${peers} tabs open)`;
     });
+    b.on('midi:status', () => this.paintMidi());
+    b.on('midi:config', () => this.paintMidi());
     b.on('settings:changed', ({ key }) => {
       if (key === 'bpm') this.bpmCtl.set(store.project.bpm);
       if (key === 'swing') this.swingCtl.set(store.project.swing);
@@ -182,10 +190,78 @@ export class TransportBar {
     });
 
     this.paintSlots();
+    this.paintMidi();
   }
 
   pickImport() {
     this.fileInput.click();
+  }
+
+  // Live MIDI menu: enable/disable, record-arm toggle, and (when devices are
+  // enumerated) a device pick list. Each item writes config via the store; the
+  // MidiInput manager reacts to 'midi:config' and rebinds the hardware.
+  openMidiMenu() {
+    const m = this.store.ui.midi;
+    const ownerElsewhere = m.enabled && !m.owner && (m.peers ?? 1) > 1;
+    const items = [
+      {
+        label: (m.enabled ? '✓ ' : '') + (m.enabled ? 'WebMIDI on' : 'Enable WebMIDI'),
+        onPick: () => {
+          this.store.configureMidi({ enabled: !m.enabled });
+          toast(m.enabled ? 'WebMIDI off' : 'WebMIDI on');
+        },
+      },
+      {
+        label: (m.record ? '✓ ' : '') + 'Record-arm',
+        onPick: () => {
+          this.store.configureMidi({ record: !m.record });
+          toast(m.record ? 'Record-arm off' : 'Record-arm on');
+        },
+      },
+    ];
+    // Another tab holds the hardware: offer a one-click take-over.
+    if (ownerElsewhere) {
+      items.push({
+        label: 'Take over MIDI (held by another tab)',
+        onPick: () => { this.store.requestMidiClaim(); toast('Taking MIDI ownership for this tab'); },
+      });
+    }
+    if (m.available && m.devices.length) {
+      for (const d of m.devices) {
+        items.push({
+          label: (d.id === m.inputId ? '✓ ' : '   ') + d.name,
+          onPick: () => this.store.configureMidi({ inputId: d.id }),
+        });
+      }
+    } else if (m.enabled && !m.available) {
+      items.push({ label: '(no WebMIDI in this browser)', onPick: () => {} });
+    } else if (m.enabled) {
+      items.push({ label: '(no devices found)', onPick: () => {} });
+    }
+    openMenu(this.midiBtn, items);
+  }
+
+  paintMidi() {
+    const m = this.store.ui.midi;
+    const peers = m.peers ?? 1;
+    const ownerElsewhere = m.enabled && !m.owner && peers > 1;
+    const bound = m.available && !!m.inputName && !ownerElsewhere;
+    this.midiBtn.classList.toggle('on', bound);
+    this.midiBtn.classList.toggle('armed', !!m.record && m.enabled);
+    // Deferred: enabled here but another tab owns the hardware.
+    this.midiBtn.classList.toggle('deferred', ownerElsewhere);
+    // Show the open-tab count when more than just this tab is live.
+    this.midiBtn.textContent = peers > 1 ? `MIDI ${peers}` : 'MIDI';
+    const chan = m.channel ? `ch ${m.channel}` : 'omni';
+    this.midiBtn.title = !m.enabled
+      ? 'MIDI input: disabled (click to enable)'
+      : !m.available
+        ? 'MIDI input: WebMIDI not available in this browser'
+        : ownerElsewhere
+          ? `MIDI input: held by another tab (${peers} tabs open) — click to take over`
+          : bound
+            ? `MIDI input: ${m.inputName} (${chan})${m.record ? ' — record-armed' : ''}`
+            : 'MIDI input: enabled, no device bound';
   }
 
   paintSlots() {
