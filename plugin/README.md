@@ -96,7 +96,7 @@ One-time setup (remove any uploaded copy first, via Settings):
 
 ```sh
 claude plugin marketplace add chazmaniandinkle/oscine   # or a local path:
-# claude plugin marketplace add /path/to/synth-composer  (test before merge)
+# claude plugin marketplace add /path/to/oscine  (test before merge)
 claude plugin install oscine@oscine
 ```
 

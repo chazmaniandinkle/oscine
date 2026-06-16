@@ -1,3 +1,9 @@
 .DS_Store
 node_modules/
 *.log
+
+# Personal, machine-local work: song exports (.oscine.json), local config,
+# and sketches you are experimenting with. Everything under local/ is ignored
+# except its README, so your work there never shows up as something to commit.
+/local/*
+!/local/README.md
