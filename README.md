@@ -239,6 +239,22 @@ Already shipped:
   the current tab) and the `/oscine/midi/*` OSC addresses (including
   `/oscine/midi/floor` and `/oscine/midi/curve`).
 
+  MIDI over OSC (works where WebMIDI is blocked): some surfaces deny the
+  WebMIDI permission outright (the Claude Code preview is one), so there
+  is a second path in. `npm run midi-bridge` (after a one-time
+  `npm i @julusian/midi`) reads a connected controller and forwards its
+  raw messages to Oscine over OSC at `/oscine/midi/in <status> <d1> [d2]`.
+  Those bytes feed the same input pipeline WebMIDI uses, so velocity
+  shaping (floor/curve/fixed), the velocity monitor, record-arm, and
+  drum-lane mapping all apply identically. The bridge takes `--list` to
+  print available input ports, `--device <substring>` to pick one by
+  name, and `--host`/`--port` to target a sidecar elsewhere (default
+  `127.0.0.1:7340`, the OSC gateway). `@julusian/midi` is an optional
+  install, not a runtime dependency: the app and sidecar stay
+  zero-dependency, and the bridge prints an install hint if the module
+  is absent. Any OSC source can play Oscine the same way by sending
+  `/oscine/midi/in`.
+
 The bones are placed for these, roughly in order of effort:
 
 - Song arrangement: a timeline view that sequences slot patterns into a

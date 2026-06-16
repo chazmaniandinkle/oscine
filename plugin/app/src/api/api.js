@@ -502,7 +502,7 @@ export class CommandAPI {
     return p.key;
   }
 
-  cmd_midi({ action, device, channel, record, floor, curve, fixed, reset, cc, param }) {
+  cmd_midi({ action, device, channel, record, floor, curve, fixed, bytes, reset, cc, param }) {
     const { store } = this;
     switch (action) {
       case 'status':
@@ -560,6 +560,18 @@ export class CommandAPI {
         }
         if (Object.keys(vel).length) store.setMidiVelocity(vel);
         return this.midiState();
+      }
+      case 'input': {
+        // Inject a raw MIDI message into the same pipeline WebMIDI feeds. Pure:
+        // emit a bus event; the browser MidiInput manager consumes it and runs
+        // onMessage so velocity shaping, the monitor, and record-arm all apply.
+        if (!Array.isArray(bytes) || bytes.length < 1 || bytes.length > 3 ||
+            bytes.some(b => typeof b !== 'number' || !Number.isFinite(b))) {
+          throw new Error("action 'input' needs 'bytes': a 1..3 length array of MIDI numbers, e.g. [144, 60, 100].");
+        }
+        const msg = bytes.map(b => clamp(Math.round(b), 0, 255));
+        this.bus.emit('midi:inject', { bytes: msg });
+        return { ok: true, injected: msg };
       }
       case 'monitor':
         if (reset === true) store.resetMidiVelocityMonitor();

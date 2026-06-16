@@ -230,9 +230,10 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Catalog sanity.
   const names = COMMANDS.map(c => c.name);
   check('catalog names are unique', new Set(names).size === names.length);
-  // Count guard: velocity shaping + monitor extend the existing 'midi' command
-  // rather than adding a new one, so the catalog stays at 20 (and the e2e
-  // tool-count check, derived from COMMANDS.length, still holds).
+  // Count guard: velocity shaping, the monitor, and OSC MIDI input all extend
+  // the existing 'midi' command (new actions) rather than adding a command, so
+  // the catalog stays at 20 (and the e2e tool-count check, derived from
+  // COMMANDS.length, still holds).
   check('catalog command count is unchanged (20)', COMMANDS.length === 20, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
@@ -540,6 +541,71 @@ console.log('\n[4c] midi command: WebMIDI config state (headless)');
     monReset.count === 0 && Array.isArray(monReset.recent) && monReset.recent.length === 0 &&
     store.ui.midi.velMonitor.count === 0);
 
+  // -- OSC MIDI input (the external-bridge entry point) ----------------------
+  // 'input' is a pure handler: it clamps the raw bytes and emits 'midi:inject'
+  // on the bus. The browser MidiInput manager subscribes and feeds them through
+  // the same onMessage pipeline WebMIDI uses (shaping/monitor/record/routing),
+  // so injected MIDI works even when WebMIDI is disabled or unavailable. Here we
+  // assert the handler half: the event fires with clamped bytes and bad input
+  // throws. The browser-side consumption (MidiInput.onMessage with no WebMIDI
+  // access) is asserted directly in the next block.
+  const injected = [];
+  const offInject = bus.on('midi:inject', ({ bytes }) => injected.push(bytes));
+  const inRes = await api.execute('midi', { action: 'input', bytes: [144, 60, 100] });
+  check('midi input emits midi:inject with the bytes and returns ok',
+    inRes.ok === true && injected.length === 1 &&
+    injected[0].join(',') === '144,60,100' &&
+    inRes.injected.join(',') === '144,60,100');
+
+  const inClamp = await api.execute('midi', { action: 'input', bytes: [200, 300, -5] });
+  check('midi input rounds + clamps each byte into 0..255',
+    injected[1].join(',') === '200,255,0' && inClamp.injected.join(',') === '200,255,0');
+  offInject();
+
+  // A 1..3 length numeric array is required; missing/empty/non-array throws.
+  for (const bad of [undefined, [], [1, 2, 3, 4], 'note', { 0: 144 }]) {
+    let inErr = null;
+    try { await api.execute('midi', { action: 'input', bytes: bad }); } catch (e) { inErr = e.message; }
+    check(`midi input rejects bad bytes (${JSON.stringify(bad) ?? 'undefined'})`, !!inErr);
+  }
+
+  // The whole point of injection is that it works with WebMIDI OFF/unavailable:
+  // MidiInput.onMessage reads only e.data and never touches this.access. Assert
+  // that end-to-end headlessly. We construct the real browser manager (no
+  // navigator.requestMIDIAccess in node, so this.access stays null), select a
+  // synth track, emit 'midi:inject' on the bus, and verify the note reached the
+  // engine preview path with shaped velocity and that the raw velocity hit the
+  // monitor. This is the one correctness claim the OSC-MIDI change rests on.
+  {
+    const { MidiInput } = await import(`${ROOT}/src/ui/midi.js`);
+    const { getInstrumentDef } = await import(`${ROOT}/src/engine/instruments/index.js`);
+    const previews = [];
+    const engineStub = {
+      previewOn: (trackId, midi, vel) => previews.push({ trackId, midi, vel }),
+      previewOff: () => {}, previewHit: () => {},
+    };
+    // Fresh project so the injected note targets a known synth track.
+    const ibus = new EventBus();
+    const istore = new Store(ibus, demoProject());
+    const synth = istore.project.tracks.find(t => getInstrumentDef(t.instrument.type).kind !== 'drums');
+    istore.selectTrack(synth.id);
+    const appStub = {
+      store: istore, bus: ibus, engine: engineStub,
+      transport: { getPosition() { return { playing: false, localBeat: 0, loopBeats: 8 }; } },
+    };
+    // Constructing the manager must NOT require WebMIDI: it only wires bus
+    // listeners and (guarded) restore; this.access stays null in node.
+    const mgr = new MidiInput(appStub);
+    check('MidiInput constructs headlessly with no WebMIDI access', mgr.access === null);
+    // note-on, channel 1, pitch 60, velocity 100 -> routed through onMessage.
+    ibus.emit('midi:inject', { bytes: [0x90, 60, 100] });
+    check('injected MIDI reaches the engine preview path without WebMIDI',
+      previews.length === 1 && previews[0].midi === 60 &&
+      previews[0].trackId === synth.id && previews[0].vel > 0);
+    check('injected note-on velocity hits the velocity monitor (raw)',
+      istore.ui.midi.velMonitor.last === 100 && istore.ui.midi.velMonitor.count === 1);
+  }
+
   // status()'s compact midi field carries velocity + lastVelocity for orient.
   await api.execute('midi', { action: 'set', floor: 0.25, curve: 0.7 });
   store.observeMidiVelocity(88);
@@ -559,6 +625,7 @@ console.log('\n[4c] midi command: WebMIDI config state (headless)');
     ['/oscine/midi/floor', [0.3], { cmd: 'midi', args: { action: 'set', floor: 0.3 } }],
     ['/oscine/midi/curve', [0.5], { cmd: 'midi', args: { action: 'set', curve: 0.5 } }],
     ['/oscine/midi/claim', [], { cmd: 'midi', args: { action: 'claim' } }],
+    ['/oscine/midi/in', [144, 60, 100], { cmd: 'midi', args: { action: 'input', bytes: [144, 60, 100] } }],
   ];
   let midiRouteOk = true;
   for (const [addr, args, want] of midiRoutes) {
