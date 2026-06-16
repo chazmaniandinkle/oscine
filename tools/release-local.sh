@@ -17,11 +17,11 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Refreshing the oscine marketplace…"
-claude plugin marketplace refresh oscine
+echo "Refreshing the oscine marketplace..."
+claude plugin marketplace update oscine
 
-echo "Updating the installed oscine plugin…"
-claude plugin update oscine
+echo "Updating the installed oscine plugin..."
+claude plugin update oscine@oscine
 
 echo
 echo "Done. Restart Claude (or run /reload-plugins) so the new sidecar + app load."
