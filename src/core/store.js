@@ -34,6 +34,11 @@ export class Store {
         record: false,      // record-arm
         knobs: {},          // { [ccNumber:int]: paramKey:string } for selected instrument
         learnParam: null,   // when a string, the next incoming CC binds to this param
+        velFloor: 0,        // 0..1 minimum OUTPUT velocity (loudness of the softest press)
+        velCurve: 1,        // gamma exponent; <1 boosts soft presses (more sensitive), >1 less
+        velFixed: 0,        // 0 = disabled; >0 = ignore incoming velocity, use this constant
+        // raw 0..127 observations of incoming note-on velocity (for tuning the curve)
+        velMonitor: { last: 0, min: 0, max: 0, count: 0, recent: [] },
         available: false,   // runtime: WebMIDI present + access granted
         inputName: null,    // runtime: bound input's display name
         devices: [],        // runtime: [{ id, name }]
@@ -342,6 +347,39 @@ export class Store {
   armMidiLearn(paramKey) {
     this.ui.midi.learnParam = paramKey ? String(paramKey) : null;
     this.emit('midi:config', {});
+  }
+
+  // Velocity shaping config. The browser MIDI manager (src/ui/midi.js) applies
+  // these to each incoming note-on; defaults (floor 0, curve 1, fixed 0)
+  // reproduce a plain d2/127 mapping. Held here so the pure command surface can
+  // read/write it headless. Emits 'midi:config' like the other config actions.
+  setMidiVelocity(patch) {
+    const m = this.ui.midi;
+    if ('floor' in patch) { const f = Number(patch.floor); if (Number.isFinite(f)) m.velFloor = clamp(f, 0, 1); }
+    if ('curve' in patch) { const c = Number(patch.curve); if (Number.isFinite(c)) m.velCurve = clamp(c, 0.2, 5); }
+    if ('fixed' in patch) { const x = Number(patch.fixed); if (Number.isFinite(x)) m.velFixed = clamp(x, 0, 1); }
+    this.emit('midi:config', {});
+  }
+
+  // Record one RAW (pre-shaping) note-on velocity for the live monitor. Called
+  // by the browser manager on every note-on so the user can read the spread
+  // their controller actually sends and tune floor/curve to it. Kept cheap;
+  // emits the ephemeral 'midi:velocity' (persist.js skips autosave on it).
+  observeMidiVelocity(d2) {
+    const v = clamp(Math.round(d2), 0, 127);
+    const mon = this.ui.midi.velMonitor;
+    mon.last = v;
+    mon.count++;
+    mon.min = mon.count === 1 ? v : Math.min(mon.min, v);
+    mon.max = mon.count === 1 ? v : Math.max(mon.max, v);
+    mon.recent.push(v);
+    if (mon.recent.length > 16) mon.recent.shift();
+    this.emit('midi:velocity', {});
+  }
+
+  resetMidiVelocityMonitor() {
+    this.ui.midi.velMonitor = { last: 0, min: 0, max: 0, count: 0, recent: [] };
+    this.emit('midi:velocity', {});
   }
 
   // Intent only: ask this tab to take MIDI ownership away from a peer that

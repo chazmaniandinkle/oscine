@@ -18,6 +18,8 @@
 //   /oscine/project/undo   /oscine/project/redo
 //   /oscine/midi/enable <0|1>   /oscine/midi/channel <0-16>
 //   /oscine/midi/record <0|1>   (0 = omni channel; the app binds the device)
+//   /oscine/midi/floor <f>      (0..1 min output velocity for soft presses)
+//   /oscine/midi/curve <f>      (gamma; <1 boosts soft presses, >1 softens)
 //   /oscine/midi/claim          (take single-tab MIDI ownership for this tab)
 //   /oscine/cmd <name> [json-args]    escape hatch to the full catalog
 // Track names: '_' matches ' ' (OSC addresses can't contain spaces).
@@ -122,6 +124,8 @@ export function routeOsc(address, args = []) {
       }
       if (p2 === 'channel') return { cmd: 'midi', args: { action: 'set', channel: Math.round(num(args[0], 0)) } };
       if (p2 === 'record') return { cmd: 'midi', args: { action: 'set', record: onOff(args[0]) } };
+      if (p2 === 'floor') return { cmd: 'midi', args: { action: 'set', floor: num(args[0], 0) } };
+      if (p2 === 'curve') return { cmd: 'midi', args: { action: 'set', curve: num(args[0], 1) } };
       if (p2 === 'claim') return { cmd: 'midi', args: { action: 'claim' } };
       return { error: `unknown midi op ${p2}` };
     }

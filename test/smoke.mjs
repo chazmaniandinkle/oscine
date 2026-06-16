@@ -230,6 +230,10 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Catalog sanity.
   const names = COMMANDS.map(c => c.name);
   check('catalog names are unique', new Set(names).size === names.length);
+  // Count guard: velocity shaping + monitor extend the existing 'midi' command
+  // rather than adding a new one, so the catalog stays at 20 (and the e2e
+  // tool-count check, derived from COMMANDS.length, still holds).
+  check('catalog command count is unchanged (20)', COMMANDS.length === 20, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -462,6 +466,88 @@ console.log('\n[4c] midi command: WebMIDI config state (headless)');
     typeof claimed.owner === 'boolean' && typeof claimed.peers === 'number' &&
     typeof claimed.knobs === 'object');
 
+  // -- velocity shaping + monitor --------------------------------------------
+  // Incoming MIDI note velocity is shaped in software (floor + curve, or a
+  // fixed override) so soft presses on stiff mini-keys still sound. The shaping
+  // math itself lives in the browser manager (src/ui/midi.js); the 'midi'
+  // command is the pure config + readback surface for it, and the raw-velocity
+  // MONITOR is fed by the manager via store.observeMidiVelocity. Defaults
+  // (floor 0, curve 1, fixed 0) reproduce today's dead-linear behavior.
+
+  // Defaults: status carries velocity + monitor objects with sane initials.
+  const vel0 = await api.execute('midi', { action: 'status' });
+  check('midi status carries a velocity object with linear-by-default values',
+    vel0.velocity && vel0.velocity.floor === 0 && vel0.velocity.curve === 1 &&
+    vel0.velocity.fixed === 0);
+  check('midi status carries a zeroed velocity monitor with an empty recent[]',
+    vel0.monitor && vel0.monitor.last === 0 && vel0.monitor.min === 0 &&
+    vel0.monitor.max === 0 && vel0.monitor.count === 0 &&
+    Array.isArray(vel0.monitor.recent) && vel0.monitor.recent.length === 0);
+
+  // set floor/curve/fixed updates store.ui.midi and is reflected in status.
+  const velSet = await api.execute('midi', { action: 'set', floor: 0.2, curve: 0.6, fixed: 0.5 });
+  check('midi set applies floor/curve/fixed to the store',
+    store.ui.midi.velFloor === 0.2 && store.ui.midi.velCurve === 0.6 &&
+    store.ui.midi.velFixed === 0.5);
+  check('midi set reflects floor/curve/fixed back in status.velocity',
+    velSet.velocity.floor === 0.2 && velSet.velocity.curve === 0.6 &&
+    velSet.velocity.fixed === 0.5);
+
+  // Out-of-range values clamp: curve 99 -> 5, floor 2 -> 1, fixed 2 -> 1.
+  const velClamp = await api.execute('midi', { action: 'set', floor: 2, curve: 99, fixed: 2 });
+  check('midi set clamps floor/curve/fixed to range',
+    velClamp.velocity.floor === 1 && velClamp.velocity.curve === 5 &&
+    velClamp.velocity.fixed === 1 &&
+    store.ui.midi.velFloor === 1 && store.ui.midi.velCurve === 5 &&
+    store.ui.midi.velFixed === 1);
+  const velCurveLow = await api.execute('midi', { action: 'set', curve: 0 });
+  check('midi set clamps curve up to its 0.2 floor', velCurveLow.velocity.curve === 0.2);
+
+  // set keeps the existing channel/record handling intact (regression guard).
+  await api.execute('midi', { action: 'set', channel: 3, record: false, floor: 0.1 });
+  check('midi set still applies channel/record alongside velocity',
+    store.ui.midi.channel === 3 && store.ui.midi.record === false &&
+    store.ui.midi.velFloor === 0.1);
+
+  // observeMidiVelocity is browser-fed (the manager records the RAW value before
+  // shaping); exercise it directly on the store, then read it back over the
+  // command surface. last/min/max/count track the spread; recent[] is capped.
+  store.resetMidiVelocityMonitor();
+  store.observeMidiVelocity(40);
+  store.observeMidiVelocity(100);
+  store.observeMidiVelocity(12);
+  check('observeMidiVelocity tracks last/min/max/count',
+    store.ui.midi.velMonitor.last === 12 && store.ui.midi.velMonitor.min === 12 &&
+    store.ui.midi.velMonitor.max === 100 && store.ui.midi.velMonitor.count === 3);
+  check('observeMidiVelocity rounds + clamps raw d2 into 0..127',
+    store.ui.midi.velMonitor.recent.join(',') === '40,100,12');
+  // recent[] holds the last 16 raw values (oldest shifted off).
+  store.resetMidiVelocityMonitor();
+  for (let v = 1; v <= 20; v++) store.observeMidiVelocity(v);
+  check('observeMidiVelocity caps recent[] at 16 (oldest dropped)',
+    store.ui.midi.velMonitor.recent.length === 16 &&
+    store.ui.midi.velMonitor.recent[0] === 5 &&
+    store.ui.midi.velMonitor.recent[15] === 20 &&
+    store.ui.midi.velMonitor.count === 20);
+
+  // monitor action returns the live monitor; reset:true clears it first.
+  const mon = await api.execute('midi', { action: 'monitor' });
+  check('midi monitor returns the current velocity monitor',
+    mon.last === 20 && mon.max === 20 && mon.count === 20 && mon.recent.length === 16);
+  const monReset = await api.execute('midi', { action: 'monitor', reset: true });
+  check('midi monitor reset:true clears the monitor and returns it cleared',
+    monReset.last === 0 && monReset.min === 0 && monReset.max === 0 &&
+    monReset.count === 0 && Array.isArray(monReset.recent) && monReset.recent.length === 0 &&
+    store.ui.midi.velMonitor.count === 0);
+
+  // status()'s compact midi field carries velocity + lastVelocity for orient.
+  await api.execute('midi', { action: 'set', floor: 0.25, curve: 0.7 });
+  store.observeMidiVelocity(88);
+  const stVel = await api.execute('status');
+  check('status compact midi field includes velocity + lastVelocity',
+    stVel.midi.velocity && stVel.midi.velocity.floor === 0.25 &&
+    stVel.midi.velocity.curve === 0.7 && stVel.midi.lastVelocity === 88);
+
   // OSC routing-table additions for /oscine/midi/*. (routeOsc is also exercised
   // in section [5]; imported here under an alias to keep this block standalone.)
   const { routeOsc: routeOscMidi } = await import(`${ROOT}/plugin/server/osc-gateway.js`);
@@ -470,6 +556,8 @@ console.log('\n[4c] midi command: WebMIDI config state (headless)');
     ['/oscine/midi/enable', [0], { cmd: 'midi', args: { action: 'disable' } }],
     ['/oscine/midi/channel', [10], { cmd: 'midi', args: { action: 'set', channel: 10 } }],
     ['/oscine/midi/record', [1], { cmd: 'midi', args: { action: 'set', record: true } }],
+    ['/oscine/midi/floor', [0.3], { cmd: 'midi', args: { action: 'set', floor: 0.3 } }],
+    ['/oscine/midi/curve', [0.5], { cmd: 'midi', args: { action: 'set', curve: 0.5 } }],
     ['/oscine/midi/claim', [], { cmd: 'midi', args: { action: 'claim' } }],
   ];
   let midiRouteOk = true;

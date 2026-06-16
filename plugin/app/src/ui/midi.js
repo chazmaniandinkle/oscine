@@ -244,10 +244,25 @@ export class MidiInput {
     const chan = (status & 0x0f) + 1;
     const midi = this.store.ui.midi;
     if (midi.channel && chan !== midi.channel) return; // 0 = omni
-    if (type === 0x90 && d2 > 0) this.noteOn(d1, d2 / 127);
-    else if (type === 0x80 || (type === 0x90 && d2 === 0)) this.noteOff(d1);
+    if (type === 0x90 && d2 > 0) {
+      this.store.observeMidiVelocity(d2);   // record the RAW value (before shaping)
+      this.noteOn(d1, this.shapeVel(d2));
+    } else if (type === 0x80 || (type === 0x90 && d2 === 0)) this.noteOff(d1);
     else if (type === 0xB0) this.control(d1, d2);
     // pitch bend, aftertouch, program change ignored for v1.
+    // (velocity is only recorded for note-on, not note-off or CC.)
+  }
+
+  // Map a raw 0..127 note-on velocity to a 0..1 VCA-peak velocity through the
+  // user's shaping config (store.ui.midi). Defaults (floor 0, curve 1, fixed 0)
+  // reproduce the old dead-linear d2/127 exactly, so there's no behavior change
+  // until the user adjusts. velFixed > 0 overrides the incoming value entirely.
+  shapeVel(d2) {
+    const m = this.store.ui.midi;
+    if (m.velFixed > 0) return m.velFixed;               // fixed-velocity mode
+    const norm = d2 / 127;
+    const shaped = m.velFloor + (1 - m.velFloor) * Math.pow(norm, m.velCurve || 1);
+    return clamp(shaped, 0, 1);
   }
 
   // -- selected track helpers -----------------------------------------------

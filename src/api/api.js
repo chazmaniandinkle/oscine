@@ -148,6 +148,8 @@ export class CommandAPI {
         channel: store.ui.midi.channel,
         record: store.ui.midi.record,
         knobs: Object.keys(store.ui.midi.knobs).length,
+        velocity: { floor: store.ui.midi.velFloor, curve: store.ui.midi.velCurve, fixed: store.ui.midi.velFixed },
+        lastVelocity: store.ui.midi.velMonitor.last,
       },
     };
   }
@@ -467,6 +469,14 @@ export class CommandAPI {
       learn: m.learnParam,
       devices: m.devices.map(d => ({ ...d })),
       knobs: { ...m.knobs },
+      velocity: { floor: m.velFloor, curve: m.velCurve, fixed: m.velFixed },
+      monitor: {                                      // raw 0..127 incoming velocity
+        last: m.velMonitor.last,
+        min: m.velMonitor.min,
+        max: m.velMonitor.max,
+        count: m.velMonitor.count,
+        recent: [...m.velMonitor.recent],
+      },
       owner: !!m.owner,                               // this tab holds MIDI
       peers,                                          // live same-origin tabs
       ownerElsewhere: m.enabled && !m.owner && peers > 1, // a peer holds it, not us
@@ -492,7 +502,7 @@ export class CommandAPI {
     return p.key;
   }
 
-  cmd_midi({ action, device, channel, record, cc, param }) {
+  cmd_midi({ action, device, channel, record, floor, curve, fixed, reset, cc, param }) {
     const { store } = this;
     switch (action) {
       case 'status':
@@ -522,8 +532,9 @@ export class CommandAPI {
         return this.midiState();
       }
       case 'set': {
-        if (channel === undefined && record === undefined) {
-          throw new Error("action 'set' needs at least one of 'channel' or 'record'.");
+        if (channel === undefined && record === undefined &&
+            floor === undefined && curve === undefined && fixed === undefined) {
+          throw new Error("action 'set' needs at least one of 'channel', 'record', 'floor', 'curve', or 'fixed'.");
         }
         const patch = {};
         if (channel !== undefined) {
@@ -532,9 +543,27 @@ export class CommandAPI {
           patch.channel = ch;
         }
         if (record !== undefined) patch.record = !!record;
-        store.configureMidi(patch);
+        if (Object.keys(patch).length) store.configureMidi(patch);
+        // Velocity shaping rides its own action (store clamps each field).
+        const vel = {};
+        if (floor !== undefined) {
+          if (Number.isNaN(Number(floor))) throw new Error('floor must be a number 0..1.');
+          vel.floor = Number(floor);
+        }
+        if (curve !== undefined) {
+          if (Number.isNaN(Number(curve))) throw new Error('curve must be a number 0.2..5.');
+          vel.curve = Number(curve);
+        }
+        if (fixed !== undefined) {
+          if (Number.isNaN(Number(fixed))) throw new Error('fixed must be a number 0..1 (0 = disabled).');
+          vel.fixed = Number(fixed);
+        }
+        if (Object.keys(vel).length) store.setMidiVelocity(vel);
         return this.midiState();
       }
+      case 'monitor':
+        if (reset === true) store.resetMidiVelocityMonitor();
+        return this.midiState().monitor;
       case 'map': {
         if (cc === undefined) throw new Error("action 'map' needs a 'cc' (controller CC number 0..127).");
         if (param === undefined) throw new Error("action 'map' needs a 'param' (a numeric param key of the selected track's instrument).");
