@@ -27,6 +27,10 @@ export class Store {
       snap: 0.25,        // beats; 0.25 = 16th note
       metronome: false,
       mixerOpen: true,
+      mobilePanel: 'editor', // which full-width view shows on phone-width shells:
+                             // 'tracks'|'editor'|'inspector'|'mixer'. UI-only,
+                             // same class as snap/mixerOpen: not project state,
+                             // not serialized, never checkpointed. Desktop ignores it.
       midi: {
         enabled: false,     // user wants WebMIDI active
         inputId: null,      // preferred input device id; null = first available

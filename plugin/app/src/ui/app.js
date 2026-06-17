@@ -20,6 +20,15 @@ const SNAP_CHOICES = [
   { value: 0.125, label: '1/32' },
 ];
 
+// Phone-width tab bar: [data-panel value, button label], in display order.
+// Drives #app[data-panel] and is the only place these four strings are listed.
+const MOBILE_PANELS = [
+  ['tracks', 'Tracks'],
+  ['editor', 'Editor'],
+  ['inspector', 'Inspector'],
+  ['mixer', 'Mixer'],
+];
+
 export class App {
   constructor(rootEl, { store, bus, engine, transport, api, crosstab }) {
     this.store = store;
@@ -82,6 +91,28 @@ export class App {
     this.editorHost = editorHost;
     this.emptyState = el('div', 'editor-empty', 'Add a track to start composing.');
 
+    // Mobile shell nav: on phone width the four side regions (Tracks / Editor /
+    // Inspector / Mixer) collapse into mutually-exclusive full-width views,
+    // chosen by this fixed bottom tab bar. Purely presentational: each tab flips
+    // #app[data-panel] and the `is-active` class; CSS (a media block) shows only
+    // the matching region. The element is display:none on desktop, so it is inert
+    // there. No store action, no checkpoint, no event — see setMobilePanel.
+    this.rootEl = rootEl;
+    this.mobileTabs = [];
+    const mobileNav = el('nav', 'mobile-nav');
+    for (const [key, label] of MOBILE_PANELS) {
+      const b = el('button', 'mobile-tab', label);
+      b.type = 'button';
+      b.dataset.panel = key;
+      b.addEventListener('click', () => this.setMobilePanel(key));
+      this.mobileTabs.push(b);
+      mobileNav.appendChild(b);
+    }
+    // Appended below, after srcLink, so the nav is the LAST child of #app
+    // (grid row 4); srcLink is an absolutely-positioned corner overlay and
+    // takes no grid row, but the contract wants the nav last verbatim.
+    this.mobileNav = mobileNav;
+
     bus.on('ui:selection', () => this.routeEditor());
     bus.on('project:replaced', () => this.routeEditor());
     bus.on('track:removed', () => this.routeEditor());
@@ -95,9 +126,25 @@ export class App {
     srcLink.innerHTML = '<svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
     rootEl.appendChild(srcLink);
 
+    // Last child of #app, after the keysHost footer and the corner link.
+    rootEl.appendChild(this.mobileNav);
+
     this.bindGlobalKeys();
     this.routeEditor();
+    this.setMobilePanel(this.store.ui.mobilePanel);
     this.startFrameLoop();
+  }
+
+  // Switch the phone-width full-width view. UI-only, like the snap onChange
+  // above: it mutates store.ui directly with NO checkpoint, NO bus emit, NO
+  // command — it only flips an attribute on #app and the active-tab class, and
+  // CSS does the rest. The panels are plain DOM that already re-render off bus
+  // events, so switching is instant with no re-render call. On desktop the
+  // attribute and the (hidden) nav are inert; no desktop selector reads them.
+  setMobilePanel(panel) {
+    this.store.ui.mobilePanel = panel;
+    this.rootEl.dataset.panel = panel;
+    this.mobileTabs.forEach(b => b.classList.toggle('is-active', b.dataset.panel === panel));
   }
 
   routeEditor() {
