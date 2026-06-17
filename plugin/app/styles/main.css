@@ -25,7 +25,18 @@ html, body {
 
 #app {
   display: grid;
-  grid-template-rows: 50px minmax(0, 1fr) auto auto;
+  /* Constrain the single implicit column to the viewport. Without this the
+     column sizes to the body's max-content (~1223px), so any viewport
+     narrower than that (a fold's inner screen, a phone in landscape, a small
+     window) overflows and the overflow:hidden above clips the inspector and
+     the transport's right cluster. minmax(0, 1fr) pins it to the viewport so
+     the body's own 1fr editor shrinks (and scrolls) instead. */
+  grid-template-columns: minmax(0, 1fr);
+  /* Row 1 is auto (floored at 50px by the header's min-height) so the
+     transport can wrap to a second line and grow instead of clipping its
+     right cluster on narrower viewports (a fold's inner screen, landscape,
+     a small window). It stays exactly 50px whenever the bar fits one line. */
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   height: 100vh;
 }
 
@@ -33,9 +44,16 @@ html, body {
 
 header.transportbar {
   display: flex;
+  /* Wrap rather than clip: the bar holds many controls and overflows its row
+     below ~1200px (fold inner screen, landscape phone, small window). It
+     stays a single 50px row whenever it fits; otherwise it wraps and row 1
+     grows. row-gap keeps wrapped lines tight. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  row-gap: 4px;
+  min-height: 50px;
   padding: 0 12px;
   background: var(--bg-1);
   border-bottom: 1px solid var(--line);
@@ -736,6 +754,23 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 }
 ::-webkit-scrollbar-thumb:hover { background: #313a57; }
 
+/* ---------- short viewport (<= 540px tall) ----------
+
+   A folded phone held in landscape (~900x412) or a short desktop window
+   can't stack header + body + an open mixer + keyboard in the available
+   height: the mixer (~360px) plus the keyboard would consume it all and
+   collapse the editor to nothing (and squeeze the header so a wrapped
+   transport overflows it). Cap the open mixer drawer to a share of the height
+   and let it scroll, so the tracks/editor keep room. This targets the desktop
+   drawer only; the mobile mixer view (<=640px) is already a full-height,
+   scrolling panel and should not be capped. */
+@media (max-height: 540px) {
+  .mixer.open .mixer-body {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+}
+
 /* ---------- phone layout (<= 640px) ----------
 
    The three side panels (Tracks / Editor / Inspector) and the Mixer stop
@@ -748,7 +783,9 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 
    640px is the cutoff because the 218 + 1fr + 268 three-column body needs
    ~700px+ to be usable; at/below 640 (all phones in portrait, most in
-   landscape) we stack. This is the only @media block in the file. */
+   landscape) we stack. Above 640 the desktop console renders; the base
+   #app column constraint and the wrapping transport keep it on screen at
+   in-between widths (a fold's inner screen, landscape) with no extra tier. */
 @media (max-width: 640px) {
 
   /* A) GRID. Rows become header / active-panel / keysbar / mobile-nav.
