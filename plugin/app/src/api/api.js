@@ -151,7 +151,19 @@ export class CommandAPI {
         velocity: { floor: store.ui.midi.velFloor, curve: store.ui.midi.velCurve, fixed: store.ui.midi.velFixed },
         lastVelocity: store.ui.midi.velMonitor.last,
       },
+      ledger: this.ledgerSummary(),
     };
+  }
+
+  // Compact ledger stats for cmd_status: how many live events are buffered and
+  // the wall-clock span they cover. Reads the ephemeral ring directly.
+  ledgerSummary() {
+    const events = this.store.ui.ledger.events;
+    const count = events.length;
+    const spanSec = count > 1
+      ? (events[count - 1].t - events[0].t) / 1000
+      : 0;
+    return { count, spanSec };
   }
 
   cmd_transport({ action, bpm, swing, metronome }) {
@@ -672,5 +684,110 @@ export class CommandAPI {
       return { ok: true, project: store.project.name, hint: 'Previous project is one undo away.' };
     }
     throw new Error(`Bad action '${action}'. Use 'link' or 'open'.`);
+  }
+
+  // -- performance ledger ----------------------------------------------------
+  // Pure handler: reads the ephemeral ring (store.ui.ledger) and returns JSON.
+  // No DOM/audio; uses only this.store and midiName. The ledger captures user
+  // play even with the transport stopped, so clock time is the backbone and
+  // the musical beat is null unless the transport was running.
+
+  cmd_ledger({ action = 'read', limit, sinceSec, track } = {}) {
+    const { store } = this;
+    if (action === 'clear') {
+      store.clearLedger();
+      return { ok: true, cleared: true };
+    }
+    if (action !== 'read') throw new Error(`Bad action '${action}'. Use 'read' or 'clear'.`);
+
+    let events = store.ui.ledger.events;
+
+    // Optional track filter (by id or exact name, case-insensitive). resolveTrack
+    // throws on an unknown track, which is the actionable behavior we want.
+    if (track !== undefined && track !== null) {
+      const t = this.resolveTrack(track);
+      events = events.filter(e => e.trackId === t.id);
+    }
+    // sinceSec: only events within the last N seconds (relative to now).
+    if (sinceSec !== undefined && sinceSec !== null) {
+      const cutoff = Date.now() - Number(sinceSec) * 1000;
+      events = events.filter(e => e.t >= cutoff);
+    }
+    // limit: keep the most recent N events (applied last, oldest-first preserved).
+    if (limit !== undefined && limit !== null) {
+      const n = Math.max(1, Math.floor(Number(limit)));
+      if (events.length > n) events = events.slice(events.length - n);
+    }
+
+    const count = events.length;
+    const firstT = count ? events[0].t : 0;
+    const lastT = count ? events[count - 1].t : 0;
+    const spanSec = count > 1 ? (lastT - firstT) / 1000 : 0;
+
+    return {
+      count,
+      spanSec,
+      events: events.map(e => ({ ...e })),
+      notes: this.ledgerNotes(events, firstT, lastT),
+    };
+  }
+
+  // Derive an agent-friendly view from raw ledger events: pair each note-on with
+  // the next matching note-off (same trackId+pitch) into a played note, and list
+  // drum hits. startSec is relative to the first event in the window; dur is the
+  // held time in seconds. Sorted by startSec.
+  ledgerNotes(events, firstT, lastT) {
+    const MIN_DUR = 0.02; // floor so a tapped/just-pressed note still has length
+    const out = [];
+    const open = new Map(); // key trackId|pitch -> the open note-on entry
+
+    for (const e of events) {
+      if (e.kind === 'hit') {
+        out.push({
+          trackName: e.trackName,
+          lane: e.lane,
+          startSec: (e.t - firstT) / 1000,
+          vel: e.vel,
+        });
+        continue;
+      }
+      if (e.kind !== 'note') continue;
+      const key = `${e.trackId}|${e.pitch}`;
+      if (e.on) {
+        // A retriggered note-on for an already-held pitch (hardware/OSC MIDI
+        // does no note-on dedup) would otherwise orphan the prior entry at
+        // dur:null. Close it at this on's timestamp before opening the new one.
+        const prior = open.get(key);
+        if (prior) prior.dur = Math.max(MIN_DUR, (e.t - prior._onT) / 1000);
+        const entry = {
+          trackName: e.trackName,
+          pitch: e.pitch,
+          noteName: midiName(e.pitch),
+          startSec: (e.t - firstT) / 1000,
+          dur: null,        // filled when its note-off arrives (or when held)
+          vel: e.vel,
+          beat: e.beat ?? null,
+          _onT: e.t,
+        };
+        open.set(key, entry);
+        out.push(entry);
+      } else {
+        const entry = open.get(key);
+        if (entry) {
+          entry.dur = Math.max(MIN_DUR, (e.t - entry._onT) / 1000);
+          open.delete(key);
+        }
+        // a note-off with no matching on (started before the window) is ignored
+      }
+    }
+
+    // Any still-held note (no matching off in the window) ends at the last event.
+    for (const entry of open.values()) {
+      entry.dur = Math.max(MIN_DUR, (lastT - entry._onT) / 1000);
+    }
+
+    return out
+      .map(({ _onT, ...rest }) => rest)
+      .sort((a, b) => a.startSec - b.startSec);
   }
 }

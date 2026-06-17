@@ -230,11 +230,10 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Catalog sanity.
   const names = COMMANDS.map(c => c.name);
   check('catalog names are unique', new Set(names).size === names.length);
-  // Count guard: velocity shaping, the monitor, and OSC MIDI input all extend
-  // the existing 'midi' command (new actions) rather than adding a command, so
-  // the catalog stays at 20 (and the e2e tool-count check, derived from
-  // COMMANDS.length, still holds).
-  check('catalog command count is unchanged (20)', COMMANDS.length === 20, `got ${COMMANDS.length}`);
+  // Count guard: the always-on performance 'ledger' command (read/clear) is the
+  // newest catalog addition, taking the count from 20 to 21. The e2e tool-count
+  // check is derived from COMMANDS.length, so it tracks this automatically.
+  check('catalog command count is 21', COMMANDS.length === 21, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -636,6 +635,135 @@ console.log('\n[4c] midi command: WebMIDI config state (headless)');
     }
   }
   check(`midi OSC routes map ${midiRoutes.length} addresses correctly`, midiRouteOk);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[4e] performance ledger: silent ring log of live play (headless)');
+{
+  // The ledger is an always-on, bounded, time-stamped record of everything the
+  // user plays live. It lives in ephemeral store.ui.ledger (like velMonitor) and
+  // is fed by the input taps (src/ui/midi.js + src/ui/keyboard.js). store.logInput
+  // is a SILENT, high-frequency ring push (no bus emit), so autosave/UI are not
+  // spammed per note; the 'ledger' command is the pure read/clear surface an agent
+  // uses to see and grab a riff. Capture works with the transport STOPPED (beat is
+  // null in free play), which is the common case. Everything here runs headless:
+  // the handler reads store.ui.ledger and returns JSON, never touching window/audio.
+  const bus = new EventBus();
+  const ledgerEvents = [];
+  bus.on('*', (type) => ledgerEvents.push(type));
+  const store = new Store(bus, demoProject());
+  const transportStub = { getPosition() { return { playing: false, localBeat: 0, loopBeats: 8 }; } };
+  const api = new CommandAPI({ store, engine: {}, transport: transportStub, bus });
+
+  // The store seeds an empty, bounded ledger like the other ephemeral ui state.
+  check('store.ui.ledger starts empty with an 800-event cap',
+    Array.isArray(store.ui.ledger.events) && store.ui.ledger.events.length === 0 &&
+    store.ui.ledger.cap === 800);
+
+  // logInput is a silent ring push: it stamps t itself (never trusts a caller t),
+  // pushes oldest-first, and caps at 800 by shifting the oldest off. Critically it
+  // must NOT emit a bus event (that would spam autosave/UI on every note).
+  const beforeEvents = ledgerEvents.length;
+  for (let i = 0; i < 801; i++) {
+    store.logInput({ kind: 'note', on: true, trackId: 't', trackName: 'T', pitch: 60 + (i % 12), vel: 0.8, beat: null, t: 123 });
+  }
+  check('logInput caps the ring at 800 (push 801, oldest dropped)',
+    store.ui.ledger.events.length === 800);
+  check('logInput stamps t with the wall clock, ignoring any caller-supplied t',
+    store.ui.ledger.events.every(e => e.t !== 123 && typeof e.t === 'number'));
+  check('logInput keeps events oldest-first (the very first push was dropped)',
+    // 801 pushes of pitch 60+(i%12): i=0 -> 60 dropped, so the head is now i=1 -> 61.
+    store.ui.ledger.events[0].pitch === 61 &&
+    store.ui.ledger.events[799].pitch === 60 + (800 % 12));
+  check('logInput is silent (no bus event per note)',
+    ledgerEvents.length === beforeEvents);
+
+  // clearLedger empties the ring and emits a single low-frequency 'ledger:cleared'
+  // (one event is fine here; it is not per-note).
+  store.clearLedger();
+  check('clearLedger empties the ring', store.ui.ledger.events.length === 0);
+  check('clearLedger emits a single ledger:cleared event',
+    ledgerEvents.filter(t => t === 'ledger:cleared').length === 1);
+
+  // 'ledger' read pairs note-on with the next matching note-off (same trackId +
+  // pitch) into an agent-friendly 'notes' view. Drive logInput directly with a few
+  // on/off pairs so the t values stamp in clock order; a tiny spin between on and
+  // off guarantees a non-zero duration. A 'hit' event must also surface in 'notes'.
+  const spinMs = (ms) => { const end = Date.now() + ms; while (Date.now() < end) { /* advance the wall clock */ } };
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 60, vel: 0.9, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: false, trackId: 'tk', pitch: 60, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 67, vel: 0.5, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: false, trackId: 'tk', pitch: 67, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'hit', trackId: 'td', trackName: 'Drums', lane: 'kick', vel: 0.8, beat: null });
+
+  const read = await api.execute('ledger', { action: 'read' });
+  check('ledger read reports count + spanSec over the window',
+    read.count === 5 && typeof read.spanSec === 'number' && read.spanSec > 0);
+  check('ledger read returns the raw events alongside the derived view',
+    Array.isArray(read.events) && read.events.length === 5 && Array.isArray(read.notes));
+
+  const c4 = read.notes.find(n => n.pitch === 60);
+  const g4 = read.notes.find(n => n.pitch === 67);
+  check('ledger notes pairs each note-on with its matching note-off',
+    !!c4 && !!g4 && c4.trackName === 'Keys');
+  check('ledger notes carry pitch, a positive dur, vel, and a noteName',
+    c4.dur > 0 && c4.vel === 0.9 && c4.noteName === 'C4' &&
+    g4.dur > 0 && g4.vel === 0.5 && g4.noteName === 'G4');
+  check('ledger notes are sorted by startSec (relative to the window start)',
+    typeof c4.startSec === 'number' && c4.startSec === 0 && g4.startSec > c4.startSec);
+  const hit = read.notes.find(n => n.lane === 'kick');
+  check('ledger notes include drum hits with a lane (and no dur)',
+    !!hit && hit.trackName === 'Drums' && typeof hit.startSec === 'number' && hit.dur === undefined);
+
+  // 'ledger' clear empties the ring through the command surface.
+  const cleared = await api.execute('ledger', { action: 'clear' });
+  check('ledger clear empties the ring and reports it',
+    cleared.ok === true && cleared.cleared === true && store.ui.ledger.events.length === 0);
+  const emptyRead = await api.execute('ledger', { action: 'read' });
+  check('ledger read after clear is empty', emptyRead.count === 0 && emptyRead.notes.length === 0);
+
+  // action defaults to 'read' when omitted (the common agent call).
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 62, vel: 0.7, beat: null });
+  const defaultRead = await api.execute('ledger', {});
+  check('ledger action defaults to read when omitted', defaultRead.count === 1);
+
+  // Retriggered/duplicate same-pitch note-on: hardware + OSC-injected MIDI
+  // (src/ui/midi.js) does NO note-on dedup, so a held pitch can receive a second
+  // note-on before the first note-off. Every emitted note must still end with a
+  // numeric dur; none may leak as dur:null. Covers both (a) on,on,off and
+  // (b) two overlapping held on-events with no off in the window.
+  await api.execute('ledger', { action: 'clear' });
+  // (a) on(C4), on(C4), off(C4) -> two notes, both with positive dur.
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 60, vel: 0.9, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 60, vel: 0.6, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: false, trackId: 'tk', pitch: 60, beat: null });
+  spinMs(2);
+  // (b) two overlapping held on-events for the same pitch, neither closed.
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 64, vel: 0.5, beat: null });
+  spinMs(2);
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 64, vel: 0.7, beat: null });
+  spinMs(2);
+  const dupRead = await api.execute('ledger', { action: 'read' });
+  const c4dups = dupRead.notes.filter(n => n.pitch === 60);
+  const e4dups = dupRead.notes.filter(n => n.pitch === 64);
+  check('retriggered note-on emits one note per on (no merge, no drop)',
+    c4dups.length === 2 && e4dups.length === 2);
+  check('no retriggered/duplicate same-pitch note leaks a null/NaN dur',
+    dupRead.notes.every(n => typeof n.dur === 'number' && n.dur > 0 && !Number.isNaN(n.dur)));
+  await api.execute('ledger', { action: 'clear' });
+  store.logInput({ kind: 'note', on: true, trackId: 'tk', trackName: 'Keys', pitch: 62, vel: 0.7, beat: null });
+
+  // status() carries a compact ledger:{ count, spanSec } field for orient-first.
+  const st = await api.execute('status');
+  check('status includes a compact ledger field',
+    st.ledger && st.ledger.count === store.ui.ledger.events.length &&
+    typeof st.ledger.spanSec === 'number');
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,12 @@ export class Store {
         owner: false,       // runtime: this tab currently holds MIDI ownership
         peers: 1,           // runtime: count of live same-origin tabs (>=1 = self)
       },
+      // Performance ledger: an always-on, bounded, time-stamped log of what the
+      // user plays live (the "observer" half of the agent surface). Captured by
+      // the input taps (src/ui/midi.js + src/ui/keyboard.js) via store.logInput,
+      // read back over the 'ledger' command. Ephemeral runtime state: not part
+      // of the project document and not serialized by persist.js.
+      ledger: { events: [], cap: 800 },
     };
     this.undoStack = [];
     this.redoStack = [];
@@ -395,6 +401,24 @@ export class Store {
   reportMidi(patch) {
     Object.assign(this.ui.midi, patch);
     this.emit('midi:status', {});
+  }
+
+  // -- performance ledger (ephemeral; the agent's "observer" surface) ----------
+  // logInput is a SILENT, high-frequency ring push: it runs per played note, so
+  // it must stay cheap and must NOT emit a bus event (that would spam autosave
+  // and UI re-renders). The 'ledger' command reads store.ui.ledger.events back.
+
+  // Append one input event to the ledger, stamping wall-clock time here (never
+  // trusting a caller-supplied t), and cap the ring at oldest-first.
+  logInput(ev) {
+    const led = this.ui.ledger;
+    led.events.push({ ...ev, t: Date.now() });
+    if (led.events.length > led.cap) led.events.shift();
+  }
+
+  clearLedger() {
+    this.ui.ledger.events = [];
+    this.emit('ledger:cleared', {});
   }
 
   // -- serialization -------------------------------------------------------------------
