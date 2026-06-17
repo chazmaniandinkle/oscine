@@ -42,7 +42,7 @@ bridge.start();
 // Song-in-URL: if the page was opened with a share link (#s=...), load that
 // song before building the UI, so a shared link lands on the shared song
 // rather than the autosaved one. Bad/foreign fragments are ignored.
-maybeLoadSharedSong(store);
+await maybeLoadSharedSong(store);
 
 const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab });
 
@@ -59,9 +59,9 @@ window.oscine = { bus, store, engine, transport, app, api, bridge, crosstab };
 // loaded autosave. Runs before the UI is built, so this is a plain swap (no
 // undo checkpoint needed: nothing has happened yet). The fragment is left in
 // the URL so the link stays copyable/refreshable.
-function maybeLoadSharedSong(store) {
+async function maybeLoadSharedSong(store) {
   try {
-    const shared = projectFromUrl(typeof location !== 'undefined' ? location.hash : null);
+    const shared = await projectFromUrl(typeof location !== 'undefined' ? location.hash : null);
     if (shared) store.load(shared);
   } catch (err) {
     console.warn('[oscine] ignoring unreadable share link:', err.message);

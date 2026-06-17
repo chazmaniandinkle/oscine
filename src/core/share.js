@@ -5,7 +5,11 @@
 // Pure and dependency-free (node-importable, smoke-tested). The fragment is
 // base64url of the project JSON with note ids stripped (they're per-session
 // and regenerated on load, so dropping them shrinks the payload with no
-// loss). The transport is the URL hash, e.g.  https://host/#s=<fragment> .
+// loss). New links gzip the JSON first (CompressionStream is a global in
+// Node 18+ and in browsers), shrinking the payload ~5-10x; the decoder
+// auto-detects gzip by its magic bytes (0x1f 0x8b), so older plain-base64url
+// links still decode and no version marker is needed. The transport is the
+// URL hash, e.g.  https://host/#s=<fragment> .
 
 import { validateProject, FORMAT_VERSION } from './schema.js';
 
@@ -33,6 +37,24 @@ function base64urlToBytes(str) {
   return new Uint8Array(Buffer.from(b64, 'base64'));
 }
 
+// -- gzip helpers (CompressionStream is a global in Node 18+ and browsers) --
+
+// Compress bytes with gzip. Streams the input through CompressionStream and
+// collects the result via Response.arrayBuffer, which works in both node and
+// the browser. Returns a Uint8Array of the gzipped bytes.
+async function gzip(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+// Inverse of gzip(): inflate gzipped bytes back to the original Uint8Array.
+async function gunzip(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
 // -- project <-> fragment --------------------------------------------------
 
 // Drop fields that don't survive a round-trip anyway (note ids), to shrink.
@@ -48,17 +70,38 @@ function toWire(project) {
   return wire;
 }
 
-export function encodeProjectToFragment(project) {
+// ASYNC: gzip the project JSON when CompressionStream is available (new
+// links), otherwise fall back to plain base64url of the raw JSON (legacy).
+export async function encodeProjectToFragment(project) {
   const json = JSON.stringify(toWire(project));
-  const bytes = new TextEncoder().encode(json);
+  let bytes = new TextEncoder().encode(json);
+  if (typeof CompressionStream !== 'undefined') {
+    bytes = await gzip(bytes);
+  }
   return bytesToBase64url(bytes);
 }
 
-export function decodeFragmentToProject(fragment) {
+// ASYNC: base64url-decode, then auto-detect gzip by its magic bytes
+// (0x1f 0x8b). Gzipped payloads are inflated first; plain payloads (legacy
+// links) are decoded as JSON directly. Then validate as today.
+export async function decodeFragmentToProject(fragment) {
   if (!fragment || typeof fragment !== 'string') throw new Error('Empty share fragment.');
+  let bytes;
+  try {
+    bytes = base64urlToBytes(fragment);
+  } catch {
+    throw new Error('Share link is malformed (could not decode).');
+  }
+  if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    try {
+      bytes = await gunzip(bytes);
+    } catch {
+      throw new Error('Share link is malformed (could not decompress).');
+    }
+  }
   let json;
   try {
-    json = new TextDecoder().decode(base64urlToBytes(fragment));
+    json = new TextDecoder().decode(bytes);
   } catch {
     throw new Error('Share link is malformed (could not decode).');
   }
@@ -73,10 +116,10 @@ export function decodeFragmentToProject(fragment) {
 
 // -- URL helpers -----------------------------------------------------------
 
-// Build a shareable URL from a base (origin + path, hash stripped) and a
-// project. Pass an explicit base in non-browser contexts.
-export function buildShareUrl(project, base) {
-  const fragment = encodeProjectToFragment(project);
+// ASYNC: build a shareable URL from a base (origin + path, hash stripped)
+// and a project. Pass an explicit base in non-browser contexts.
+export async function buildShareUrl(project, base) {
+  const fragment = await encodeProjectToFragment(project);
   let root = base;
   if (!root && typeof location !== 'undefined') {
     root = location.origin + location.pathname + location.search;
@@ -95,8 +138,9 @@ export function fragmentFromUrl(url) {
   return params.get(FRAGMENT_KEY);
 }
 
-// Convenience for the boot path: parse a share project out of a URL, or null.
-export function projectFromUrl(url) {
+// ASYNC convenience for the boot path: parse a share project out of a URL,
+// or null. (fragmentFromUrl stays synchronous; it only parses the hash.)
+export async function projectFromUrl(url) {
   const fragment = fragmentFromUrl(url);
   if (!fragment) return null;
   return decodeFragmentToProject(fragment);
