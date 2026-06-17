@@ -19,7 +19,7 @@ const KEY_PREFIX = 'oscine.project.v1';
 const MAX_TAB_KEYS = 6;     // keep only the most recent N per-tab keys
 const SAVE_DEBOUNCE_MS = 600;
 
-const EPHEMERAL_PREFIXES = ['transport:', 'schedule:', 'ui:', 'midi:', 'track:trigger'];
+const EPHEMERAL_PREFIXES = ['transport:', 'schedule:', 'ui:', 'midi:', 'ledger:', 'track:trigger'];
 
 const tabKey = (clientId) => `${KEY_PREFIX}:${clientId}`;
 

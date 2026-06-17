@@ -274,6 +274,20 @@ export const COMMANDS = [
       },
     },
   },
+  {
+    name: 'ledger',
+    description: "Read the performance ledger: an always-on, bounded log of what the user just played live (on-screen keys, computer keyboard, drum pads, and hardware/OSC MIDI), so you can see the shape of a take and grab a riff. It records even when the transport is STOPPED (free play, the common case): each event is wall-clock time-stamped, with the musical beat captured too when the transport is running. Action 'read' returns the raw events plus a derived 'notes' view that pairs note-ons with their note-offs into played notes (pitch, note name, start time in seconds, duration, velocity) and lists drum hits, so you can transcribe a phrase straight into set_notes/set_steps. Filter with 'limit' (last N events), 'sinceSec' (only the last N seconds), and 'track' (one track by name or id). Action 'clear' empties the log. Auditions played by the agent (preview) are not recorded, only the user's own play.",
+    readOnly: true,
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['read', 'clear'], default: 'read', description: "'read' (default) returns the log; 'clear' empties it." },
+        limit: { type: 'integer', minimum: 1, description: 'Return only the most recent N events.' },
+        sinceSec: { type: 'number', exclusiveMinimum: 0, description: 'Only include events from the last N seconds.' },
+        track: { ...TRACK, description: 'Filter to a single track by exact name (case-insensitive) or id.' },
+      },
+    },
+  },
 ];
 
 export function getCommand(name) {
