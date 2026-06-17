@@ -17,10 +17,11 @@ concrete part you can hear. The bridge is the point.
 
 Because the catalog is the contract, the agent surface is not bolted on, it
 is the same surface you use. Claude can compose, sound-design, mix, switch
-patterns, and play notes in your live session. The architecture is shaped so
-the larger parts (an arrangement timeline, audio clips, automation, and a
-performance ledger the agent reads back from) bolt on without a rewrite. See
-"Where it's going" below.
+patterns, and play notes in your live session, and read back the performance
+ledger (an always-on log of what you played) to grab a riff after the fact.
+The architecture is shaped so the larger parts (an arrangement timeline,
+audio clips, and automation) bolt on without a rewrite. See "Where it's
+going" below.
 
 ## Run it
 
@@ -62,7 +63,9 @@ share link, export audio WAV, export/import JSON, new project), master level.
 
 Two ways to get a song out. "Copy share link" packs the whole project into
 the URL itself (a few KB of pattern data, no upload), so a link is the song;
-open that link and Oscine loads it before the UI draws. "Export audio (.wav)"
+open that link and Oscine loads it before the UI draws. The link is
+gzip-compressed (via CompressionStream) for a shorter URL, and older
+uncompressed links still open. "Export audio (.wav)"
 bounces the active slot through the full mix and master FX with an
 OfflineAudioContext and downloads a 16-bit WAV. Both run through the same
 command catalog as everything else, so Claude can trigger them over MCP
@@ -152,10 +155,11 @@ replacement emits one event and every layer rebuilds itself.
 
 ## The catalog is the contract
 
-`src/api/commands.js` is the contract: 20 commands covering everything the UI
+`src/api/commands.js` is the contract: 21 commands covering everything the UI
 can do (transport, project ops, tracks, instrument params and presets,
-piano-roll notes, drum steps, mixer, master FX, pattern slots, preview, and
-live MIDI). Each command carries a JSON Schema; `CommandAPI` validates,
+piano-roll notes, drum steps, mixer, master FX, pattern slots, preview,
+live MIDI, and the performance ledger). Each command carries a JSON Schema;
+`CommandAPI` validates,
 clamps, resolves tracks by name or id, and returns JSON. The UI, the browser
 console, MCP, OSC, and MIDI are five consumers of the same surface:
 
@@ -176,7 +180,7 @@ Its sidecar is one zero-dependency node process that Claude starts and stops
 via the plugin's `.mcp.json`:
 
 - MCP server over stdio: `oscine_open_app`, `oscine_sessions`, plus one
-  `oscine_*` tool per catalog command (22 total), schemas taken directly from
+  `oscine_*` tool per catalog command (23 total), schemas taken directly from
   the catalog
 - HTTP server on `127.0.0.1:7321` (next free port if busy) serving the bundled
   app from `plugin/app/`
@@ -279,6 +283,16 @@ Already shipped:
   play Oscine the same way by sending `/oscine/midi/in`, so a controller on any
   surface, including a phone over the local network, becomes an input.
 
+- Performance ledger: an always-on, bounded log of what you play live (on-screen
+  keys, computer keyboard, drum pads, and hardware/OSC MIDI). It records even
+  when the transport is stopped (free play), wall-clock time-stamping each event
+  and adding the musical beat when the transport is running. The `ledger` command
+  reads it back, with a derived view that pairs note-ons with note-offs into
+  played notes and lists drum hits, so an agent can transcribe a phrase straight
+  into `set_notes`/`set_steps`. Agent auditions (`preview`) are not recorded,
+  only your own play. This is the observer half of the agent surface that makes
+  the jam loop real.
+
 Planned, roughly in order of effort (see `ROADMAP.md` for the full picture):
 
 - Song arrangement: a timeline view that sequences slot patterns into a song.
@@ -289,10 +303,6 @@ Planned, roughly in order of effort (see `ROADMAP.md` for the full picture):
 - Per-track insert effects and automation: the channel strip is already a node
   chain; inserts are an array between gain and panner, and automation lanes are
   time-indexed param events scheduled in the same windows as notes.
-- A performance ledger: an always-on, beat-stamped log of what you play that an
-  agent reads and acts on after the fact (grab that riff, clean it up, drop it
-  on a track). This is the observer half of the agent surface, and it makes the
-  jam loop real.
 - Audio/sample tracks: a new instrument kind whose patterns hold clip
   references; `decodeAudioData` + `AudioBufferSourceNode` slots into the
   existing channel strip unchanged.

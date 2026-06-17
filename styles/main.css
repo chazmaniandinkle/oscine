@@ -104,6 +104,12 @@ footer.keysbar {
 }
 footer.keysbar.hidden { display: none; }
 
+/* Mobile-only tab bar. Hidden on desktop; the @media (max-width: 640px)
+   block at the end of this file is the ONLY place it becomes a fixed bar.
+   The JS appends it as the last child of #app but sets no inline display,
+   so visibility is 100% CSS-driven from this one base rule. */
+.mobile-nav { display: none; }
+
 /* ---------- shared bits ---------- */
 
 .panel-head {
@@ -729,3 +735,170 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
   border: 2px solid var(--bg-1);
 }
 ::-webkit-scrollbar-thumb:hover { background: #313a57; }
+
+/* ---------- phone layout (<= 640px) ----------
+
+   The three side panels (Tracks / Editor / Inspector) and the Mixer stop
+   being a 3-column row and become four mutually-exclusive full-width views,
+   exactly one shown at a time. A UI-only `data-panel` attribute on #app
+   (one of: tracks | editor | inspector | mixer) selects which region is
+   visible; a fixed bottom tab bar (.mobile-nav) switches it. This is pure
+   presentation: no project state, no audio. Desktop ignores [data-panel]
+   entirely, so everything above this line renders identically > 640px.
+
+   640px is the cutoff because the 218 + 1fr + 268 three-column body needs
+   ~700px+ to be usable; at/below 640 (all phones in portrait, most in
+   landscape) we stack. This is the only @media block in the file. */
+@media (max-width: 640px) {
+
+  /* A) GRID. Rows become header / active-panel / keysbar / mobile-nav.
+     Header height goes auto so the wrapped transport bar can grow; the
+     active panel fills the flexible row; keysbar + nav pin below it. The
+     nav is a grid row (not fixed), so there is no overlap math. */
+  #app {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    padding-bottom: 0;
+  }
+
+  /* The .body and .mixer are separate grid children. To make exactly one
+     occupy the flexible row2, the inactive one is hidden. For the three
+     body-panel views, show .body and hide the mixer; for the mixer view,
+     hide .body and let the mixer fill (and scroll) row2. */
+  #app > .mixer { display: none; }
+  #app[data-panel="mixer"] .body { display: none; }
+  #app[data-panel="mixer"] > .mixer {
+    display: block;
+    overflow-y: auto;
+  }
+
+  /* B) BODY -> SINGLE COLUMN. Collapse the 3-col grid to one block, hide
+     all three children by default, then reveal exactly the active one. */
+  .body {
+    display: block;
+    grid-template-columns: 1fr;
+    height: 100%;
+    overflow: hidden;
+  }
+  .body > .panel,
+  .body > .center,
+  .body > .insp-panel { display: none; }
+
+  #app[data-panel="tracks"] .body > .panel:not(.insp-panel) {
+    display: block;
+    height: 100%;
+    overflow-y: auto;
+  }
+  #app[data-panel="editor"] .body > .center {
+    display: flex;
+    height: 100%;
+  }
+  #app[data-panel="inspector"] .body > .insp-panel {
+    display: block;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  /* Side borders now read as full-width seams; drop them. */
+  .panel { border-right: none; }
+  .insp-panel { border-left: none; }
+
+  /* C) MIXER AS A VIEW. The mixer tab shows the mixer body regardless of
+     store.ui.mixerOpen (JS never touches mixerOpen here). The collapse
+     handle is meaningless as a full view, so hide it. Strips wrap so they
+     stack 2-3 across instead of forcing a horizontal scroll on ~380px.
+     The !important on .mixer-body is required: it must beat the base
+     `.mixer-body { display: none }` rule AND tie-break the equal-specificity
+     `.mixer.open .mixer-body { display: flex }` rule regardless of open
+     state. It is the only !important in this block. */
+  .mixer .mixer-handle { display: none; }
+  #app[data-panel="mixer"] .mixer .mixer-body {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    overflow: auto;
+  }
+  .strip { width: 104px; }
+  .master-strip { min-width: 100%; }
+
+  /* D) MOBILE NAV BAR. Four equal tabs, >= 48px tall (clears the ~40px
+     touch-target floor). The active tab is accent-tinted with a top rule. */
+  .mobile-nav {
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-1);
+    border-top: 1px solid var(--line);
+  }
+  .mobile-tab {
+    flex: 1;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--dim);
+    font: inherit;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .mobile-tab.is-active {
+    color: var(--accent);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+
+  /* E) TRANSPORT WRAP. Let the bar and its groups wrap onto multiple rows
+     instead of clipping at ~380px. Hide the lowest-value desktop-only
+     widgets (still reachable via panels/menus); keep play, position, BPM,
+     slots, undo/redo, File, master. Bump touch targets to >= 40px. */
+  header.transportbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 50px;
+    row-gap: 6px;
+    padding: 6px 10px;
+  }
+  .tb-group { flex-wrap: wrap; }
+  .logo-word { display: none; }
+  .song-name { display: none; }
+  .midi-vel { display: none; }
+  .numdrag { min-width: 60px; }
+  .play-btn { width: 44px; height: 40px; }
+  .slot-btn { width: 40px; height: 40px; }
+  .btn.icon-btn { min-height: 40px; min-width: 40px; }
+  .btn.mini { min-height: 36px; }
+
+  /* F) KEYBOARD FOOTER. Taller, full-width keys are easier to touch; the
+     black-key cap scales to the new height. Drum pads wrap into a 4x2 grid
+     instead of overflowing. The footer is row3 (pinned), nav is row4. */
+  footer.keysbar { padding: 6px 8px; }
+  .piano { gap: 8px; }
+  .piano-keys {
+    height: 120px;
+    max-width: none;
+  }
+  .pkey.black::after {
+    height: 72px;
+    width: 24px;
+    left: -12px;
+  }
+  .pads {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pad {
+    width: calc(25% - 6px);
+    min-width: 0;
+    height: 60px;
+  }
+
+  /* G) EDITOR BAR / SNAP. Let the title + snap select wrap rather than clip. */
+  .editor-bar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 34px;
+    padding: 6px 8px;
+  }
+}
