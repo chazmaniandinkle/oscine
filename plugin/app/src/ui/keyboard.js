@@ -79,6 +79,7 @@ export class KeyboardBar {
       pad.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         this.app.engine.previewHit(track.id, lane.id);
+        this.store.logInput({ kind: 'hit', trackId: track.id, trackName: track.name, lane: lane.id, vel: 1, beat: this.beatNow() });
         pad.classList.add('pressed');
       });
       pad.addEventListener('pointerup', () => pad.classList.remove('pressed'));
@@ -179,6 +180,7 @@ export class KeyboardBar {
         const lane = def.lanes[laneIdx];
         if (lane) {
           this.app.engine.previewHit(t.id, lane.id);
+          this.store.logInput({ kind: 'hit', trackId: t.id, trackName: t.name, lane: lane.id, vel: 1, beat: this.beatNow() });
           const pad = this.keyEls.get('lane:' + lane.id);
           pad?.classList.add('pressed');
           setTimeout(() => pad?.classList.remove('pressed'), 120);
@@ -203,16 +205,29 @@ export class KeyboardBar {
 
   // -- shared ---------------------------------------------------------------------
 
+  // The transport beat when playing, else null. The performance ledger stamps
+  // this on every live note/hit; wall-clock time is the backbone so capture
+  // works with the transport stopped.
+  beatNow() {
+    const p = this.app.transport.getPosition();
+    return p.playing ? p.localBeat : null;
+  }
+
   noteOn(midi) {
     const t = this.track;
     if (!t) return;
-    this.app.engine.previewOn(t.id, midi, 0.9);
+    const vel = 0.9;
+    this.app.engine.previewOn(t.id, midi, vel);
+    this.store.logInput({ kind: 'note', on: true, trackId: t.id, trackName: t.name, pitch: midi, vel, beat: this.beatNow() });
     this.keyEls.get(midi)?.classList.add('pressed');
   }
 
   noteOff(midi) {
     const t = this.track;
-    if (t) this.app.engine.previewOff(t.id, midi);
+    if (t) {
+      this.app.engine.previewOff(t.id, midi);
+      this.store.logInput({ kind: 'note', on: false, trackId: t.id, pitch: midi, beat: this.beatNow() });
+    }
     this.keyEls.get(midi)?.classList.remove('pressed');
   }
 

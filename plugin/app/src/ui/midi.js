@@ -284,6 +284,14 @@ export class MidiInput {
 
   // -- note routing (engine preview + optional record) ----------------------
 
+  // The transport beat when playing, else null. The performance ledger stamps
+  // this on every live note/hit; wall-clock time is the backbone so capture
+  // works with the transport stopped (the common free-play case).
+  _beatNow() {
+    const p = this.transport.getPosition();
+    return p.playing ? p.localBeat : null;
+  }
+
   noteOn(midi, vel) {
     const track = this.track;
     if (!track) return;
@@ -293,9 +301,11 @@ export class MidiInput {
       const laneIndex = ((midi - 36) % lanes.length + lanes.length) % lanes.length;
       const lane = lanes[laneIndex];
       this.engine.previewHit(track.id, lane.id, vel);
+      this.store.logInput({ kind: 'hit', trackId: track.id, trackName: track.name, lane: lane.id, vel, beat: this._beatNow() });
       this.recordStep(track, lane.id, vel);
     } else {
       this.engine.previewOn(track.id, midi, vel);
+      this.store.logInput({ kind: 'note', on: true, trackId: track.id, trackName: track.name, pitch: midi, vel, beat: this._beatNow() });
       this.recordNoteOn(track, midi, vel);
     }
   }
@@ -305,6 +315,7 @@ export class MidiInput {
     if (!track) return;
     if (this.defOf(track).kind !== 'drums') {
       this.engine.previewOff(track.id, midi);
+      this.store.logInput({ kind: 'note', on: false, trackId: track.id, pitch: midi, beat: this._beatNow() });
       this.recordNoteOff(track, midi);
     }
   }
