@@ -654,10 +654,10 @@ export class CommandAPI {
     };
   }
 
-  cmd_share({ action = 'link', url }) {
+  async cmd_share({ action = 'link', url }) {
     const { store } = this;
     if (action === 'link') {
-      const link = buildShareUrl(store.project);
+      const link = await buildShareUrl(store.project);
       const fragment = fragmentFromUrl(link);
       return { url: link, chars: link.length, fragmentChars: fragment?.length ?? 0, project: store.project.name };
     }
@@ -665,7 +665,7 @@ export class CommandAPI {
       if (!url) throw new Error("action 'open' needs a 'url' (an Oscine share link or its '#s=...' fragment).");
       const fragment = fragmentFromUrl(url);
       if (!fragment) throw new Error("No share data in that URL (expected a '#s=...' fragment).");
-      const project = decodeFragmentToProject(fragment); // validates; throws on bad data
+      const project = await decodeFragmentToProject(fragment); // validates; throws on bad data
       store.checkpoint();
       store.project = project;
       store.afterReplace();

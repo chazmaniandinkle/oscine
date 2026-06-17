@@ -755,12 +755,14 @@ const share = await import(`${ROOT}/src/core/share.js`);
 
   // Share codec: a full project round-trips through a URL fragment, note ids
   // are stripped from the wire form (regenerated on load), patterns survive.
+  // The encode/decode/build/projectFromUrl functions are async now (they gzip
+  // the payload via CompressionStream); fragmentFromUrl stays synchronous.
   const proj = demoProject();
-  const url = share.buildShareUrl(proj, 'https://oscine.app/');
+  const url = await share.buildShareUrl(proj, 'https://oscine.app/');
   check('buildShareUrl emits an #s= fragment under the given base',
     url.startsWith('https://oscine.app/#s=') && share.fragmentFromUrl(url)?.length > 0);
 
-  const back = share.decodeFragmentToProject(share.fragmentFromUrl(url));
+  const back = await share.decodeFragmentToProject(share.fragmentFromUrl(url));
   check('share round-trips name/bpm/tracks/slots',
     back.name === proj.name && back.bpm === proj.bpm &&
     back.tracks.length === proj.tracks.length && back.slots.length === 4);
@@ -772,10 +774,46 @@ const share = await import(`${ROOT}/src/core/share.js`);
   check('share wire form omits note ids (kept compact)', backNotes.every(n => n.id === undefined));
   check('decoded project still validates as loadable', !!validateProject(JSON.parse(JSON.stringify(back))));
 
+  // Compression: the encoded fragment gzips the wire JSON via CompressionStream,
+  // so it must be meaningfully smaller than a plain base64url of the same JSON.
+  const fragment = await share.encodeProjectToFragment(proj);
+  const roundTripped = await share.decodeFragmentToProject(fragment);
+  check('encode/decode round-trips a non-trivial project',
+    roundTripped.name === proj.name &&
+    roundTripped.tracks.length === proj.tracks.length &&
+    roundTripped.slots[0].patterns[leadId].notes[0].pitch === origNotes[0].pitch);
+  // Plain (uncompressed) base64url of the exact same wire JSON, for the size
+  // comparison. Mirrors the legacy encoder: stringify the wire form (note ids
+  // stripped), utf-8 encode, then base64url. We reuse decode's inverse to size
+  // it without re-implementing the base64url table.
+  const wireJson = JSON.stringify((() => {
+    const w = JSON.parse(JSON.stringify(proj));
+    for (const slot of w.slots ?? [])
+      for (const pat of Object.values(slot.patterns ?? {}))
+        if (Array.isArray(pat.notes)) for (const n of pat.notes) delete n.id;
+    return w;
+  })());
+  const plainBytes = new TextEncoder().encode(wireJson);
+  const plainFragment = Buffer.from(plainBytes).toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  check('compressed fragment is smaller than plain base64url of the same JSON',
+    fragment.length < plainFragment.length,
+    `compressed ${fragment.length} vs plain ${plainFragment.length}`);
+
+  // Backward compatibility: links made before this change are bare base64url of
+  // the wire JSON (no gzip, no magic bytes). The decoder auto-detects by the
+  // gzip magic (0x1f 0x8b) and falls through to the legacy plain path, so a
+  // hand-built legacy fragment must still decode to a valid project.
+  const legacyBack = await share.decodeFragmentToProject(plainFragment);
+  check('legacy plain (uncompressed) base64url fragment still decodes',
+    legacyBack.name === proj.name &&
+    legacyBack.tracks.length === proj.tracks.length &&
+    !!validateProject(JSON.parse(JSON.stringify(legacyBack))));
+
   check('projectFromUrl returns null when no fragment is present',
-    share.projectFromUrl('https://oscine.app/') === null);
+    (await share.projectFromUrl('https://oscine.app/')) === null);
   let decErr = null;
-  try { share.decodeFragmentToProject('!!!not-base64!!!'); } catch (e) { decErr = e.message; }
+  try { await share.decodeFragmentToProject('!!!not-base64!!!'); } catch (e) { decErr = e.message; }
   check('decode rejects a malformed fragment', /malformed/.test(decErr ?? ''));
 }
 
