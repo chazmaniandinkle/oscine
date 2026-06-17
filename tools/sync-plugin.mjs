@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const APP_DIR = join(ROOT, 'plugin', 'app');
-const SOURCES = ['index.html', 'styles', 'src'];
+const SOURCES = ['index.html', 'manifest.webmanifest', 'styles', 'src'];
 
 async function* walk(dir) {
   for (const name of await readdir(dir)) {

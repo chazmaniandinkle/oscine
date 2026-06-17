@@ -1055,6 +1055,32 @@ console.log('\n[6] plugin bundle integrity');
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[6b] installable web app (manifest + icons + meta wiring)');
+{
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.webmanifest'), 'utf8'));
+  check('manifest is standalone with a name', manifest.display === 'standalone' && !!manifest.name);
+  check('manifest icons resolve to files',
+    Array.isArray(manifest.icons) && manifest.icons.length > 0 &&
+    manifest.icons.every(i => existsSync(join(ROOT, i.src))));
+  check('manifest declares a maskable icon',
+    manifest.icons.some(i => (i.purpose || '').split(/\s+/).includes('maskable')));
+
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  check('index.html links the manifest', /<link[^>]+rel="manifest"[^>]+href="manifest\.webmanifest"/.test(html));
+  check('index.html opts into standalone (apple + mobile web-app-capable)',
+    /name="apple-mobile-web-app-capable"\s+content="yes"/.test(html) &&
+    /name="mobile-web-app-capable"\s+content="yes"/.test(html));
+  const touch = html.match(/<link[^>]+rel="apple-touch-icon"[^>]+href="([^"]+)"/);
+  check('apple-touch-icon is declared and the file exists',
+    !!touch && existsSync(join(ROOT, touch[1])));
+  // The manifest AND its icons must be mirrored into the plugin app copy
+  // (manifest is in SOURCES; icons ride along under styles/).
+  check('manifest + icons bundled into plugin/app',
+    existsSync(join(ROOT, 'plugin/app/manifest.webmanifest')) &&
+    manifest.icons.every(i => existsSync(join(ROOT, 'plugin/app', i.src))));
+}
+
+// ---------------------------------------------------------------------------
 console.log('\n[7] sidecar session registry (multi-instance routing)');
 {
   const { SessionRegistry } = await import(`${ROOT}/plugin/server/sessions.js`);
