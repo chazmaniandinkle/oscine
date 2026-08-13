@@ -1,0 +1,10 @@
+workspace:
+  name: oscine
+  kind: repo
+  owner_intent: >
+    Oscine synth composer app; ships as a Claude Code plugin
+    (oscine.plugin).
+  tier: dormant
+  writers:
+    - "none observed (plugin cache path match is coincidental, not a writer into this workspace)"
+  kernel_registration: not-desired
