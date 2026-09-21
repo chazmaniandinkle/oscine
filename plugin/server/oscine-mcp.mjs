@@ -14,7 +14,7 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join, extname, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -354,6 +354,72 @@ function startHttp(port, attemptsLeft = 9) {
 
 // ---------------------------------------------------------------------------
 // Server-side tools (work without the app) + catalog-derived tools.
+//
+// Skills as MCP resources: every plugin/skills/*/SKILL.md is exposed via
+// resources/list (a short, known-but-unloaded listing: name + description)
+// and resources/read (the full markdown body). Progressive disclosure:
+// agents discover cheaply, load deeply only when needed.
+
+const SKILLS_DIR = resolve(ROOT, '..', 'skills');
+const SKILL_URI_PREFIX = 'oscine://skills/';
+
+function parseSkillFrontmatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (!m) return {};
+  const out = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const km = /^(\w[\w-]*):\s*(.*)$/.exec(line);
+    if (km) out[km[1]] = km[2].trim();
+  }
+  return out;
+}
+
+async function listSkills() {
+  const out = [];
+  let entries = [];
+  try {
+    entries = await readdir(SKILLS_DIR, { withFileTypes: true });
+  } catch {
+    return out; // no skills dir: empty list, never an error
+  }
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const path = join(SKILLS_DIR, e.name, 'SKILL.md');
+    let text;
+    try {
+      text = await readFile(path, 'utf8');
+    } catch {
+      continue; // directory without SKILL.md is not a skill
+    }
+    const fm = parseSkillFrontmatter(text);
+    out.push({
+      uri: SKILL_URI_PREFIX + e.name,
+      name: e.name,
+      title: fm.name ?? e.name,
+      description: fm.description ?? '',
+      mimeType: 'text/markdown',
+    });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function readSkill(name) {
+  // name may come in as the full uri or the bare skill name
+  const bare = name.startsWith(SKILL_URI_PREFIX) ? name.slice(SKILL_URI_PREFIX.length) : name;
+  if (bare.includes('/') || bare.includes('..')) throw new Error(`Unknown resource: ${name}`);
+  const path = join(SKILLS_DIR, bare, 'SKILL.md');
+  const text = await readFile(path, 'utf8');
+  const fm = parseSkillFrontmatter(text);
+  return {
+    contents: [{
+      uri: SKILL_URI_PREFIX + bare,
+      mimeType: 'text/markdown',
+      text,
+      ...(fm.name ? { name: fm.name } : {}),
+      ...(fm.description ? { description: fm.description } : {}),
+    }],
+  };
+}
 
 const OPEN_APP_TOOL = {
   name: 'oscine_open_app',
@@ -513,7 +579,7 @@ async function handleRpc(msg) {
       case 'initialize':
         rpcResult(id, {
           protocolVersion: params?.protocolVersion ?? '2025-06-18',
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, resources: {} },
           serverInfo: { name: 'oscine', title: 'Oscine Synth Composer', version: SERVER_VERSION },
         });
         return;
@@ -523,6 +589,20 @@ async function handleRpc(msg) {
       case 'tools/list':
         rpcResult(id, { tools: toolList() });
         return;
+      case 'resources/list': {
+        const skills = await listSkills();
+        rpcResult(id, { resources: skills });
+        return;
+      }
+      case 'resources/read': {
+        const uri = params?.uri ?? '';
+        try {
+          rpcResult(id, await readSkill(uri));
+        } catch {
+          rpcError(id, -32602, `Unknown resource: ${uri}`);
+        }
+        return;
+      }
       case 'tools/call': {
         const { name, arguments: args } = params ?? {};
         try {
