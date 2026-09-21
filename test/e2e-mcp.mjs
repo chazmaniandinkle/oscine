@@ -79,7 +79,24 @@ try {
   });
   check('initialize returns serverInfo + tools capability',
     init.result?.serverInfo?.name === 'oscine' && !!init.result?.capabilities?.tools);
+  check('initialize declares resources capability',
+    !!init.result?.capabilities?.resources);
   sidecar.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+
+  // -- Skills as MCP resources: known-but-unloaded discovery ------------------
+  const resList = await rpc('resources/list');
+  const resources = resList.result?.resources ?? [];
+  const skillRes = resources.find(r => r.uri === 'oscine://skills/composing-with-oscine');
+  check('resources/list exposes bundled skills', resources.length >= 1, `got ${resources.length}`);
+  check('skill resource carries name + description + mime',
+    skillRes?.name === 'composing-with-oscine' && !!skillRes?.description && skillRes?.mimeType === 'text/markdown');
+  const resRead = await rpc('resources/read', { uri: 'oscine://skills/composing-with-oscine' });
+  const body = resRead.result?.contents?.[0]?.text ?? '';
+  check('resources/read returns the full skill body',
+    body.startsWith('---') && /Composing with Oscine|oscine_set_notes/.test(body));
+  const badRes = await rpc('resources/read', { uri: 'oscine://skills/nope' });
+  check('resources/read on unknown uri errors cleanly',
+    !!badRes.error && badRes.error.code === -32602);
 
   const list = await rpc('tools/list');
   const tools = list.result?.tools ?? [];
