@@ -159,6 +159,29 @@ console.log('\n[2b] v2 schema: assets/clips/arrangement (reference-not-file)');
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[2c] tier-2 project file save/load: path guard');
+{
+  const { resolveProjectPath } = await import(`${ROOT}/plugin/server/oscine-mcp.mjs`);
+  const testRoot = resolve('/tmp', 'oscine-smoke-project-root');
+
+  check('valid relative path resolves inside the project root',
+    resolveProjectPath('songs/x/x.oscine.json', testRoot).startsWith(testRoot));
+
+  let rejectedExt = false;
+  try { resolveProjectPath('songs/x/x.json', testRoot); } catch { rejectedExt = true; }
+  check('rejects a path that does not end in .oscine.json (never writes raw JSON or bytes)', rejectedExt);
+
+  let rejectedTraversal = false;
+  try { resolveProjectPath('../../etc/passwd.oscine.json', testRoot); } catch { rejectedTraversal = true; }
+  check('rejects path traversal out of the project root', rejectedTraversal);
+
+  let rejectedEmpty = false;
+  try { resolveProjectPath('', testRoot); } catch { rejectedEmpty = true; }
+  check('rejects an empty path', rejectedEmpty);
+}
+
+
+// ---------------------------------------------------------------------------
 console.log('\n[3] transport scheduling math (stubbed clock)');
 const { Transport } = await import(`${ROOT}/src/engine/transport.js`);
 

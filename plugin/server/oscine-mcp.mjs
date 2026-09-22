@@ -14,7 +14,7 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { readFile, stat, readdir } from 'node:fs/promises';
+import { readFile, stat, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join, extname, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -427,6 +427,31 @@ const OPEN_APP_TOOL = {
   inputSchema: { type: 'object', properties: {} },
 };
 
+// Tier 2 of the project storage model (see cog's oscine-clip-architecture
+// writeup): the *document* — an `<name>.oscine.json` file that lives next
+// to a song's lyrics/notes/renders and is git-tracked. Bytes (tier 3, the
+// content-addressed asset store) are never written here; only the project
+// JSON that references them by hash.
+//
+// Path guard: writes/reads are confined to a `.oscine.json`-suffixed file
+// inside an allowed root, resolved to prevent traversal. Default root is
+// OSCINE_PROJECT_ROOT if set, else the cwd the sidecar was launched from.
+const PROJECT_ROOT = resolve(process.env.OSCINE_PROJECT_ROOT || process.cwd());
+
+export function resolveProjectPath(relPath, projectRoot = PROJECT_ROOT) {
+  if (typeof relPath !== 'string' || !relPath.trim()) {
+    throw new Error("'path' is required (relative to the project root, e.g. 'projects/songs/my-song/my-song.oscine.json').");
+  }
+  if (!relPath.endsWith('.oscine.json')) {
+    throw new Error("'path' must end in .oscine.json — this tool writes project documents only, never asset bytes.");
+  }
+  const full = resolve(projectRoot, relPath);
+  if (full !== projectRoot && !full.startsWith(projectRoot + '/')) {
+    throw new Error(`'path' escapes the project root (${projectRoot}).`);
+  }
+  return full;
+}
+
 const SESSIONS_TOOL = {
   name: 'oscine_sessions',
   description: "List the open Oscine instances (browser tabs) connected to this sidecar, or choose which one commands target. With several tabs open, commands go to the active instance unless you pass a `session` argument; call this to see what's open and to switch the active instance.",
@@ -447,10 +472,38 @@ const SESSION_ARG = {
   description: 'Optional. Target a specific open Oscine instance by id (from oscine_sessions), clientId, or project name. Omit to use the active instance.',
 };
 
+const PROJECT_SAVE_FILE_TOOL = {
+  name: 'oscine_project_save_file',
+  description: "Save the running project to a git-trackable *.oscine.json file (tier 2 of the storage model: the document, not the bytes). Fetches the live project from the app and writes it to disk under the project root — the same place the song's lyrics/notes/renders live. Never writes audio; assets are referenced by hash, not embedded.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: "Relative path ending in .oscine.json, e.g. 'projects/songs/2026-09-19-housekeeping-heat/the-field-remains.oscine.json'." },
+      session: SESSION_ARG,
+    },
+    required: ['path'],
+  },
+};
+
+const PROJECT_OPEN_FILE_TOOL = {
+  name: 'oscine_project_open_file',
+  description: "Load a *.oscine.json project document from disk (tier 2) into the running app, replacing the current project (one undo away). Validates and upgrades the schema on load, so files saved under an older format version still open.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: "Relative path to an existing .oscine.json file under the project root." },
+      session: SESSION_ARG,
+    },
+    required: ['path'],
+  },
+};
+
 function toolList() {
   return [
     OPEN_APP_TOOL,
     SESSIONS_TOOL,
+    PROJECT_SAVE_FILE_TOOL,
+    PROJECT_OPEN_FILE_TOOL,
     ...COMMANDS.map(c => ({
       name: `oscine_${c.name}`,
       description: c.description,
@@ -527,6 +580,35 @@ async function dispatchTool(name, args) {
       return { ok: true, active: s.id, sessions: registry.list() };
     }
     return { active: registry.active?.id ?? null, count: registry.size, sessions: registry.list() };
+  }
+
+  if (name === 'oscine_project_save_file') {
+    const full = resolveProjectPath(args?.path);
+    const project = await callApp('project', { action: 'get' }, 15000, args?.session ?? null);
+    if (!project || typeof project !== 'object') {
+      return { ok: false, error: 'Could not fetch the live project from the app.' };
+    }
+    await mkdir(dirname(full), { recursive: true });
+    await writeFile(full, JSON.stringify(project, null, 2) + '\n', 'utf8');
+    return { ok: true, path: full, bytes: JSON.stringify(project).length, name: project.name, version: project.version };
+  }
+
+  if (name === 'oscine_project_open_file') {
+    const full = resolveProjectPath(args?.path);
+    let text;
+    try {
+      text = await readFile(full, 'utf8');
+    } catch (err) {
+      return { ok: false, error: `Could not read ${full}: ${err.message}` };
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      return { ok: false, error: `${full} is not valid JSON: ${err.message}` };
+    }
+    const result = await callApp('project', { action: 'load', project: parsed }, 15000, args?.session ?? null);
+    return { ...result, path: full };
   }
 
   const cmdName = name.replace(/^oscine_/, '');
@@ -623,28 +705,37 @@ async function handleRpc(msg) {
   }
 }
 
-const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
-rl.on('line', (line) => {
-  const trimmed = line.trim();
-  if (!trimmed) return;
-  let msg;
-  try { msg = JSON.parse(trimmed); } catch {
-    log('unparseable line on stdin');
-    return;
-  }
-  handleRpc(msg);
-});
+// Only run the sidecar (stdio RPC loop + HTTP + OSC) when this file is
+// executed directly (`node oscine-mcp.mjs`), not when it's imported as a
+// module (e.g. the test suite importing resolveProjectPath). Without this
+// guard, importing the file for a single helper function would also open
+// network ports and attach a stdin listener that calls process.exit(0) as
+// soon as stdin closes -- silently killing whatever imported it.
+const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  rl.on('line', (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let msg;
+    try { msg = JSON.parse(trimmed); } catch {
+      log('unparseable line on stdin');
+      return;
+    }
+    handleRpc(msg);
+  });
 
-// Claude Desktop closes stdin to stop the sidecar.
-rl.on('close', () => { log('stdin closed; exiting'); process.exit(0); });
-process.on('SIGTERM', () => process.exit(0));
-process.on('SIGINT', () => process.exit(0));
+  // Claude Desktop closes stdin to stop the sidecar.
+  rl.on('close', () => { log('stdin closed; exiting'); process.exit(0); });
+  process.on('SIGTERM', () => process.exit(0));
+  process.on('SIGINT', () => process.exit(0));
 
-startHttp(BASE_PORT);
-gateway = new OscGateway({
-  port: OSC_PORT,
-  callApp,
-  onSubscribersChange: (n) => setAppStreaming(n > 0),
-  log,
-});
-log(`MCP server ready (tools: ${toolList().length})`);
+  startHttp(BASE_PORT);
+  gateway = new OscGateway({
+    port: OSC_PORT,
+    callApp,
+    onSubscribersChange: (n) => setAppStreaming(n > 0),
+    log,
+  });
+  log(`MCP server ready (tools: ${toolList().length})`);
+}
