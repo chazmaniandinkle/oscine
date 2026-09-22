@@ -9,7 +9,7 @@
 import { uid, clamp } from './util.js';
 import { defaultParams, presetParams, getInstrumentDef } from '../engine/instruments/index.js';
 
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 export const SLOT_NAMES = ['A', 'B', 'C', 'D'];
 export const BAR_CHOICES = [1, 2, 4, 8];
 export const MIDI_MIN = 24;   // C1
@@ -37,6 +37,63 @@ export function resizeDrumPattern(pattern, bars) {
     if (arr.length > want) pattern.steps[laneId] = arr.slice(0, want);
     else while (arr.length < want) arr.push(0);
   }
+}
+
+// ---------------------------------------------------------------------------
+// v2: asset / clip / arrangement model (additive; a pattern-only project
+// carries empty {} / null and round-trips byte-identical to v1 otherwise).
+// Reference-not-file: see ui/oscine-clip-architecture in the cog workspace
+// for the full design writeup (spike results, cache-key scheme, DAM law).
+//
+//   assets[id]      = { id, kind, duration, variants: { name: { sha256,
+//                       derivedFrom?, derivedBy?, calibration?,
+//                       supersededBy? } }, words?: [{s,e,t}] }
+//   clips[id]       = { id, sourceOf, in, out, representation, fadeIn,
+//                       fadeOut, materializedAs, supersededBy, verified? }
+//   arrangement     = { length, placements: [{track, clip, at}],
+//                       automation: [{track, param, points:[[t,v],...]}] }
+//
+// Containment among clips is COMPUTED from in/out ranges, never stored —
+// storing it lets a trim silently drift a contained range while it still
+// looks correct (regression case: trimming an outer pick drifted an inner
+// one +4.00s with the tree unchanged). Segments stay virtual
+// (materializedAs: null) until a per-range rendition choice forces a render;
+// audition, waveform, edge-scoring and in-browser playback all work off the
+// decoded buffer with zero bytes cut.
+
+export function createAsset(kind, duration, variants = {}) {
+  return { id: uid('ast'), kind, duration, variants, words: null };
+}
+
+export function createVariant(sha256, extra = {}) {
+  return { sha256, derivedFrom: null, derivedBy: null, calibration: null, supersededBy: null, ...extra };
+}
+
+export function createClip(sourceOf, inPoint, outPoint, extra = {}) {
+  return {
+    id: uid('seg'),
+    sourceOf,
+    in: inPoint,
+    out: outPoint,
+    representation: null,   // null = default variant; else name of the variant to window onto
+    fadeIn: 0,
+    fadeOut: 0,
+    materializedAs: null,   // null = virtual reference; set = has its own rendered media
+    supersededBy: null,
+    verified: false,
+    ...extra,
+  };
+}
+
+export function clipDuration(clip) { return clip.out - clip.in; }
+
+// True containment check — always computed, never read off a stored edge.
+export function clipContains(outer, inner) {
+  return outer.sourceOf === inner.sourceOf && outer.in <= inner.in && outer.out >= inner.out;
+}
+
+export function createArrangement(length = 0) {
+  return { length, placements: [], automation: [] };
 }
 
 export function createTrack(instrumentType, name, colorIndex = 0) {
@@ -73,14 +130,26 @@ export function createProject(name = 'Untitled') {
     },
     slots: SLOT_NAMES.map(n => ({ name: n, bars: 2, patterns: {} })),
     tracks: [],
+    assets: {},     // v2, optional: id -> asset (see createAsset)
+    clips: {},      // v2, optional: id -> clip (see createClip)
+    arrangement: null, // v2, optional: createArrangement() once placements exist
   };
 }
 
+const MAX_SUPPORTED_VERSION = FORMAT_VERSION;
+
 export function validateProject(p) {
   if (!p || typeof p !== 'object') throw new Error('not a project file');
-  if (p.version !== FORMAT_VERSION) throw new Error(`unsupported format version ${p.version}`);
+  if (typeof p.version !== 'number' || p.version < 1 || p.version > MAX_SUPPORTED_VERSION) {
+    throw new Error(`unsupported format version ${p.version}`);
+  }
   if (!Array.isArray(p.tracks) || !Array.isArray(p.slots)) throw new Error('malformed project');
   p.bpm = clamp(p.bpm ?? 110, 40, 240);
+  // v1 -> v2 upgrade in place: additive fields only, nothing existing moves.
+  if (!p.assets) p.assets = {};
+  if (!p.clips) p.clips = {};
+  if (p.arrangement === undefined) p.arrangement = null;
+  p.version = MAX_SUPPORTED_VERSION;
   return p;
 }
 

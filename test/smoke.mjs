@@ -104,6 +104,61 @@ const { listInstrumentDefs } = await import(`${ROOT}/src/engine/instruments/inde
 }
 
 // ---------------------------------------------------------------------------
+console.log('\n[2b] v2 schema: assets/clips/arrangement (reference-not-file)');
+{
+  const { createAsset, createVariant, createClip, clipDuration, clipContains,
+    createArrangement } = await import(`${ROOT}/src/core/schema.js`);
+
+  const fresh = createProject();
+  check('fresh project carries empty v2 fields', 
+    JSON.stringify(fresh.assets) === '{}' && JSON.stringify(fresh.clips) === '{}' &&
+    fresh.arrangement === null, 'v2 fields must be additive-empty by default');
+  check('fresh project still validates and stays v2', !!validateProject(fresh) && fresh.version === 2);
+
+  // A v1 save on disk (no assets/clips/arrangement, version 1) must load and
+  // upgrade in place — old projects are not orphaned by the schema bump.
+  const legacyV1 = JSON.parse(JSON.stringify(demoProject()));
+  legacyV1.version = 1;
+  delete legacyV1.assets; delete legacyV1.clips; delete legacyV1.arrangement;
+  const upgraded = validateProject(legacyV1);
+  check('a real v1 save (no v2 fields) loads and upgrades to v2',
+    upgraded.version === 2 && !!upgraded.assets && !!upgraded.clips && upgraded.arrangement === null);
+
+  const asset = createAsset('audio', 210.814, {
+    raw: createVariant('a1b2', { calibration: { floor: 0.0254, speech: 0.1851 } }),
+    isolated: createVariant('f0e1', { derivedFrom: 'raw', derivedBy: 'demucs/htdemucs' }),
+  });
+  check('asset carries per-variant hash + calibration, not bytes',
+    asset.variants.raw.sha256 === 'a1b2' && asset.variants.isolated.derivedFrom === 'raw');
+
+  const outer = createClip(asset.id, 0.00, 16.56);
+  const vantage = createClip(asset.id, 0.00, 9.36);
+  const dot = createClip(asset.id, 10.08, 16.56);
+  check('clip is virtual by default (materializedAs null)', outer.materializedAs === null);
+  check('clip duration is out-in', Math.abs(clipDuration(vantage) - 9.36) < 1e-9);
+  check('containment is computed from in/out, not stored', clipContains(outer, vantage) && clipContains(outer, dot));
+
+  // The regression this schema exists to prevent: trimming the outer clip
+  // must immediately (correctly) change what "contains" reports for a pick
+  // that falls outside the new range — there is no stored edge to drift.
+  // (The failure mode being guarded against is a *stored* tree that keeps
+  // reporting containment after the live range no longer supports it.)
+  const trimmedOuter = { ...outer, out: 8.00 }; // shorter than both picks now
+  check('trimming the outer clip immediately (correctly) drops containment for picks outside the new range',
+    !clipContains(trimmedOuter, vantage) && !clipContains(trimmedOuter, dot));
+
+  const posturings = createClip(asset.id, 117.72, 131.57, { representation: 'isolated', verified: true });
+  check('per-range rendition choice: representation overrides default variant, stays virtual',
+    posturings.representation === 'isolated' && posturings.materializedAs === null);
+
+  const arr = createArrangement(215.0);
+  arr.placements.push({ track: 'carl', clip: vantage.id, at: 0.8 });
+  arr.automation.push({ track: 'bed', param: 'gain', points: [[0, 0.45], [20.3, 1], [194.3, 0.4]] });
+  check('arrangement holds placements + automation breakpoints, seconds-based',
+    arr.placements[0].at === 0.8 && arr.automation[0].points.length === 3);
+}
+
+// ---------------------------------------------------------------------------
 console.log('\n[3] transport scheduling math (stubbed clock)');
 const { Transport } = await import(`${ROOT}/src/engine/transport.js`);
 
@@ -361,7 +416,7 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   check('project undo via API', undone.ok === true);
 
   const full = await api.execute('project', { action: 'get' });
-  check('project get returns serializable project', JSON.parse(JSON.stringify(full)).version === 1);
+  check('project get returns serializable project', JSON.parse(JSON.stringify(full)).version === 2);
 
   const fresh = await api.execute('project', { action: 'new', kind: 'blank', name: 'API Song' });
   check('project new + named', fresh.project === 'API Song' && store.project.tracks.length === 0);
