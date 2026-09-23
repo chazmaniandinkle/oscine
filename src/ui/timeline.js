@@ -10,6 +10,7 @@
 
 import { el } from './widgets.js';
 import { AssetCache } from '../core/assets.js';
+import { keymap } from '../core/keymap.js';
 
 const RULER_H = 22;
 const LANE_H = 64;
@@ -258,10 +259,18 @@ export class Timeline {
 
   onDown(e) {
     const { x, y } = this.pos(e);
-    // Ruler: press-and-drag scrubs the playhead. If playing, stop, scrub,
-    // and resume from the release point (a DAW's "seek while playing").
+    // Ruler: press-and-drag scrubs the playhead. ⇧-drag sets a time range
+    // instead. If playing, stop, scrub, and resume from the release point.
     if (y < RULER_H && x >= GUTTER_W) {
       this.canvas.setPointerCapture(e.pointerId);
+      if (keymap.gesture('timeline.rangeSelect', e)) {
+        const a = Math.max(0, this.sec(x));
+        this.range = { a, b: a };
+        this.drag = { edge: 'range', anchor: a };
+        this.dirty = true;
+        return;
+      }
+      if (this.range) { this.range = null; this.dirty = true; }
       const wasPlaying = this.app.transport.playing;
       if (wasPlaying) this.app.transport.stop();
       this.app.transport.songPos = Math.max(0, this.sec(x));
@@ -301,7 +310,23 @@ export class Timeline {
       return;
     }
     const h = this.hit(x, y);
+    // With a range set, clicking inside it on a lane selects that lane's
+    // slice (every clip overlapping the range) -- even if the click lands on
+    // a clip body. Drag from here is a no-op; edit the range via S / ⌫.
+    if (this.range && x >= GUTTER_W) {
+      const laneHit = this.laneAt(x, y), t = this.sec(x);
+      if (laneHit && t >= this.range.a && t <= this.range.b) {
+        this.clearAssetSel();
+        if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
+        this.multi = this.clipsInRange(laneHit.lane.id);
+        this.selected = this.multi[0] ?? null;
+        this.app.bus.emit('clip:selected', { index: this.selected });
+        this.dirty = true;
+        return;
+      }
+    }
     if (!h) {
+      this.multi = [];
       if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
       if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
       if (x >= GUTTER_W) this.app.transport.songPos = Math.max(0, this.sec(x)); // seek
@@ -311,22 +336,120 @@ export class Timeline {
     this.canvas.setPointerCapture(e.pointerId);
     this.store.checkpoint();
     this.clearAssetSel();
+    this.multi = [];
     if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
     if (this.selected !== h.index) { this.selected = h.index; this.app.bus.emit('clip:selected', { index: h.index }); }
     // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
-    const edge = (h.edge === 'right' && e.altKey) ? 'stretch' : h.edge;
+    // ⇧ on the body = slip: move the audio inside the clip, edges stay put.
+    const edge = (h.edge === 'right' && keymap.gesture('timeline.clipStretch', e)) ? 'stretch' : (h.edge === 'body' && keymap.gesture('timeline.clipSlip', e)) ? 'slip' : h.edge;
     this.drag = { ...h, edge, startX: x, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out, st0: h.clip.stretch ?? 1 };
     this.dirty = true;
+  }
+
+  // Placement indices on a lane overlapping the current range.
+  clipsInRange(laneId) {
+    const r = this.range, arr = this.arrangement;
+    if (!r || !arr) return [];
+    const out = [];
+    arr.placements.forEach((p, i) => {
+      if (p.track !== laneId) return;
+      const c = this.project.clips[p.clip]; if (!c) return;
+      const end = p.at + placedDur(c);
+      if (end > r.a && p.at < r.b) out.push(i);
+    });
+    return out;
+  }
+
+  // Split every selected clip at the range edges (or the playhead if no range).
+  // Range edges that fall inside a clip cut it; edges outside are ignored.
+  splitSelectionAtRange() {
+    if (!this.range) return this.splitAtPlayhead();
+    const targets = this.multi.length ? [...this.multi] : (this.selected != null ? [this.selected] : []);
+    if (!targets.length) return false;
+    this.store.checkpoint();
+    // Split at b first so indices before it stay valid, then at a.
+    for (const t of [this.range.b, this.range.a]) {
+      for (const i of [...targets].sort((x, y) => y - x)) this._splitIndexAt(i, t, { checkpoint: false });
+    }
+    this.multi = [];
+    this.selected = null;
+    this.app.bus.emit('arrangement:changed', {});
+    this.app.bus.emit('clip:selected', { index: null });
+    this.dirty = true;
+    return true;
+  }
+
+  // Remove the range's slice from every selected clip, leaving a gap.
+  deleteRangeFromSelection() {
+    if (!this.range) return this.deleteSelected();
+    const targets = this.multi.length ? [...this.multi] : (this.selected != null ? [this.selected] : []);
+    if (!targets.length) return false;
+    this.store.checkpoint();
+    const arr = this.arrangement, { a, b } = this.range;
+    // Work from the highest index down so splices don't shift what's left to do.
+    for (const i of [...targets].sort((x, y) => y - x)) {
+      const p = arr.placements[i], c = this.project.clips[p.clip];
+      const st = (c.stretch ?? 1) / (c.rate ?? 1);
+      const end = p.at + placedDur(c);
+      if (b <= p.at || a >= end) continue;
+      if (a <= p.at && b >= end) { arr.placements.splice(i, 1); continue; } // fully inside: drop
+      if (a > p.at && b < end) {
+        // Middle cut: keep the head, add a tail clip.
+        const cutIn = c.in + (a - p.at) / st, cutOut = c.in + (b - p.at) / st;
+        const tail = { ...c, id: `${c.id}~${Math.random().toString(36).slice(2, 7)}`, in: cutOut, fadeIn: 0, name: (c.name || c.id) + ' ·b' };
+        this.project.clips[tail.id] = tail;
+        c.out = cutIn; c.fadeOut = 0;
+        arr.placements.splice(i + 1, 0, { track: p.track, clip: tail.id, at: b });
+        continue;
+      }
+      if (a <= p.at) { // cut the head off
+        const cutOut = c.in + (b - p.at) / st;
+        c.in = cutOut; p.at = b;
+      } else {         // cut the tail off
+        c.out = c.in + (a - p.at) / st;
+      }
+    }
+    this.multi = []; this.selected = null;
+    this.peaks.clear();
+    this.app.bus.emit('arrangement:changed', {});
+    this.app.bus.emit('clip:selected', { index: null });
+    this.dirty = true;
+    return true;
+  }
+
+  // Split placement `i` at song time `t` if t is strictly inside it.
+  _splitIndexAt(i, t, { checkpoint = true } = {}) {
+    const arr = this.arrangement;
+    const p = arr.placements[i], clip = this.project.clips[p.clip];
+    const dur = placedDur(clip);
+    if (t <= p.at + 0.02 || t >= p.at + dur - 0.02) return false;
+    if (checkpoint) this.store.checkpoint();
+    const frac = (t - p.at) / dur;
+    const cut = clip.in + (clip.out - clip.in) * frac;
+    const right = { ...clip, id: `${clip.id}~${Math.random().toString(36).slice(2, 7)}`, in: cut, fadeIn: 0, name: (clip.name || clip.id) + ' ·b' };
+    clip.out = cut; clip.fadeOut = 0;
+    this.project.clips[right.id] = right;
+    arr.placements.splice(i + 1, 0, { track: p.track, clip: right.id, at: t });
+    this.peaks.clear();
+    return true;
   }
 
   onMove(e) {
     const { x, y } = this.pos(e);
     if (!this.drag) {
       const h = this.hit(x, y);
-      this.canvas.style.cursor = (y < RULER_H && x >= GUTTER_W) ? 'ew-resize' : !h ? 'default' : h.edge === 'body' ? 'grab' : (h.edge === 'right' && e.altKey) ? 'col-resize' : 'ew-resize';
+      this.hoverLane = this.range && x >= GUTTER_W && y >= RULER_H ? this.laneAt(x, y)?.lane.id ?? null : null;
+      if (this.range) this.dirty = true;
+      this.canvas.style.cursor = (y < RULER_H && x >= GUTTER_W) ? 'ew-resize' : !h ? 'default' : h.edge === 'body' ? (keymap.gesture('timeline.clipSlip', e) ? 'move' : 'grab') : (h.edge === 'right' && keymap.gesture('timeline.clipStretch', e)) ? 'col-resize' : 'ew-resize';
       return;
     }
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
+    if (d.edge === 'range') {
+      const t = Math.max(0, this.sec(x));
+      this.range = { a: Math.min(d.anchor, t), b: Math.max(d.anchor, t) };
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'scrub') {
       this.app.transport.songPos = Math.max(0, this.sec(x));
       this.dirty = true;
@@ -344,6 +467,13 @@ export class Timeline {
     const maxOut = asset?.duration ?? Infinity;
     if (d.edge === 'body') {
       d.placement.at = Math.max(0, d.at0 + ds);
+    } else if (d.edge === 'slip') {
+      // Move the source window under a fixed placement: in/out shift together,
+      // clamped to the asset. Drag right = later audio under the same slot.
+      const len = d.out0 - d.in0, st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
+      const nin = Math.max(0, Math.min(maxOut - len, d.in0 + ds / st));
+      d.clip.in = nin; d.clip.out = nin + len;
+      this.peaks.clear();
     } else if (d.edge === 'stretch') {
       // New placed length / source length = stretch. Clamp 0.25x..4x.
       const srcLen = d.out0 - d.in0, want = srcLen * d.st0 + ds;
@@ -366,6 +496,12 @@ export class Timeline {
     try { this.canvas.releasePointerCapture(e.pointerId); } catch {}
     const d = this.drag;
     this.drag = null;
+    if (d.edge === 'range') {
+      if (this.range && this.range.b - this.range.a < 0.02) this.range = null; // a click, not a drag
+      else this.app.transport.songPos = this.range.a;
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'scrub') {
       if (d.wasPlaying) this.app.transport.play();
       this.dirty = true;
@@ -378,7 +514,7 @@ export class Timeline {
 
   onWheel(e) {
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
+    if (keymap.gesture('timeline.zoom', e) || e.ctrlKey) { // ctrl: trackpad pinch arrives as ctrl+wheel
       const { x } = this.pos(e);
       const anchor = this.sec(x);
       this.pxPerSec = Math.max(0.5, Math.min(400, this.pxPerSec * (e.deltaY < 0 ? 1.1 : 0.9)));
@@ -463,6 +599,18 @@ export class Timeline {
       g.fillStyle = faint; g.font = '11px system-ui, sans-serif'; g.fillText('+ lane', 10, y + 14);
     }
 
+    // time range: band across all lanes; the hovered lane's slice brighter
+    if (this.range) {
+      const xa = Math.max(GUTTER_W, this.x(this.range.a)), xb = Math.min(w, this.x(this.range.b));
+      if (xb > xa) {
+        g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(xa, RULER_H, xb - xa, h - RULER_H);
+        g.fillStyle = accent; g.globalAlpha = 0.5; g.fillRect(xa, 0, xb - xa, RULER_H); g.globalAlpha = 1;
+        const hi = lanes.findIndex(l => l.id === this.hoverLane);
+        if (hi >= 0) { g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(xa, this.laneY(hi), xb - xa, LANE_H - 1); }
+        g.fillStyle = accent; g.fillRect(xa, RULER_H, 1, h - RULER_H); g.fillRect(xb - 1, RULER_H, 1, h - RULER_H);
+      }
+    }
+
     // clips
     if (arr) {
       g.save(); g.beginPath(); g.rect(GUTTER_W, RULER_H, w - GUTTER_W, h - RULER_H); g.clip();
@@ -483,7 +631,8 @@ export class Timeline {
           for (let i = 0; i < pk.length; i++) { const v = pk[i] * amp; g.fillRect(x0 + i, mid - v, 1, Math.max(1, v * 2)); }
           g.globalAlpha = 1;
         }
-        g.strokeStyle = idx === this.selected ? '#ffffff' : col; g.lineWidth = idx === this.selected ? 2 : 1;
+        const isSel = idx === this.selected || (this.multi && this.multi.includes(idx));
+        g.strokeStyle = isSel ? '#ffffff' : col; g.lineWidth = isSel ? 2 : 1;
         g.strokeRect(x0 + 0.5, y + 0.5, x1 - x0 - 1, ch - 1);
         g.fillStyle = text; g.font = '11px system-ui, sans-serif';
         g.save(); g.beginPath(); g.rect(x0, y, Math.max(0, x1 - x0), ch); g.clip();

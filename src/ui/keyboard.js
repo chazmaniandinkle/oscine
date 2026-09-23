@@ -5,6 +5,7 @@
 import { el } from './widgets.js';
 import { isBlackKey, midiName, clamp } from '../core/util.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
+import { keymap } from '../core/keymap.js';
 
 const KEY_TO_OFFSET = {
   KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6,
@@ -170,8 +171,9 @@ export class KeyboardBar {
     const t = this.track;
     if (!t) return;
 
-    if (e.code === 'KeyZ') { this.shiftOctave(-1); return; }
-    if (e.code === 'KeyX') { this.shiftOctave(1); return; }
+    const a = keymap.action(e, ['keys']);
+    if (a === 'keys.octaveDown') { this.shiftOctave(-1); return; }
+    if (a === 'keys.octaveUp') { this.shiftOctave(1); return; }
 
     if (this.kind === 'drums') {
       const laneIdx = DRUM_KEYS.indexOf(e.code);

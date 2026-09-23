@@ -7,6 +7,7 @@
 
 import { el, NumberDrag, Btn } from './widgets.js';
 import { wordsFor } from '../core/assets.js';
+import { keymap } from '../core/keymap.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`;
@@ -392,7 +393,7 @@ export class ClipInspector {
       g4.appendChild(flow);
     }
 
-    host.appendChild(el('div', 'clip-hint', 'Drag values · ⇧ fine · double-click resets · S split · ⌫ remove'));
+    host.appendChild(el('div', 'clip-hint', `Drag values · ⇧ fine · double-click resets · ${keymap.label('clip.split')} split · ${keymap.label('clip.delete')} remove · ${keymap.gestures['timeline.clipSlip']}-drag slips · ${keymap.gestures['timeline.clipStretch']}-drag edge stretches`));
     return true;
   }
 }

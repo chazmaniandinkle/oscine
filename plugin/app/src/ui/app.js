@@ -14,6 +14,7 @@ import { MidiInput } from './midi.js';
 import { Timeline } from './timeline.js';
 import { AssetBin } from './assetbin.js';
 import { saveProjectPath } from './fileops.js';
+import { keymap } from '../core/keymap.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
 const SNAP_CHOICES = [
@@ -212,39 +213,42 @@ export class App {
   }
 
   bindGlobalKeys() {
+    // One dispatcher: the keymap turns the event into an action name given
+    // the current scope order; this table says what each action does. No
+    // key codes live here. Escape-while-typing is left to the input.
+    const handlers = {
+      'transport.toggle':    () => this.transport.toggle(),
+      'transport.stop':      () => { if (this.transport.playing) this.transport.stop(); else return false; },
+      'transport.toStart':   () => { this.transport.songPos = 0; this.timeline.dirty = true; },
+      'transport.playRange': () => { const r = this.timeline.range; if (!r) return false; this.transport.stop(); this.transport.songPos = r.a; this.transport.play(); },
+      'project.save':        () => saveProjectPath(this.store, this.api),
+      'edit.undo':           () => this.store.undo(),
+      'edit.redo':           () => this.store.redo(),
+      'clip.split':          () => this.timeline.splitSelectionAtRange(),
+      'clip.delete':         () => this.timeline.deleteRangeFromSelection(),
+      'clip.pitchUp':        () => this.timeline.nudgeSelected(1, 'semitones'),
+      'clip.pitchDown':      () => this.timeline.nudgeSelected(-1, 'semitones'),
+      'clip.gainUp':         () => this.timeline.nudgeSelected(1, 'gainDb'),
+      'clip.gainDown':       () => this.timeline.nudgeSelected(-1, 'gainDb'),
+      'range.clear':         () => { if (!this.timeline.range) return false; this.timeline.range = null; this.timeline.multi = []; this.timeline.dirty = true; },
+      'slot.1': () => this.store.requestSlot(0, this.transport.playing),
+      'slot.2': () => this.store.requestSlot(1, this.transport.playing),
+      'slot.3': () => this.store.requestSlot(2, this.transport.playing),
+      'slot.4': () => this.store.requestSlot(3, this.transport.playing),
+    };
     window.addEventListener('keydown', (e) => {
       const t = e.target;
       const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
-
-      if (e.code === 'Space' && !typing) {
-        e.preventDefault();
-        this.transport.toggle();
-        return;
-      }
-      // Timeline editing keys (only when the arrangement view is showing).
-      if (this.timeline.active && !typing && !e.metaKey && !e.ctrlKey) {
-        if (e.code === 'KeyS') { e.preventDefault(); this.timeline.splitAtPlayhead(); return; }
-        if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
-          e.preventDefault();
-          this.timeline.nudgeSelected(e.code === 'BracketRight' ? 1 : -1, e.shiftKey ? 'gainDb' : 'semitones');
-          return;
-        }
-        if (e.code === 'Backspace' || e.code === 'Delete') { e.preventDefault(); this.timeline.deleteSelected(); return; }
-      }
-      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyS' && !typing) {
-        e.preventDefault();
-        saveProjectPath(this.store, this.api);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ' && !typing) {
-        e.preventDefault();
-        e.shiftKey ? this.store.redo() : this.store.undo();
-        return;
-      }
-      // Slot switching from the number row.
-      if (!typing && !e.metaKey && !e.ctrlKey && ['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) {
-        this.store.requestSlot(Number(e.code.slice(5)) - 1, this.transport.playing);
-      }
+      if (typing) return;
+      // Scope order = what's in front of the user. Timeline actions only
+      // when the arrangement view is showing; slots only on the pattern side.
+      const scopes = this.timeline.active ? ['timeline', 'global'] : ['pattern', 'pianoroll', 'global'];
+      const action = keymap.action(e, scopes);
+      if (!action || !handlers[action]) return;
+      // A handler may return false to say "not applicable right now" so the
+      // event falls through (e.g. Escape with nothing to clear).
+      if (handlers[action]() === false) return;
+      e.preventDefault();
     });
   }
 

@@ -10,6 +10,7 @@
 //   key gutter       audition pitches
 
 import { clamp, midiName, isBlackKey } from '../core/util.js';
+import { keymap } from '../core/keymap.js';
 import { MIDI_MIN, MIDI_MAX } from '../core/schema.js';
 
 const KEY_W = 56;
@@ -177,7 +178,7 @@ export class PianoRoll {
       const wide = (x1 - this.beatToX(hit.start)) > EDGE_PX + 4;
 
       if (!this.selection.has(hit.id)) {
-        if (e.shiftKey) this.selection.add(hit.id);
+        if (keymap.gesture('pianoroll.addToSel', e)) this.selection.add(hit.id);
         else { this.selection.clear(); this.selection.add(hit.id); }
       }
 
@@ -186,7 +187,7 @@ export class PianoRoll {
         .filter(n => this.selection.has(n.id))
         .map(n => ({ id: n.id, start: n.start, pitch: n.pitch, dur: n.dur, vel: n.vel }));
 
-      if (e.altKey) {
+      if (keymap.gesture('pianoroll.velocity', e)) {
         this.drag = { mode: 'velocity', originals, startY: pos.y };
       } else if (pos.x > x1 - EDGE_PX && wide) {
         this.drag = { mode: 'resize', originals, anchor: hit };
@@ -198,7 +199,7 @@ export class PianoRoll {
       return;
     }
 
-    if (e.shiftKey) {
+    if (keymap.gesture('pianoroll.marquee', e)) {
       this.drag = { mode: 'marquee', x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y, base: new Set(this.selection) };
       return;
     }
@@ -310,12 +311,13 @@ export class PianoRoll {
     const t = e.target;
     if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && this.selection.size) {
+    const a = keymap.action(e, ['pianoroll']);
+    if (a === 'notes.delete' && this.selection.size) {
       e.preventDefault();
       this.store.checkpoint();
       this.store.removeNotes(this.trackId, [...this.selection]);
       this.selection.clear();
-    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+    } else if (a === 'notes.selectAll') {
       e.preventDefault();
       this.selection = new Set((this.pattern?.notes ?? []).map(n => n.id));
       this.paint();
