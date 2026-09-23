@@ -81,7 +81,8 @@ html, body {
 .lyr-break { color: var(--line); padding: 0 4px; }
 
 /* ---------- mixer: lane strips + inserts ---------- */
-.lane-strip { min-width: 150px; }
+.lane-strip { min-width: 172px; }
+.lane-strip .strip-name { white-space: normal; line-height: 1.15; max-height: 2.4em; overflow: hidden; font-size: 11px; }
 .strip-db { font-family: var(--mono, ui-monospace, monospace); font-size: 10px; color: var(--dim); text-align: center; margin-top: 2px; }
 .inserts { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; min-height: 22px; }
 .insert-row { display: flex; align-items: center; gap: 2px; }
