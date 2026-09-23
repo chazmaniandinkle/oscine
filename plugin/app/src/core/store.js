@@ -89,8 +89,11 @@ export class Store {
   }
 
   afterReplace() {
+    const hasArrangement = !!this.project.arrangement?.placements?.length;
     if (!this.project.tracks.find(t => t.id === this.ui.selectedTrackId)) {
-      this.ui.selectedTrackId = this.project.tracks[0]?.id ?? null;
+      // A loaded arrangement is the song; don't auto-select a pattern track
+      // over it (that would route the editor away from the timeline).
+      this.ui.selectedTrackId = hasArrangement ? null : (this.project.tracks[0]?.id ?? null);
     }
     this.ui.queuedSlot = null;
     this.ui.activeSlot = clamp(this.ui.activeSlot, 0, this.project.slots.length - 1);
@@ -102,7 +105,7 @@ export class Store {
 
   setSetting(key, value) {
     const p = this.project;
-    if (key === 'bpm') p.bpm = clamp(Math.round(value), 40, 240);
+    if (key === 'bpm') p.bpm = clamp(Math.round(value * 10) / 10, 40, 240); // tenths: measured tempos aren't integers
     else if (key === 'swing') p.swing = clamp(value, 0, 1);
     else if (key === 'masterVolume') p.masterVolume = clamp(value, 0, 1.2);
     else if (key === 'name') p.name = String(value).slice(0, 80) || 'Untitled';

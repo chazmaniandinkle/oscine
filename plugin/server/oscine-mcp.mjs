@@ -282,6 +282,11 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.md': 'text/markdown; charset=utf-8',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
 };
 
 async function serveStatic(req, res) {
@@ -289,6 +294,35 @@ async function serveStatic(req, res) {
   if (urlPath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ server: 'oscine-mcp', version: SERVER_VERSION, appConnected: registry.size > 0, instances: registry.size }));
+    return;
+  }
+  // Tier-3 bytes: `/project/<rel>` serves files under PROJECT_ROOT so a loaded
+  // *.oscine.json can fetch its `assets/<sha256>.wav` siblings. Same traversal
+  // guard as resolveProjectPath, read-only, no directory listings.
+  if (urlPath.startsWith('/project/')) {
+    const full = resolve(PROJECT_ROOT, urlPath.slice('/project/'.length));
+    if (full !== PROJECT_ROOT && !full.startsWith(PROJECT_ROOT + '/')) {
+      res.writeHead(403); res.end('forbidden'); return;
+    }
+    try {
+      const st = await stat(full);
+      if (!st.isFile()) throw new Error('not a file');
+      // Range support so long wavs can start decoding/seeking without a full read.
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+      const type = MIME[extname(full)] ?? 'application/octet-stream';
+      if (range) {
+        const start = range[1] ? Number(range[1]) : 0;
+        const end = range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1;
+        const body = (await readFile(full)).subarray(start, end + 1);
+        res.writeHead(206, { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': body.length });
+        res.end(body);
+      } else {
+        res.writeHead(200, { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Length': st.size });
+        res.end(await readFile(full));
+      }
+    } catch {
+      res.writeHead(404); res.end('not found');
+    }
     return;
   }
   const rel = urlPath === '/' ? 'index.html' : urlPath.slice(1);
@@ -589,8 +623,9 @@ async function dispatchTool(name, args) {
       return { ok: false, error: 'Could not fetch the live project from the app.' };
     }
     await mkdir(dirname(full), { recursive: true });
-    await writeFile(full, JSON.stringify(project, null, 2) + '\n', 'utf8');
-    return { ok: true, path: full, bytes: JSON.stringify(project).length, name: project.name, version: project.version };
+    const { baseUrl, ...doc } = project; // baseUrl is load-time only, never persisted
+    await writeFile(full, JSON.stringify(doc, null, 2) + '\n', 'utf8');
+    return { ok: true, path: full, bytes: JSON.stringify(doc).length, name: project.name, version: project.version };
   }
 
   if (name === 'oscine_project_open_file') {
@@ -607,8 +642,12 @@ async function dispatchTool(name, args) {
     } catch (err) {
       return { ok: false, error: `${full} is not valid JSON: ${err.message}` };
     }
+    // Tell the app where this document lives so relative asset refs resolve
+    // through the /project/ route. Not persisted by save (it's a load-time fact).
+    const relDir = dirname(full).slice(PROJECT_ROOT.length).replace(/^\/+/, '');
+    parsed.baseUrl = `/project/${relDir}${relDir ? '/' : ''}`;
     const result = await callApp('project', { action: 'load', project: parsed }, 15000, args?.session ?? null);
-    return { ...result, path: full };
+    return { ...result, path: full, baseUrl: parsed.baseUrl };
   }
 
   const cmdName = name.replace(/^oscine_/, '');

@@ -6,6 +6,7 @@
 import { EventBus } from './core/bus.js';
 import { Store } from './core/store.js';
 import { loadInitialProject, attachAutosave } from './core/persist.js';
+import { AssetCache } from './core/assets.js';
 import { getCtx, ensureRunning } from './engine/context.js';
 import { AudioEngine } from './engine/engine.js';
 import { Transport } from './engine/transport.js';
@@ -24,6 +25,10 @@ const bus = new EventBus();
 const store = new Store(bus, loadInitialProject(tabId));
 const engine = new AudioEngine(store, bus);
 const transport = new Transport(getCtx(), store, bus);
+// One decode cache for the tab: the timeline (waveforms) and the transport
+// (playback) both read arrangement assets, and the bytes should decode once.
+const assetCache = new AssetCache(getCtx());
+transport.assetCache = assetCache;
 attachAutosave(store, bus, tabId);
 
 // Same-origin cross-tab coordination: presence roster + exclusive ownership
@@ -44,7 +49,7 @@ bridge.start();
 // rather than the autosaved one. Bad/foreign fragments are ignored.
 await maybeLoadSharedSong(store);
 
-const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab });
+const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab, assetCache });
 
 // Autoplay policy: resume the context on the first gesture anywhere.
 const unlock = () => { ensureRunning(); };

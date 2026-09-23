@@ -11,6 +11,7 @@ import { Inspector } from './inspector.js';
 import { Mixer } from './mixer.js';
 import { KeyboardBar } from './keyboard.js';
 import { MidiInput } from './midi.js';
+import { Timeline } from './timeline.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
 const SNAP_CHOICES = [
@@ -30,12 +31,13 @@ const MOBILE_PANELS = [
 ];
 
 export class App {
-  constructor(rootEl, { store, bus, engine, transport, api, crosstab }) {
+  constructor(rootEl, { store, bus, engine, transport, api, crosstab, assetCache }) {
     this.store = store;
     this.bus = bus;
     this.engine = engine;
     this.transport = transport;
     this.api = api;
+    this.assetCache = assetCache;
     // Cross-tab coordination substrate (presence + exclusive ownership of
     // shared hardware). Set before MidiInput so its init() can read it.
     // May be undefined in headless/test contexts; the MIDI manager guards.
@@ -82,6 +84,7 @@ export class App {
     this.trackList = new TrackList(trackPanel, this);
     this.pianoRoll = new PianoRoll(el('div'), this);
     this.stepGrid = new StepGrid(el('div'), this);
+    this.timeline = new Timeline(el('div'), this);
     this.inspector = new Inspector(inspectorPanel, this);
     this.mixer = new Mixer(mixerHost, this);
     this.keys = new KeyboardBar(keysHost, this);
@@ -153,6 +156,20 @@ export class App {
     this.editorHost.textContent = '';
     this.pianoRoll.active = false;
     this.stepGrid.active = false;
+    this.timeline.active = false;
+
+    // An arrangement (v2 clips) takes the editor over: it's the song, and
+    // pattern tracks are subordinate to it. Selecting a pattern track still
+    // routes to its editor below; deselect (click empty) to see the timeline.
+    const arr = store.project.arrangement;
+    if (arr?.placements?.length && !track) {
+      this.editorHost.appendChild(this.timeline.host);
+      this.timeline.active = true;
+      this.timeline.setProject(store.project);
+      this.editorTitle.textContent = `${store.project.name} — arrangement`;
+      this.editorTitle.style.color = '';
+      return;
+    }
 
     if (!track) {
       this.editorHost.appendChild(this.emptyState);
@@ -204,6 +221,7 @@ export class App {
       this.transportBar.onFrame(pos, masterLevel);
       this.pianoRoll.onFrame(pos);
       this.stepGrid.onFrame(pos);
+      this.timeline.onFrame(pos);
       this.mixer.onFrame();
       requestAnimationFrame(loop);
     };

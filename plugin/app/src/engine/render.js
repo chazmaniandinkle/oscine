@@ -45,7 +45,13 @@ export async function renderProjectToBuffer(project, {
   const loopBeats = slot.bars * 4;
   const loopSec = loopBeats * secPerBeat;
   const tail = tailSeconds ?? Math.max(project.fx.verbSize ?? 0, 1) + 1.5;
-  const totalSec = loopSec * loops + tail;
+  // An arrangement (v2 clips) defines the song length in seconds; the
+  // pattern loop then plays under it only if a caller asks (loops > 0 and
+  // there are patterns). Without an arrangement, the loop is the song.
+  const hasArrangement = !!project.arrangement?.placements?.length;
+  const { ClipPlayer } = hasArrangement ? await import('./clips.js') : {};
+  const arrSec = hasArrangement ? ClipPlayer.duration(project) : 0;
+  const totalSec = Math.max(loopSec * (hasArrangement ? 0 : loops), arrSec) + tail;
   const length = Math.max(1, Math.ceil(totalSec * sampleRate));
 
   const ctx = new OfflineCtx(2, length, sampleRate);
@@ -106,12 +112,17 @@ export async function renderProjectToBuffer(project, {
   }
 
   // -- schedule every event across all loop passes --
+  // With an arrangement present the pattern loop is not part of the bounce
+  // (loops is treated as 0) -- the clips ARE the song. Pattern tracks still
+  // build their channels above so the graph matches playback if a later
+  // version mixes both.
+  const passes = hasArrangement ? 0 : loops;
   for (const { track, instrument } of channels.values()) {
     const def = getInstrumentDef(track.instrument.type);
     const pattern = slot.patterns[track.id];
     if (!pattern) continue;
 
-    for (let pass = 0; pass < loops; pass++) {
+    for (let pass = 0; pass < passes; pass++) {
       const passStart = pass * loopSec;
       if (def.kind === 'drums') {
         const stepsPerLoop = slot.bars * 16;
@@ -135,13 +146,23 @@ export async function renderProjectToBuffer(project, {
     }
   }
 
+  // -- arrangement clips: decode into THIS context and schedule from 0 --
+  // Clips go straight to masterIn (no per-track FX sends yet), same as the
+  // live path in transport.startClips.
+  if (hasArrangement) {
+    const player = new ClipPlayer(ctx, project, { destination: masterIn });
+    await player.prepare();
+    player.start(0, 0);
+  }
+
   const buffer = await ctx.startRendering();
   return {
     buffer,
     durationSec: buffer.duration,
     sampleRate: buffer.sampleRate,
     channels: buffer.numberOfChannels,
-    loops,
+    loops: passes,
     slotIndex,
+    arrangement: hasArrangement,
   };
 }

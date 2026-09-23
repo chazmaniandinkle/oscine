@@ -149,6 +149,10 @@ export function validateProject(p) {
   if (!p.assets) p.assets = {};
   if (!p.clips) p.clips = {};
   if (p.arrangement === undefined) p.arrangement = null;
+  // baseUrl is a load-time fact (where the document was opened from), set by
+  // the sidecar's open_file so relative asset refs resolve. Keep it if present;
+  // it's stripped again on save (see persist / save_file).
+  if (p.baseUrl !== undefined && typeof p.baseUrl !== 'string') delete p.baseUrl;
   p.version = MAX_SUPPORTED_VERSION;
   return p;
 }

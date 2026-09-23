@@ -92,6 +92,10 @@ export class Transport {
     this.bus.emit('transport:state', { playing: true });
     this.timer = setInterval(() => this.tick(), this.intervalMs);
     this.tick();
+    // Arrangement (v2 clips) plays linearly in seconds alongside the beat
+    // loop. It's scheduled once at play() rather than per tick because
+    // buffer sources are fire-and-forget; stop() tears them down.
+    this.startClips(startAt, this.songPos);
   }
 
   stop() {
@@ -101,10 +105,46 @@ export class Transport {
     this.timer = null;
     this.store.clearQueuedSlot();
     this.bus.emit('transport:state', { playing: false });
+    this.stopClips();
   }
 
   toggle() {
     this.playing ? this.stop() : this.play();
+  }
+
+  // -- arrangement playback (clips in seconds) ------------------------------
+  // The ClipPlayer is created lazily per play() from the current project so a
+  // load/undo between plays is always honoured. `songPos` is where the next
+  // play() starts from (seek); the timeline sets it on click.
+
+  get songPos() { return this._songPos ?? 0; }
+  set songPos(s) { this._songPos = Math.max(0, s || 0); }
+
+  async startClips(startAt, fromSeconds) {
+    const project = this.store.project;
+    if (!project.arrangement?.placements?.length) return;
+    const { ClipPlayer } = await import('./clips.js');
+    if (!this.playing) return; // stopped while the module loaded
+    const player = new ClipPlayer(this.ctx, project, { assetCache: this.assetCache });
+    this.clipPlayer = player;
+    await player.prepare();
+    if (!this.playing || this.clipPlayer !== player) return;
+    // Buffers may have taken a while: schedule against "now", not the stale
+    // startAt, and rebase the seconds clock so the playhead agrees.
+    const now = Math.max(startAt, this.ctx.currentTime + 0.03);
+    this.clipAnchorTime = now;
+    this.clipAnchorSec = fromSeconds;
+    player.start(now, fromSeconds);
+  }
+
+  stopClips() {
+    if (this.clipPlayer) {
+      // Like a DAW's stop: sources are torn down and play() resumes from
+      // songPos, not from where we halted. Seek by setting songPos.
+      this.clipPlayer.stop();
+      this.clipPlayer = null;
+    }
+    this.clipAnchorTime = null;
   }
 
   tick() {
@@ -161,13 +201,18 @@ export class Transport {
 
   // For UI painting (playhead, position readout).
   getPosition() {
-    if (!this.playing) return { playing: false, localBeat: 0, loopBeats: this.loopBeats };
+    if (!this.playing) return { playing: false, localBeat: 0, loopBeats: this.loopBeats, sec: this.songPos };
     const abs = this.timeToBeat(this.ctx.currentTime);
+    // Seconds along the arrangement, valid once clips have actually started.
+    const sec = this.clipAnchorTime != null
+      ? this.clipAnchorSec + (this.ctx.currentTime - this.clipAnchorTime)
+      : this.songPos;
     return {
       playing: true,
       localBeat: Math.max(0, abs - this.loopStartAbs),
       loopBeats: this.loopBeats,
       absBeat: abs,
+      sec,
     };
   }
 }
