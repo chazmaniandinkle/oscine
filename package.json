@@ -14,7 +14,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/arrangement.mjs",
+    "test": "node test/smoke.mjs && node test/arrangement.mjs && node test/suno.mjs",
     "test:e2e": "node test/e2e-mcp.mjs",
     "sync-plugin": "node tools/sync-plugin.mjs",
     "midi-bridge": "node tools/midi-osc-bridge.mjs",
