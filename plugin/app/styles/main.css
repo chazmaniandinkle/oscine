@@ -497,6 +497,17 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lane-clip:hover { background: var(--bg-2); }
+.asset-row.selected { background: var(--bg-2); box-shadow: inset 3px 0 0 var(--accent); }
+.asset-words {
+  font-size: 11.5px; line-height: 1.7; color: var(--text);
+  max-height: 40vh; overflow-y: auto; padding: 2px 0;
+}
+.asset-word { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+.asset-word:hover { background: var(--bg-2); }
+.asset-word.uncovered { color: var(--dim); opacity: 0.55; cursor: default; }
+.asset-word.uncovered:hover { background: none; }
+.asset-word.current { background: var(--accent-soft); color: var(--text); }
+.asset-gap { color: var(--dim); }
 
 /* ---------- asset bin (left panel for arrangement projects) ---------- */
 

@@ -6,10 +6,139 @@
 // the timeline repaints and the transport picks it up on next play.
 
 import { el, NumberDrag, Btn } from './widgets.js';
+import { wordsFor } from '../core/assets.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`;
 const fmtTime = v => { const m = Math.floor(v / 60), s = (v % 60).toFixed(2).padStart(5, '0'); return `${m}:${s}`; };
+
+// Source (asset) inspector: rename, see every clip that references it, and
+// the word-level transcript (asset.words = [{s,e,t}] in SOURCE seconds).
+// Clicking a word seeks the song: the word's source time is mapped through
+// the first placement whose clip window contains it. Words no placement
+// covers are shown dim (they're in the file but not in the song).
+export class AssetInspector {
+  constructor(host, app) {
+    this.app = app;
+    this.store = app.store;
+    this.host = host;
+    app.bus.on('asset:selected', () => this.render());
+    app.bus.on('arrangement:changed', () => this.refresh());
+  }
+
+  get selection() {
+    const id = this.app.assetBin?.selectedAsset;
+    const asset = id && this.store.project.assets[id];
+    if (!asset || !this.app.timeline?.active) return null;
+    const arr = this.store.project.arrangement;
+    const refs = arr.placements.map((p, i) => ({ p, i, clip: this.store.project.clips[p.clip] }))
+      .filter(r => r.clip?.sourceOf === asset.id);
+    return { asset, refs };
+  }
+
+  // Source second -> song second via the first placement covering it, or null.
+  songTimeFor(refs, s) {
+    for (const { p, clip } of refs) {
+      if (s >= clip.in && s < clip.out) {
+        return p.at + (s - clip.in) * (clip.stretch ?? 1) / (clip.rate ?? 1);
+      }
+    }
+    return null;
+  }
+
+  refresh() {
+    const sel = this.selection;
+    if (!sel) return;
+    if (this.renderedFor !== sel.asset.id) return this.render();
+    // Coverage may have changed (clip moved/trimmed): re-dim words cheaply.
+    this.host.querySelectorAll('.asset-word').forEach(el => {
+      const s = Number(el.dataset.s);
+      el.classList.toggle('uncovered', this.songTimeFor(sel.refs, s) == null);
+    });
+  }
+
+  render() {
+    const { host, store } = this;
+    const sel = this.selection;
+    this.renderedFor = sel?.asset.id ?? null;
+    if (!sel) return false;
+    host.textContent = '';
+    const { asset, refs } = sel;
+    const tl = this.app.timeline;
+
+    const head = el('div', 'panel-head');
+    const nameIn = el('input', 'song-name lane-name');
+    nameIn.value = asset.name || asset.id;
+    nameIn.spellcheck = false;
+    nameIn.placeholder = asset.id;
+    nameIn.addEventListener('change', () => {
+      store.checkpoint();
+      const v = nameIn.value.trim();
+      if (v) asset.name = v; else delete asset.name;
+      this.app.assetBin.render();
+      this.app.bus.emit('arrangement:changed', {});
+    });
+    head.appendChild(nameIn);
+    host.appendChild(head);
+
+    const v = asset.variants?.default;
+    const meta = el('div', 'clip-meta');
+    meta.appendChild(el('div', 'clip-meta-row', `id  ${asset.id}`));
+    meta.appendChild(el('div', 'clip-meta-row', `${fmtTime(asset.duration)} · ${asset.kind}${v?.ext ? ' · ' + v.ext : ''}`));
+    if (v?.sha256) { const r = el('div', 'clip-meta-row', `sha256  ${v.sha256.slice(0, 16)}…`); r.title = v.sha256; meta.appendChild(r); }
+    host.appendChild(meta);
+
+    // Clips referencing this source
+    const g1 = el('div', 'insp-group'); g1.appendChild(el('div', 'insp-group-title', `Used by ${refs.length} clip${refs.length === 1 ? '' : 's'}`));
+    const list = el('div', 'lane-clips');
+    const laneById = id => store.project.arrangement.lanes?.find(l => l.id === id);
+    for (const { p, i, clip } of refs.sort((a, b) => a.p.at - b.p.at)) {
+      const item = el('div', 'lane-clip', `${fmtTime(p.at)}  ${clip.name || clip.id}  [${fmtTime(clip.in)}–${fmtTime(clip.out)}]`);
+      item.style.borderLeft = `3px solid ${laneById(p.track)?.color || '#7aa2ff'}`;
+      item.title = laneById(p.track)?.name || p.track;
+      item.addEventListener('click', () => { this.app.assetBin.selectedAsset = null; tl.selected = i; tl.dirty = true; this.app.bus.emit('asset:selected', { id: null }); this.app.bus.emit('clip:selected', { index: i }); });
+      list.appendChild(item);
+    }
+    if (!refs.length) list.appendChild(el('div', 'clip-hint', 'Not placed anywhere yet — drag it onto a lane.'));
+    g1.appendChild(list); host.appendChild(g1);
+
+    // Transcript
+    const words = asset.words || [];
+    const g2 = el('div', 'insp-group');
+    g2.appendChild(el('div', 'insp-group-title', words.length ? `Transcript · ${words.length} words` : 'Transcript'));
+    if (!words.length) {
+      g2.appendChild(el('div', 'clip-hint', asset.kind === 'audio'
+        ? 'No word timings on this source. Run scripts/words_into_project.py to add a whisper transcript.'
+        : 'No transcript.'));
+    } else {
+      const flow = el('div', 'asset-words');
+      let lastEnd = 0;
+      for (const w of words) {
+        if (w.s - lastEnd > 1.5) flow.appendChild(el('span', 'asset-gap', ' · '));
+        const span = el('span', 'asset-word', w.t);
+        span.dataset.s = w.s;
+        const song = this.songTimeFor(refs, w.s);
+        span.title = `source ${fmtTime(w.s)}${song != null ? ` → song ${fmtTime(song)}` : ' (not in the song)'}`;
+        span.classList.toggle('uncovered', song == null);
+        span.addEventListener('click', () => {
+          const t = this.songTimeFor(sel.refs, w.s);
+          if (t == null) return;
+          this.app.transport.songPos = t;
+          tl.dirty = true;
+          flow.querySelectorAll('.asset-word.current').forEach(x => x.classList.remove('current'));
+          span.classList.add('current');
+        });
+        flow.appendChild(span);
+        flow.appendChild(document.createTextNode(' '));
+        lastEnd = w.e;
+      }
+      g2.appendChild(flow);
+    }
+    host.appendChild(g2);
+    host.appendChild(el('div', 'clip-hint', 'Click a word to seek · dim words aren\'t placed in the song'));
+    return true;
+  }
+}
 
 // Lane (track) inspector: name, level, mute/solo, color, and the clips on it.
 // Edits arrangement.lanes[] in place and emits lanes:changed so the running
@@ -238,6 +367,30 @@ export class ClipInspector {
     actions.appendChild(Btn('Split at playhead', () => this.app.timeline.splitAtPlayhead()));
     actions.appendChild(Btn('Remove', () => this.app.timeline.deleteSelected(), 'danger'));
     host.appendChild(actions);
+
+    // Words inside this clip's window (from the source's transcript), in
+    // song time. Click = seek. This is the seek-by-lyric the words exist for.
+    const words = wordsFor(store.project, clip);
+    if (words.length) {
+      const g4 = section(`Words · ${words.length}`);
+      const flow = el('div', 'asset-words');
+      const st = (clip.stretch ?? 1) / (clip.rate ?? 1);
+      let lastEnd = 0;
+      for (const w of words) {
+        if (w.start - lastEnd > 1.5) flow.appendChild(el('span', 'asset-gap', ' · '));
+        const span = el('span', 'asset-word', w.word);
+        const t = placement.at + w.start * st;
+        span.title = fmtTime(t);
+        span.addEventListener('click', () => {
+          this.app.transport.songPos = t; this.app.timeline.dirty = true;
+          flow.querySelectorAll('.asset-word.current').forEach(x => x.classList.remove('current'));
+          span.classList.add('current');
+        });
+        flow.appendChild(span); flow.appendChild(document.createTextNode(' '));
+        lastEnd = w.end;
+      }
+      g4.appendChild(flow);
+    }
 
     host.appendChild(el('div', 'clip-hint', 'Drag values · ⇧ fine · double-click resets · S split · ⌫ remove'));
     return true;

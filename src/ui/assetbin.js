@@ -77,11 +77,24 @@ export class AssetBin {
       add.title = 'Place on a lane…';
       add.addEventListener('click', e => { e.stopPropagation(); this.placeMenu(add, a); });
       row.appendChild(add);
-      row.title = 'Drag onto a lane to place a clip';
+      row.title = 'Click for details · drag onto a lane to place a clip';
+      row.classList.toggle('selected', a.id === this.selectedAsset);
       row.addEventListener('pointerdown', e => this.onDragStart(e, a));
+      row.addEventListener('click', () => { if (this.suppressClick) { this.suppressClick = false; return; } this.selectAsset(a.id); });
       list.appendChild(row);
     }
     host.appendChild(list);
+  }
+
+  // Asset selection is exclusive with clip/lane selection (one inspector target).
+  selectAsset(id) {
+    const tl = this.app.timeline;
+    if (tl.selected != null) { tl.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
+    if (tl.selectedLane != null) { tl.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
+    this.selectedAsset = id;
+    tl.dirty = true;
+    this.app.bus.emit('asset:selected', { id });
+    this.render();
   }
 
   // -- placing ---------------------------------------------------------------
@@ -164,6 +177,7 @@ export class AssetBin {
     const d = this.dragging; this.dragging = null;
     if (!d?.live) return;
     d.ghost?.remove(); document.body.style.cursor = '';
+    this.suppressClick = true; // the row's click fires after a drop; don't re-select the asset
     const tl = this.app.timeline;
     const hint = tl.dropHint; tl.dropHint = null; tl.dirty = true;
     if (!hint) return;

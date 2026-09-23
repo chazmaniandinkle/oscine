@@ -220,10 +220,15 @@ export class Timeline {
   // Lane selection is exclusive with clip selection (one inspector target).
   selectLane(id) {
     if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
+    this.clearAssetSel();
     if (this.selectedLane === id) return;
     this.selectedLane = id;
     this.app.bus.emit('lane:selected', { id });
     this.dirty = true;
+  }
+  clearAssetSel() {
+    const bin = this.app.assetBin;
+    if (bin?.selectedAsset) { bin.selectedAsset = null; bin.render(); this.app.bus.emit('asset:selected', { id: null }); }
   }
 
   // Keyboard edits on the selected clip. `semitones` is a decoupled pitch
@@ -294,6 +299,7 @@ export class Timeline {
     }
     this.canvas.setPointerCapture(e.pointerId);
     this.store.checkpoint();
+    this.clearAssetSel();
     if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
     if (this.selected !== h.index) { this.selected = h.index; this.app.bus.emit('clip:selected', { index: h.index }); }
     // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
