@@ -5,7 +5,7 @@
 
 import { el, Knob, Select } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
-import { ClipInspector } from './clipinspector.js';
+import { ClipInspector, LaneInspector } from './clipinspector.js';
 
 export class Inspector {
   constructor(host, app) {
@@ -17,10 +17,12 @@ export class Inspector {
     // Timeline clip selection takes the panel over; it renders into the
     // same host and we defer to it whenever a clip is selected.
     this.clipInspector = new ClipInspector(host, app);
+    this.laneInspector = new LaneInspector(host, app);
 
     const { bus } = app;
     bus.on('ui:selection', () => this.render());
     bus.on('clip:selected', () => this.render());
+    bus.on('lane:selected', () => this.render());
     bus.on('preset:applied', ({ trackId }) => {
       if (trackId === this.store.ui.selectedTrackId) this.render();
     });
@@ -43,8 +45,9 @@ export class Inspector {
     host.textContent = '';
     this.controls.clear();
 
-    // A selected timeline clip owns the panel.
+    // A selected timeline clip or lane owns the panel.
     if (this.clipInspector.render()) return;
+    if (this.laneInspector.render()) return;
 
     const track = store.getTrack(store.ui.selectedTrackId);
     if (!track) {

@@ -209,6 +209,15 @@ export class Timeline {
 
   // -- interaction ----------------------------------------------------------
 
+  // Lane selection is exclusive with clip selection (one inspector target).
+  selectLane(id) {
+    if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
+    if (this.selectedLane === id) return;
+    this.selectedLane = id;
+    this.app.bus.emit('lane:selected', { id });
+    this.dirty = true;
+  }
+
   // Keyboard edits on the selected clip. `semitones` is a decoupled pitch
   // shift (vocoder, length unchanged); `gainDb` is per-clip trim.
   nudgeSelected(delta, field) {
@@ -236,7 +245,8 @@ export class Timeline {
 
   onDown(e) {
     const { x, y } = this.pos(e);
-    // Gutter: M / S buttons and the gain readout (vertical drag).
+    // Gutter: M / S buttons, the gain readout (vertical drag), or the lane
+    // name (select the lane -> inspector shows its properties).
     if (x < GUTTER_W && y >= RULER_H) {
       const li = Math.floor((y - RULER_H) / LANE_H), lane = this.lanes()[li];
       if (!lane) return;
@@ -257,17 +267,21 @@ export class Timeline {
         this.drag = { edge: 'gain', lane: rec, startY: y, g0: rec.gainDb ?? 0 };
         return;
       }
+      // Name area: select the lane.
+      this.selectLane(lane.id);
       return;
     }
     const h = this.hit(x, y);
     if (!h) {
       if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
+      if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
       if (x >= GUTTER_W) this.app.transport.songPos = Math.max(0, this.sec(x)); // seek
       this.dirty = true;
       return;
     }
     this.canvas.setPointerCapture(e.pointerId);
     this.store.checkpoint();
+    if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
     if (this.selected !== h.index) { this.selected = h.index; this.app.bus.emit('clip:selected', { index: h.index }); }
     // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
     const edge = (h.edge === 'right' && e.altKey) ? 'stretch' : h.edge;
@@ -377,7 +391,8 @@ export class Timeline {
       const audible = this.laneAudible(lane);
       const col = this.laneColor(lane);
       g.fillStyle = line; g.fillRect(0, y + LANE_H - 1, w, 1);
-      g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y, GUTTER_W, LANE_H - 1);
+      g.fillStyle = lane.id === this.selectedLane ? cssVar('--bg-2', '#171b26') : cssVar('--bg-1', '#11141c'); g.fillRect(0, y, GUTTER_W, LANE_H - 1);
+      if (lane.id === this.selectedLane) { g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(0.5, y + 0.5, GUTTER_W - 1, LANE_H - 2); }
       g.fillStyle = col; g.globalAlpha = audible ? 1 : 0.35; g.fillRect(0, y, 3, LANE_H - 1); g.globalAlpha = 1;
       g.fillStyle = audible ? text : faint; g.font = '12px system-ui, sans-serif';
       g.fillText(lane.name || lane.id, 10, y + 17);

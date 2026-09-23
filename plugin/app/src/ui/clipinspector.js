@@ -11,6 +11,104 @@ const fmt = (d = 2) => v => Number(v).toFixed(d);
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`;
 const fmtTime = v => { const m = Math.floor(v / 60), s = (v % 60).toFixed(2).padStart(5, '0'); return `${m}:${s}`; };
 
+// Lane (track) inspector: name, level, mute/solo, color, and the clips on it.
+// Edits arrangement.lanes[] in place and emits lanes:changed so the running
+// ClipPlayer ramps immediately.
+export class LaneInspector {
+  constructor(host, app) {
+    this.app = app;
+    this.store = app.store;
+    this.host = host;
+    app.bus.on('lane:selected', () => this.render());
+    app.bus.on('lanes:changed', () => this.refresh());
+    app.bus.on('arrangement:changed', () => this.refresh());
+  }
+
+  get selection() {
+    const tl = this.app.timeline;
+    const arr = this.store.project.arrangement;
+    if (!tl?.active || !tl.selectedLane || !arr) return null;
+    const lane = tl.laneRecord(tl.selectedLane);
+    return { lane, placements: arr.placements.map((p, i) => ({ p, i })).filter(({ p }) => p.track === lane.id) };
+  }
+
+  refresh() {
+    const sel = this.selection;
+    if (!sel || this.renderedFor !== sel.lane.id) return this.render();
+    this.gainW?.set(sel.lane.gainDb ?? 0);
+    this.muteB?.classList.toggle('on', !!sel.lane.mute);
+    this.soloB?.classList.toggle('on', !!sel.lane.solo);
+  }
+
+  render() {
+    const { host, store } = this;
+    host.textContent = '';
+    const sel = this.selection;
+    this.renderedFor = sel?.lane.id ?? null;
+    if (!sel) return false;
+    const { lane, placements } = sel;
+    const tl = this.app.timeline;
+    const color = tl.laneColor(lane);
+    const commit = () => { this.app.bus.emit('lanes:changed', {}); tl.dirty = true; };
+
+    const head = el('div', 'panel-head');
+    const nameIn = el('input', 'song-name lane-name');
+    nameIn.value = lane.name || lane.id;
+    nameIn.spellcheck = false;
+    nameIn.style.color = color;
+    nameIn.addEventListener('change', () => { store.checkpoint(); lane.name = nameIn.value.trim() || lane.id; commit(); });
+    head.appendChild(nameIn);
+    host.appendChild(head);
+
+    const meta = el('div', 'clip-meta');
+    meta.appendChild(el('div', 'clip-meta-row', `id  ${lane.id}`));
+    meta.appendChild(el('div', 'clip-meta-row', `${placements.length} clip${placements.length === 1 ? '' : 's'}`));
+    host.appendChild(meta);
+
+    // Level + state
+    const g1 = el('div', 'insp-group'); g1.appendChild(el('div', 'insp-group-title', 'Level'));
+    const grid = el('div', 'clip-grid'); g1.appendChild(grid); host.appendChild(g1);
+    let armed = false;
+    const row = el('div', 'clip-row'); row.appendChild(el('span', 'clip-label', 'gain'));
+    this.gainW = NumberDrag({
+      value: lane.gainDb ?? 0, min: -60, max: 12, step: 0.1, format: fmtDb, suffix: ' dB',
+      onInput: v => { if (!armed) { store.checkpoint(); armed = true; } lane.gainDb = v; this.app.bus.emit('lanes:changed', {}); tl.dirty = true; },
+      onCommit: () => { armed = false; commit(); },
+    });
+    this.gainW.root.classList.add('clip-value'); row.appendChild(this.gainW.root); grid.appendChild(row);
+
+    const btns = el('div', 'clip-actions');
+    this.muteB = Btn('Mute', () => { store.checkpoint(); lane.mute = !lane.mute; commit(); this.refresh(); }, lane.mute ? 'on' : '');
+    this.soloB = Btn('Solo', () => { store.checkpoint(); lane.solo = !lane.solo; commit(); this.refresh(); }, lane.solo ? 'on' : '');
+    btns.appendChild(this.muteB); btns.appendChild(this.soloB);
+    host.appendChild(btns);
+
+    // Color
+    const g2 = el('div', 'insp-group'); g2.appendChild(el('div', 'insp-group-title', 'Color'));
+    const crow = el('div', 'clip-row'); crow.appendChild(el('span', 'clip-label', 'lane color'));
+    const cin = el('input'); cin.type = 'color'; cin.value = /^#[0-9a-f]{6}$/i.test(color) ? color : '#7aa2ff'; cin.className = 'lane-color';
+    cin.addEventListener('input', () => { lane.color = cin.value; nameIn.style.color = cin.value; tl.dirty = true; });
+    cin.addEventListener('change', () => { store.checkpoint(); lane.color = cin.value; commit(); });
+    crow.appendChild(cin); g2.appendChild(crow); host.appendChild(g2);
+
+    // Clips on this lane: click to select on the timeline.
+    const g3 = el('div', 'insp-group'); g3.appendChild(el('div', 'insp-group-title', 'Clips'));
+    const list = el('div', 'lane-clips');
+    for (const { p, i } of placements.sort((a, b) => a.p.at - b.p.at)) {
+      const c = store.project.clips[p.clip]; if (!c) continue;
+      const dur = (c.out - c.in) * (c.stretch ?? 1) / (c.rate ?? 1);
+      const item = el('div', 'lane-clip', `${fmtTime(p.at)}  ${c.name || c.id}  (${fmtTime(dur)})`);
+      item.addEventListener('click', () => { tl.selectedLane = null; tl.selected = i; tl.dirty = true; this.app.bus.emit('lane:selected', { id: null }); this.app.bus.emit('clip:selected', { index: i }); });
+      list.appendChild(item);
+    }
+    if (!placements.length) list.appendChild(el('div', 'clip-hint', 'Nothing on this lane.'));
+    g3.appendChild(list); host.appendChild(g3);
+
+    host.appendChild(el('div', 'clip-hint', 'Rename in the header · drag gain · click a clip to edit it'));
+    return true;
+  }
+}
+
 export class ClipInspector {
   constructor(host, app) {
     this.app = app;
