@@ -1,0 +1,21 @@
+
+/* Asset inspector: source (Suno / derived) + variants */
+.source-panel.drop-over { outline: 1px dashed var(--accent, #7aa2ff); outline-offset: -2px; }
+.suno-card { display: flex; gap: 8px; padding: 4px 0; align-items: flex-start; }
+.suno-cover { width: 56px; height: 56px; border-radius: 4px; object-fit: cover; flex: none; background: rgba(255,255,255,.05); }
+.suno-info { min-width: 0; flex: 1; }
+.suno-link { color: var(--accent, #7aa2ff); text-decoration: none; font-size: 12px; display: block; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suno-link:hover { text-decoration: underline; }
+.suno-row { display: flex; gap: 6px; padding: 1px 0; }
+.suno-k { color: var(--dim); flex: none; width: 46px; }
+.suno-v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suno-lyrics { font-size: 11px; margin: 4px 0; }
+.suno-lyrics summary { cursor: pointer; color: var(--dim); }
+.suno-lyrics-text { white-space: pre-wrap; font: 11px/1.45 inherit; max-height: 220px; overflow: auto; margin: 4px 0 0; }
+.variant-list { display: flex; flex-direction: column; gap: 2px; }
+.variant-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 3px; }
+.variant-row.playing { background: rgba(122,162,255,.12); }
+.variant-text { flex: 1; min-width: 0; }
+.variant-name { font-size: 11px; }
+.variant-sub { font-size: 10px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.variant-drop { padding: 0 6px; }

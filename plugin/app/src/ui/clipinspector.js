@@ -6,7 +6,8 @@
 // the timeline repaints and the transport picks it up on next play.
 
 import { el, NumberDrag, Btn, Knob, Select, openMenu } from './widgets.js';
-import { wordsFor } from '../core/assets.js';
+import { wordsFor, pickVariant } from '../core/assets.js';
+import { sourcePanel } from './sourcepanel.js';
 import { keymap } from '../core/keymap.js';
 import { getEffectDef } from '../engine/effects/index.js';
 import { toSRT, toVTT, toJSON, parseTimedText, wordsForClipLocal, mergeClipWords } from '../core/timedtext.js';
@@ -35,6 +36,10 @@ export class AssetInspector {
     this.host = host;
     app.bus.on('asset:selected', () => this.render());
     app.bus.on('arrangement:changed', () => this.refresh());
+    // A variant/source edit (or its undo) changes what the panel shows. Only
+    // re-render when this inspector owns the selection (render() leaves the
+    // host alone otherwise).
+    for (const t of ['assets:changed', 'project:replaced']) app.bus.on(t, () => { if (this.renderedFor && this.selection) this.render(); });
   }
 
   get selection() {
@@ -56,7 +61,7 @@ export class AssetInspector {
     const proj = store.project;
     const rel = () => {
       // Sidecar path for this asset's file, relative to the project root.
-      const v = asset.variants?.default ?? Object.values(asset.variants || {})[0];
+      let v = null; try { v = pickVariant(asset); } catch {}
       const base = (proj.baseUrl || '').replace(/^\/project\//, '');
       return v ? `${base}assets/${v.sha256}.${v.ext || 'wav'}` : null;
     };
@@ -154,12 +159,15 @@ export class AssetInspector {
     head.appendChild(nameIn);
     host.appendChild(head);
 
-    const v = asset.variants?.default;
+    let v = null; try { v = pickVariant(asset); } catch {}
     const meta = el('div', 'clip-meta');
     meta.appendChild(el('div', 'clip-meta-row', `id  ${asset.id}`));
     meta.appendChild(el('div', 'clip-meta-row', `${fmtTime(asset.duration)} · ${asset.kind}${v?.ext ? ' · ' + v.ext : ''}`));
     if (v?.sha256) { const r = el('div', 'clip-meta-row', `sha256  ${v.sha256.slice(0, 16)}…`); r.title = v.sha256; meta.appendChild(r); }
     host.appendChild(meta);
+
+    // Where this source came from (Suno / derived) and its audio variants.
+    host.appendChild(sourcePanel(this.app, asset, () => this.render()));
 
     // Clips referencing this source
     const g1 = el('div', 'insp-group'); g1.appendChild(el('div', 'insp-group-title', `Used by ${refs.length} clip${refs.length === 1 ? '' : 's'}`));
