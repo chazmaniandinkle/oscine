@@ -11,7 +11,7 @@
 
 import { AssetCache } from '../core/assets.js';
 import { InsertChain } from './effects/index.js';
-import { scheduleAll, findEnvelope, targetOf } from './automation.js';
+import { scheduleAll, scheduleClipEnvelopes, findEnvelope, targetOf } from './automation.js';
 
 // Decibels -> linear gain. Small enough that duplicating it beats a shared
 // util for one line; -Infinity dB (silence) must map to exactly 0, not a
@@ -158,6 +158,7 @@ export class ClipPlayer {
       source.start(startAt, offset, duration * rate);
 
       this.liveNodes.push({ source, gain });
+      scheduleClipEnvelopes(this, p, clip, gain, { at: atCtxTime, from: fromSeconds });
     }
   }
 
@@ -171,6 +172,11 @@ export class ClipPlayer {
       gain.disconnect();
     }
     this.liveNodes = [];
+    // Insert-param automation without an AudioParam fast path polls via
+    // setTimeout (see scheduleInsertEnvelope in automation.js); those
+    // timers outlive the ctx nodes unless cleared here.
+    for (const timer of this._autoTimers ?? []) clearTimeout(timer);
+    this._autoTimers = [];
     // Tear down strips + chains too, else each play() leaks a chain of
     // effect nodes (reverb convolvers are not free).
     for (const s of Object.values(this.strips)) { s.chain.dispose(); for (const n of [s.gain, s.pan, s.analyser]) { try { n.disconnect(); } catch {} } }

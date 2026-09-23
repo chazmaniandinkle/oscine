@@ -113,6 +113,31 @@ class ParametricEQ3 extends BaseEffect {
         break;
     }
   }
+
+  // Automation fast path (see BaseEffect.paramNode): each shelf/peaking
+  // filter's frequency/gain and the mid band's Q are backed by real
+  // BiquadFilterNode AudioParams, so an envelope can be scheduled directly
+  // onto them instead of polling through applyParam(). hp/lp frequency
+  // automates hp1/lp1 only -- hp2/lp2 (the slope-toggle stage) are kept in
+  // sync via a chained AudioParam link would be ideal, but Web Audio has no
+  // "follow this param" primitive; for automation purposes hp1/lp1 alone
+  // gives the audible sweep (hp2/lp2 stay at their last applyParam() value,
+  // acceptable since both stages share the same Butterworth corner). Select
+  // params (hpSlope, lpSlope) have no AudioParam and are not covered.
+  paramNode(key) {
+    switch (key) {
+      case 'hpFreq': return this.hp1.frequency;
+      case 'lowFreq': return this.low.frequency;
+      case 'lowGain': return this.low.gain;
+      case 'midFreq': return this.mid.frequency;
+      case 'midGain': return this.mid.gain;
+      case 'midQ': return this.mid.Q;
+      case 'highFreq': return this.high.frequency;
+      case 'highGain': return this.high.gain;
+      case 'lpFreq': return this.lp1.frequency;
+      default: return null;
+    }
+  }
 }
 
 defineEffect({

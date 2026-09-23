@@ -69,6 +69,11 @@ export class BaseEffect {
     this.applyParam(key, value);
   }
   applyParam(_key, _value) { /* subclass */ }
+  // Optional: return a live AudioParam for a param key, letting automation
+  // schedule directly onto it (sample-accurate, no polling). Subclasses
+  // that back a param with a native AudioParam (e.g. eq3's BiquadFilterNode
+  // frequency/gain/Q) should override this; default is "no fast path".
+  paramNode(_key) { return null; }
   get bypassed() { return this._bypassed; }
   set bypassed(b) {
     b = !!b;
