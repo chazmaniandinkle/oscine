@@ -24,10 +24,13 @@ automatically as an `oscine_<name>` MCP tool and, if you add a route, in
 `plugin/server/osc-gateway.js`. The smoke tests fail if a catalog command
 has no handler.
 
-**Known debt:** the arrangement side (clips, lanes, markers, cycle, inserts,
-automation, transcripts) was built UI-first in v2.0 and v2.1 and has no
-catalog commands yet. Don't add to that debt: new arrangement features get a
-command. Paying it back is the first item in `ROADMAP.md`.
+**The arrangement side is in the catalog as of 2.2:** `arrangement`, `clip`,
+`lane`, `marker`, `cycle`, `range`, `insert`, `automation` and `words`, with
+the edits themselves in `src/core/arrangement.js` behind store actions. The
+remaining debt is the other direction: the timeline, mixer and inspectors
+still mutate the project directly instead of calling those store actions.
+New arrangement UI must go through a store action; rewiring the existing UI
+is on `ROADMAP.md`.
 
 ## Architecture invariants
 
@@ -73,6 +76,8 @@ node test/smoke.mjs        # zero-dep: import graph, store, scheduler math,
                            # every API command headless, OSC codec+routing,
                            # plugin bundle integrity
 node test/keymap.mjs       # scheme bindings (each cites its manual page)
+node test/arrangement.mjs  # every arrangement command action, undo/redo,
+                           # bus events, ripple math, error paths
 node test/automation.mjs   # envelope grammar, shapes, scheduling math
 node test/ear.mjs          # analysis vs synthetic ground truth
 node test/timedtext.mjs    # transcript formats round-trip
