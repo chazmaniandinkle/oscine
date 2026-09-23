@@ -13,7 +13,10 @@ import { AssetCache } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
 import { ensureEnvelope, findEnvelope, targetOf, addPoint, movePoint, removePoint, valueAt } from '../engine/automation.js';
 
-const RULER_H = 22;
+const TICK_H = 22;   // time ticks + playhead handle
+const MARKER_H = 16; // marker / section strip under the ticks
+const RULER_H = TICK_H + MARKER_H;
+const SECTION_COLORS = ['#5b8def', '#e3a13a', '#5ce0a8', '#c678dd', '#e06c75', '#56b6c2'];
 const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
@@ -60,6 +63,16 @@ export class Timeline {
     host.appendChild(this.canvas);
 
     this.canvas.addEventListener('pointerdown', e => this.onDown(e));
+    // Double-click in the marker strip: rename the marker under the pointer,
+    // or add one there. (pointerdown's e.detail is 0 in Chrome; use dblclick.)
+    this.canvas.addEventListener('dblclick', e => {
+      const { x, y } = this.pos(e);
+      if (!(y >= TICK_H && y < RULER_H && x >= GUTTER_W)) return;
+      const m = this.markerAt(x);
+      if (m) { this.selectedMarker = m.id; this.renameMarker(m); }
+      else { this.store.checkpoint(); const nm = this.addMarker(this.snapTime(this.sec(x), { e })); this.selectedMarker = nm.id; this.renameMarker(nm, { noCheckpoint: true }); }
+      this.dirty = true;
+    });
     this.canvas.addEventListener('pointermove', e => this.onMove(e));
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
     this.canvas.addEventListener('pointercancel', e => this.onUp(e));
@@ -420,6 +433,28 @@ export class Timeline {
 
   onDown(e) {
     const { x, y } = this.pos(e);
+    // Marker strip (under the ticks): markers are flags, the band between
+    // two markers is a section.
+    const hadMarker = this.selectedMarker; this.selectedMarker = null;
+    if (y >= TICK_H && y < RULER_H && x >= GUTTER_W) {
+      const m = this.markerAt(x);
+      if (m) { // select + (maybe) drag to move
+        this.canvas.setPointerCapture(e.pointerId);
+        this.selectedMarker = m.id;
+        this.drag = { edge: 'marker', marker: m, t0: m.t, startX: x, armed: false };
+      } else { // click in a section band: jump to its start
+        const ms = this.markers(), t = this.sec(x);
+        const sec = [...ms].reverse().find(k => k.t <= t);
+        if (sec) this.app.transport.songPos = sec.t;
+        if (sec && keymap.gesture('timeline.rangeSelect', e)) { // ⇧-click: select the whole section as the range
+          const nx = ms[ms.indexOf(sec) + 1]?.t ?? this.app.transport.arrangementEnd();
+          this.range = { a: sec.t, b: nx }; this.app.bus.emit('range:changed', {});
+        }
+      }
+      if (hadMarker !== this.selectedMarker) this.app.bus.emit('marker:selected', { id: this.selectedMarker });
+      this.dirty = true; return;
+    }
+    if (hadMarker) this.app.bus.emit('marker:selected', { id: null });
     // Ruler: press-and-drag scrubs the playhead. ⇧-drag sets a time range
     // instead. If playing, stop, scrub, and resume from the release point.
     if (y < RULER_H && x >= GUTTER_W) {
@@ -710,6 +745,13 @@ export class Timeline {
       this.dirty = true;
       return;
     }
+    if (d.edge === 'marker') {
+      if (!d.armed && Math.abs(x - d.startX) < 3) return;
+      if (!d.armed) { this.store.checkpoint(); d.armed = true; }
+      d.marker.t = this.snapTime(Math.max(0, d.t0 + (x - d.startX) / this.pxPerSec), { e });
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'reorder') {
       if (!d.armed && Math.abs(y - d.startY) < 4) return; // still a click
       d.armed = true;
@@ -814,6 +856,11 @@ export class Timeline {
       this.dirty = true;
       return;
     }
+    if (d.edge === 'marker') {
+      if (d.armed) { this.sortMarkers(); this.app.bus.emit('arrangement:changed', {}); }
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'reorder') {
       if (!d.armed) { this.selectLane(d.laneId); this.dirty = true; return; } // it was a click
       // Move lanes[from] to slot `to` (slot indexes count boundaries, so a
@@ -908,9 +955,11 @@ export class Timeline {
     for (let s = s0; s <= s1; s += 5) {
       const x = this.x(s);
       const major = s % 30 === 0;
-      g.fillStyle = major ? faint : line; g.fillRect(x, major ? 4 : 12, 1, RULER_H - (major ? 4 : 12));
+      g.fillStyle = major ? faint : line; g.fillRect(x, major ? 4 : 12, 1, TICK_H - (major ? 4 : 12));
       if (major) { g.fillStyle = text; g.fillText(fmtTime(s), x + 3, 10); }
     }
+    g.fillStyle = line; g.fillRect(GUTTER_W, TICK_H - 1, w - GUTTER_W, 1);
+    this.paintMarkers(g, w, { text, faint, line, accent });
     g.fillStyle = line; g.fillRect(0, RULER_H - 1, w, 1);
     // vertical scroll hint: a thin thumb on the right edge when content overflows
     const maxSY = this.maxScrollY();
@@ -920,6 +969,66 @@ export class Timeline {
       g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(w - 5, thumbY, 3, thumbH);
     }
     this.paintOverlays(g, w, h, playheadSec, playing, { accent });
+  }
+
+  // -- markers / sections --------------------------------------------------
+  // arrangement.markers = [{id, t, name, color?}], sorted by t. A marker's
+  // SECTION runs to the next marker (or the song end). Stored in seconds,
+  // like everything else in v2; v3 may add a tempo map above it.
+  markers() { const a = this.arrangement; return a ? (a.markers ??= []) : []; }
+  sortMarkers() { this.markers().sort((a, b) => a.t - b.t); }
+  addMarker(t, name) {
+    const ms = this.markers();
+    let n = ms.length + 1, id = `m${n}`; while (ms.find(m => m.id === id)) id = `m${++n}`;
+    const m = { id, t: Math.max(0, t), name: name ?? `Marker ${ms.length + 1}` };
+    ms.push(m); this.sortMarkers();
+    this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
+    return m;
+  }
+  markerAt(x) {
+    let best = null, bd = 7;
+    for (const m of this.markers()) { const d = Math.abs(this.x(m.t) - x); if (d < bd) { bd = d; best = m; } }
+    return best;
+  }
+  deleteSelectedMarker() {
+    const ms = this.markers(), i = ms.findIndex(m => m.id === this.selectedMarker);
+    if (i < 0) return false;
+    this.store.checkpoint(); ms.splice(i, 1); this.selectedMarker = null;
+    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('marker:selected', { id: null }); this.dirty = true;
+  }
+  markerNav(dir) {
+    const ms = this.markers(), t = this.app.transport.songPos;
+    const m = dir > 0 ? ms.find(k => k.t > t + 0.01) : [...ms].reverse().find(k => k.t < t - 0.01);
+    if (!m) return false;
+    this.app.transport.songPos = m.t; this.follow?.(m.t); this.dirty = true;
+  }
+  renameMarker(m, { noCheckpoint = false } = {}) {
+    const name = prompt('Marker name', m.name);
+    if (name == null) return;
+    if (!noCheckpoint) this.store.checkpoint();
+    m.name = name.trim() || m.name;
+    this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
+  }
+  paintMarkers(g, w, { text, faint, accent }) {
+    const ms = this.markers(), y0 = TICK_H, end = this.app.transport?.arrangementEnd?.() ?? 0;
+    g.fillStyle = cssVar('--bg-0', '#0b0d12'); g.fillRect(GUTTER_W, y0, w - GUTTER_W, MARKER_H);
+    g.save(); g.beginPath(); g.rect(GUTTER_W, y0, w - GUTTER_W, MARKER_H); g.clip();
+    g.font = '10px system-ui, sans-serif'; g.textBaseline = 'middle';
+    ms.forEach((m, i) => {
+      const x = this.x(m.t), x2 = this.x(ms[i + 1]?.t ?? Math.max(end, m.t));
+      const col = m.color || SECTION_COLORS[i % SECTION_COLORS.length];
+      // section band (alternating tint) + flag
+      g.fillStyle = col; g.globalAlpha = 0.16; g.fillRect(x, y0, Math.max(0, x2 - x), MARKER_H); g.globalAlpha = 1;
+      g.fillStyle = col; g.fillRect(x, y0, 2, MARKER_H);
+      const sel = this.selectedMarker === m.id;
+      g.fillStyle = sel ? '#fff' : text;
+      g.fillText(m.name, x + 5, y0 + MARKER_H / 2, Math.max(20, x2 - x - 8));
+    });
+    if (!ms.length) { g.fillStyle = faint; g.fillText('double-click or M to add a marker', GUTTER_W + 6, y0 + MARKER_H / 2); }
+    g.restore();
+    // gutter label
+    g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y0, GUTTER_W, MARKER_H);
+    g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('MARKERS', 8, y0 + MARKER_H / 2);
   }
 
   paintLanes(g, w, h, lanes, arr, { text, faint, line, accent }) {
@@ -933,7 +1042,13 @@ export class Timeline {
       if (lane.id === this.selectedLane) { g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(0.5, y + 0.5, GUTTER_W - 1, LANE_H - 2); }
       g.fillStyle = col; g.globalAlpha = audible ? 1 : 0.35; g.fillRect(0, y, 3, LANE_H - 1); g.globalAlpha = 1;
       g.fillStyle = audible ? text : faint; g.font = '12px system-ui, sans-serif';
-      g.fillText(lane.name || lane.id, 10, y + 17);
+      // Name: ellipsize to the space left of the A/M/S buttons.
+      {
+        const maxW = BTN.a[0] - 10 - 6, full = lane.name || lane.id;
+        let s = full;
+        if (g.measureText(s).width > maxW) { while (s.length > 1 && g.measureText(s + '…').width > maxW) s = s.slice(0, -1); s += '…'; }
+        g.fillText(s, 10, y + 17);
+      }
       // M / S buttons
       const btn = (b, label, on, onCol) => {
         g.fillStyle = on ? onCol : cssVar('--bg-2', '#171b26'); g.fillRect(b[0], y + 8, b[1], 18);
@@ -1089,12 +1204,12 @@ export class Timeline {
       const x = this.x(playheadSec);
       if (x >= GUTTER_W && x <= w) {
         g.fillStyle = accent; g.fillRect(x - (playing ? 1 : 0), RULER_H, playing ? 2 : 1, h - RULER_H);
-        g.beginPath(); g.moveTo(x - 6, 2); g.lineTo(x + 6, 2); g.lineTo(x, RULER_H - 2); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(x - 6, 2); g.lineTo(x + 6, 2); g.lineTo(x, TICK_H - 2); g.closePath(); g.fill();
         const label = fmtTime(playheadSec) + (playing ? '' : '.' + String(Math.floor((playheadSec % 1) * 100)).padStart(2, '0'));
         g.font = '10px system-ui, sans-serif'; const tw = g.measureText(label).width + 8;
         const lx = x + 8 + tw > w ? x - 8 - tw : x + 8;
-        g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(lx - 2, 2, tw + 4, RULER_H - 4);
-        g.fillStyle = accent; g.fillText(label, lx + 4, RULER_H / 2);
+        g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(lx - 2, 2, tw + 4, TICK_H - 4);
+        g.fillStyle = accent; g.fillText(label, lx + 4, TICK_H / 2);
       }
     }
     // drop hint from the asset bin: highlight the target lane + insertion x
