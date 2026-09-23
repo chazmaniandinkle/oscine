@@ -1,0 +1,1577 @@
+{
+ "note": "SANITIZED for public repo: Hermes ran its cog-orient ritual (reads private substrate state); tool contents and agent text removed. Frame counts are from the raw capture.",
+ "frames": 184,
+ "counts": {
+  "initialize": 1,
+  "result": 2,
+  "session/new": 1,
+  "session/update:available_commands_update": 1,
+  "session/update:usage_update": 2,
+  "session/prompt": 1,
+  "session/update:session_info_update": 2,
+  "session/update:agent_message_chunk": 146,
+  "session/update:tool_call": 17,
+  "session/update:tool_call_update": 11
+ },
+ "kept_frames": [
+  {
+   "dir": "out",
+   "t": 1790191376785,
+   "msg": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "initialize",
+    "params": {
+     "protocolVersion": 1,
+     "clientCapabilities": {
+      "fs": {
+       "readTextFile": true,
+       "writeTextFile": true
+      },
+      "terminal": false
+     },
+     "clientInfo": {
+      "name": "oscine-spike",
+      "version": "0.0.1"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191379472,
+   "msg": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "result": {
+     "agentCapabilities": {
+      "loadSession": true,
+      "promptCapabilities": {
+       "image": true
+      },
+      "sessionCapabilities": {
+       "fork": {},
+       "list": {},
+       "resume": {}
+      }
+     },
+     "agentInfo": {
+      "name": "hermes-agent",
+      "version": "0.20.4"
+     },
+     "authMethods": [
+      {
+       "description": "Authenticate Hermes using the currently configured custom runtime credentials.",
+       "id": "custom",
+       "name": "custom runtime credentials"
+      },
+      {
+       "args": [
+        "--setup"
+       ],
+       "description": "Open Hermes' interactive model/provider setup in a terminal. Use this when Hermes has not been configured on this machine yet.",
+       "id": "hermes-setup",
+       "name": "Configure Hermes provider",
+       "type": "terminal"
+      }
+     ],
+     "protocolVersion": 1
+    }
+   }
+  },
+  {
+   "dir": "out",
+   "t": 1790191379479,
+   "msg": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "session/new",
+    "params": {
+     "cwd": "/var/folders/rw/tt0vf1355js2dwvr2zwk8zjw0000gn/T/oscine-acp-ZLtUOc",
+     "mcpServers": [
+      {
+       "name": "oscine",
+       "command": "~/.nvm/versions/node/v22.14.0/bin/node",
+       "args": [
+        "~/workspaces/oscine/plugin/server/oscine-mcp.mjs"
+       ],
+       "env": [
+        {
+         "name": "OSCINE_PORT",
+         "value": "7391"
+        },
+        {
+         "name": "OSCINE_OSC_PORT",
+         "value": "7392"
+        },
+        {
+         "name": "OSCINE_PROJECT_ROOT",
+         "value": "~/workspaces/cog"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191389296,
+   "msg": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+     "_meta": {
+      "hermes": {
+       "sessionProvenance": {
+        "acpSessionId": "6f278243-2d5a-43b4-955e-50bd629f8890",
+        "currentHermesSessionId": "6f278243-2d5a-43b4-955e-50bd629f8890",
+        "rootHermesSessionId": "6f278243-2d5a-43b4-955e-50bd629f8890",
+        "parentHermesSessionId": null,
+        "sessionKind": "root",
+        "compressionDepth": 0
+       }
+      }
+     },
+     "models": {
+      "availableModels": [
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-fable-5.1",
+        "name": "OpenRouter \u00b7 anthropic/claude-fable-5.1"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-fable-5",
+        "name": "OpenRouter \u00b7 anthropic/claude-fable-5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-opus-5.5",
+        "name": "OpenRouter \u00b7 anthropic/claude-opus-5.5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-opus-5",
+        "name": "OpenRouter \u00b7 anthropic/claude-opus-5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-opus-4.8",
+        "name": "OpenRouter \u00b7 anthropic/claude-opus-4.8"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-sonnet-5",
+        "name": "OpenRouter \u00b7 anthropic/claude-sonnet-5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:anthropic/claude-haiku-4.5",
+        "name": "OpenRouter \u00b7 anthropic/claude-haiku-4.5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-astra",
+        "name": "OpenRouter \u00b7 openai/gpt-6-astra"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-astra-pro",
+        "name": "OpenRouter \u00b7 openai/gpt-6-astra-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-sol",
+        "name": "OpenRouter \u00b7 openai/gpt-6-sol"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-sol-pro",
+        "name": "OpenRouter \u00b7 openai/gpt-6-sol-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-luna",
+        "name": "OpenRouter \u00b7 openai/gpt-6-luna"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-6-luna-pro",
+        "name": "OpenRouter \u00b7 openai/gpt-6-luna-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-5.5",
+        "name": "OpenRouter \u00b7 openai/gpt-5.5"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-5.5-pro",
+        "name": "OpenRouter \u00b7 openai/gpt-5.5-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:openai/gpt-5.4-mini",
+        "name": "OpenRouter \u00b7 openai/gpt-5.4-mini"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:google/gemini-3.1-pro-preview",
+        "name": "OpenRouter \u00b7 google/gemini-3.1-pro-preview"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:google/gemini-3.8-flash",
+        "name": "OpenRouter \u00b7 google/gemini-3.8-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:google/gemini-3.7-flash",
+        "name": "OpenRouter \u00b7 google/gemini-3.7-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:x-ai/grok-4.7",
+        "name": "OpenRouter \u00b7 x-ai/grok-4.7"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:x-ai/grok-4.6",
+        "name": "OpenRouter \u00b7 x-ai/grok-4.6"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:deepseek/deepseek-v4-pro",
+        "name": "OpenRouter \u00b7 deepseek/deepseek-v4-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:deepseek/deepseek-v4-pro-0813",
+        "name": "OpenRouter \u00b7 deepseek/deepseek-v4-pro-0813"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:deepseek/deepseek-v4.1-flash",
+        "name": "OpenRouter \u00b7 deepseek/deepseek-v4.1-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:deepseek/deepseek-v4-flash-0731",
+        "name": "OpenRouter \u00b7 deepseek/deepseek-v4-flash-0731"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:qwen/qwen3.8-max-0902",
+        "name": "OpenRouter \u00b7 qwen/qwen3.8-max-0902"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:qwen/qwen3.8-flash",
+        "name": "OpenRouter \u00b7 qwen/qwen3.8-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:moonshotai/kimi-k3",
+        "name": "OpenRouter \u00b7 moonshotai/kimi-k3"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:minimax/minimax-m3",
+        "name": "OpenRouter \u00b7 minimax/minimax-m3"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:z-ai/glm-5.3",
+        "name": "OpenRouter \u00b7 z-ai/glm-5.3"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:z-ai/glm-5.3-flash",
+        "name": "OpenRouter \u00b7 z-ai/glm-5.3-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:z-ai/glm-5.3-flashx",
+        "name": "OpenRouter \u00b7 z-ai/glm-5.3-flashx"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:z-ai/glm-5.2",
+        "name": "OpenRouter \u00b7 z-ai/glm-5.2"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:xiaomi/mimo-v2.6-pro",
+        "name": "OpenRouter \u00b7 xiaomi/mimo-v2.6-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:xiaomi/mimo-v2.6-flash",
+        "name": "OpenRouter \u00b7 xiaomi/mimo-v2.6-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:xiaomi/mimo-v2.6-pro-ultraspeed",
+        "name": "OpenRouter \u00b7 xiaomi/mimo-v2.6-pro-ultraspeed"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:xiaomi/mimo-v2.5-pro",
+        "name": "OpenRouter \u00b7 xiaomi/mimo-v2.5-pro"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:tencent/hy4-preview",
+        "name": "OpenRouter \u00b7 tencent/hy4-preview"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:tencent/hy3",
+        "name": "OpenRouter \u00b7 tencent/hy3"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:stepfun/step-3.7-flash",
+        "name": "OpenRouter \u00b7 stepfun/step-3.7-flash"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:nvidia/nemotron-3-super-120b-a12b",
+        "name": "OpenRouter \u00b7 nvidia/nemotron-3-super-120b-a12b"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:meta/muse-spark-1.2",
+        "name": "OpenRouter \u00b7 meta/muse-spark-1.2"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:meta/muse-spark-1.2-contributor",
+        "name": "OpenRouter \u00b7 meta/muse-spark-1.2-contributor"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:meta/muse-spark-1.3",
+        "name": "OpenRouter \u00b7 meta/muse-spark-1.3"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:meta/muse-spark-1.3-contributor",
+        "name": "OpenRouter \u00b7 meta/muse-spark-1.3-contributor"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:sakana/fugu-ultra",
+        "name": "OpenRouter \u00b7 sakana/fugu-ultra"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:thinkingmachines/inkling:free",
+        "name": "OpenRouter \u00b7 thinkingmachines/inkling:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:thinkingmachines/inkling-small:free",
+        "name": "OpenRouter \u00b7 thinkingmachines/inkling-small:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:poolside/laguna-s-2.1:free",
+        "name": "OpenRouter \u00b7 poolside/laguna-s-2.1:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:poolside/laguna-xs-2.1:free",
+        "name": "OpenRouter \u00b7 poolside/laguna-xs-2.1:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:nvidia/nemotron-3-super-120b-a12b:free",
+        "name": "OpenRouter \u00b7 nvidia/nemotron-3-super-120b-a12b:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "name": "OpenRouter \u00b7 nvidia/nemotron-3-ultra-550b-a55b:free"
+       },
+       {
+        "description": "Provider: OpenRouter",
+        "modelId": "openrouter:nvidia/nemotron-3.5-lightning:free",
+        "name": "OpenRouter \u00b7 nvidia/nemotron-3.5-lightning:free"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:qwen3-0.6b",
+        "name": "LM Studio \u00b7 qwen3-0.6b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:qwen3-1.7b",
+        "name": "LM Studio \u00b7 qwen3-1.7b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:qwen3-4b",
+        "name": "LM Studio \u00b7 qwen3-4b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:qwen3-8b",
+        "name": "LM Studio \u00b7 qwen3-8b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:ornith-1.5-35b-a3b-mlx",
+        "name": "LM Studio \u00b7 ornith-1.5-35b-a3b-mlx"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:ornith-1.0-35b",
+        "name": "LM Studio \u00b7 ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:qwen3.5-35b-a3b",
+        "name": "LM Studio \u00b7 qwen3.5-35b-a3b"
+       },
+       {
+        "description": "Provider: LM Studio",
+        "modelId": "lmstudio:ornith-1.5-35b-a3b",
+        "name": "LM Studio \u00b7 ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-6-astra",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-6-astra"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-6-sol",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-6-sol"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-6-luna",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-6-luna"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-sol",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-sol"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-terra",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-terra"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-luna",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-luna"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.5",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.5"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-sol-pro",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-sol-pro"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-terra-pro",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-terra-pro"
+       },
+       {
+        "description": "Provider: ChatGPT or Codex Subscription",
+        "modelId": "openai-codex:gpt-5.6-luna-pro",
+        "name": "ChatGPT or Codex Subscription \u00b7 gpt-5.6-luna-pro"
+       },
+       {
+        "description": "Provider: Custom endpoint \u2022 current",
+        "modelId": "custom:claude-opus-5",
+        "name": "Custom endpoint \u00b7 claude-opus-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:foreground",
+        "name": "CogOS Kernel (in-band) \u00b7 foreground"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:deliberation",
+        "name": "CogOS Kernel (in-band) \u00b7 deliberation"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:local",
+        "name": "CogOS Kernel (in-band) \u00b7 local"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-sonnet-4-6",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-sonnet-4-6"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-4-7",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-4-7"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-haiku-4-5-20251001",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-haiku-4-5-20251001"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-5-5",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-5-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-fable-5-1",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-fable-5-1"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-5",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-sonnet-5",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-sonnet-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-fable-5",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-fable-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-4-8",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-4-8"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-4-6",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-4-6"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-opus-4-5-20251101",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-opus-4-5-20251101"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:claude-sonnet-4-5-20250929",
+        "name": "CogOS Kernel (in-band) \u00b7 claude-sonnet-4-5-20250929"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-6-astra",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-6-astra"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-reserve",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-reserve"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-5.6-sol",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-5.6-sol"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-5.6-terra",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-5.6-terra"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-5.6-luna",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-5.6-luna"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/gpt-5.5",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/gpt-5.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:codex/codex-auto-review",
+        "name": "CogOS Kernel (in-band) \u00b7 codex/codex-auto-review"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/ornith-1.5-35b-a3b-mlx",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/ornith-1.5-35b-a3b-mlx"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/qwen3-0.6b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/qwen3-0.6b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/qwen3-1.7b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/qwen3-1.7b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/qwen3-4b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/qwen3-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/qwen3-8b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/qwen3-8b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/ornith-1.0-35b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/qwen3.5-35b-a3b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/qwen3.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/ornith-1.5-35b-a3b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-darkstar/text-embedding-nomic-embed-text-v1.5",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-darkstar/text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen/qwen3.6-35b-a3b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen/qwen3.6-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/meta/muse-glimmer",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/meta/muse-glimmer"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/google/gemma-4-31b-qat",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/google/gemma-4-31b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/google/gemma-4-26b-a4b-qat",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/google/gemma-4-26b-a4b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/google/gemma-4-12b-qat",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/google/gemma-4-12b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen/qwen3.8-27b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen/qwen3.8-27b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/ornith-1.5-35b-a3b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/ornith-1.0-35b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/diffusiongemma-26b-a4b-it",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/diffusiongemma-26b-a4b-it"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/nvidia/nemotron-3-nano-4b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/nvidia/nemotron-3-nano-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/google/gemma-4-e4b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/google/gemma-4-e4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/google/gemma-4-26b-a4b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/google/gemma-4-26b-a4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/text-embedding-nomic-embed-text-v1.5",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-32b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-32b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-8b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-8b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-14b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-14b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-4b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-30b-a3b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-30b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-1.7b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-1.7b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "cogos:lmstudio-eclipse/qwen3-0.6b",
+        "name": "CogOS Kernel (in-band) \u00b7 lmstudio-eclipse/qwen3-0.6b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen/qwen3.6-35b-a3b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen/qwen3.6-35b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:meta/muse-glimmer",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 meta/muse-glimmer"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:google/gemma-4-31b-qat",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 google/gemma-4-31b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:google/gemma-4-26b-a4b-qat",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 google/gemma-4-26b-a4b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:google/gemma-4-12b-qat",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 google/gemma-4-12b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen/qwen3.8-27b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen/qwen3.8-27b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:ornith-1.5-35b-a3b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:ornith-1.0-35b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:diffusiongemma-26b-a4b-it",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 diffusiongemma-26b-a4b-it"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:nvidia/nemotron-3-nano-4b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 nvidia/nemotron-3-nano-4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:google/gemma-4-e4b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 google/gemma-4-e4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:google/gemma-4-26b-a4b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 google/gemma-4-26b-a4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:text-embedding-nomic-embed-text-v1.5",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-32b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-32b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-8b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-8b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-14b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-14b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-4b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-30b-a3b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-30b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-1.7b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-1.7b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "eclipse-lms:qwen3-0.6b",
+        "name": "Eclipse (LM Studio, LAN) \u00b7 qwen3-0.6b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:ornith-1.5-35b-a3b-mlx",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 ornith-1.5-35b-a3b-mlx"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:qwen3-0.6b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 qwen3-0.6b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:qwen3-1.7b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 qwen3-1.7b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:qwen3-4b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 qwen3-4b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:qwen3-8b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 qwen3-8b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:ornith-1.0-35b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:qwen3.5-35b-a3b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 qwen3.5-35b-a3b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:ornith-1.5-35b-a3b",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: Darkstar LM Studio (ornith, local)",
+        "modelId": "darkstar-lms:text-embedding-nomic-embed-text-v1.5",
+        "name": "Darkstar LM Studio (ornith, local) \u00b7 text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-5.4",
+        "name": "OpenAI Codex \u00b7 gpt-5.4"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-5.4-mini",
+        "name": "OpenAI Codex \u00b7 gpt-5.4-mini"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-5-mini",
+        "name": "OpenAI Codex \u00b7 gpt-5-mini"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-5.3-codex",
+        "name": "OpenAI Codex \u00b7 gpt-5.3-codex"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-5.2-codex",
+        "name": "OpenAI Codex \u00b7 gpt-5.2-codex"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-4.1",
+        "name": "OpenAI Codex \u00b7 gpt-4.1"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-4o",
+        "name": "OpenAI Codex \u00b7 gpt-4o"
+       },
+       {
+        "description": "Provider: OpenAI Codex",
+        "modelId": "codex:gpt-4o-mini",
+        "name": "OpenAI Codex \u00b7 gpt-4o-mini"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:foreground",
+        "name": "foreground"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:deliberation",
+        "name": "deliberation"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:local",
+        "name": "local"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-sonnet-4-6",
+        "name": "claude-sonnet-4-6"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-4-7",
+        "name": "claude-opus-4-7"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-haiku-4-5-20251001",
+        "name": "claude-haiku-4-5-20251001"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-5-5",
+        "name": "claude-opus-5-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-fable-5-1",
+        "name": "claude-fable-5-1"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-5",
+        "name": "claude-opus-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-sonnet-5",
+        "name": "claude-sonnet-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-fable-5",
+        "name": "claude-fable-5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-4-8",
+        "name": "claude-opus-4-8"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-4-6",
+        "name": "claude-opus-4-6"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-opus-4-5-20251101",
+        "name": "claude-opus-4-5-20251101"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:claude-sonnet-4-5-20250929",
+        "name": "claude-sonnet-4-5-20250929"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-6-astra",
+        "name": "codex/gpt-6-astra"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-reserve",
+        "name": "codex/gpt-reserve"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-5.6-sol",
+        "name": "codex/gpt-5.6-sol"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-5.6-terra",
+        "name": "codex/gpt-5.6-terra"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-5.6-luna",
+        "name": "codex/gpt-5.6-luna"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/gpt-5.5",
+        "name": "codex/gpt-5.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:codex/codex-auto-review",
+        "name": "codex/codex-auto-review"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/ornith-1.5-35b-a3b-mlx",
+        "name": "lmstudio-darkstar/ornith-1.5-35b-a3b-mlx"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/qwen3-0.6b",
+        "name": "lmstudio-darkstar/qwen3-0.6b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/qwen3-1.7b",
+        "name": "lmstudio-darkstar/qwen3-1.7b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/qwen3-4b",
+        "name": "lmstudio-darkstar/qwen3-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/qwen3-8b",
+        "name": "lmstudio-darkstar/qwen3-8b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/ornith-1.0-35b",
+        "name": "lmstudio-darkstar/ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/qwen3.5-35b-a3b",
+        "name": "lmstudio-darkstar/qwen3.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/ornith-1.5-35b-a3b",
+        "name": "lmstudio-darkstar/ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-darkstar/text-embedding-nomic-embed-text-v1.5",
+        "name": "lmstudio-darkstar/text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen/qwen3.6-35b-a3b",
+        "name": "lmstudio-eclipse/qwen/qwen3.6-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/meta/muse-glimmer",
+        "name": "lmstudio-eclipse/meta/muse-glimmer"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/google/gemma-4-31b-qat",
+        "name": "lmstudio-eclipse/google/gemma-4-31b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/google/gemma-4-26b-a4b-qat",
+        "name": "lmstudio-eclipse/google/gemma-4-26b-a4b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/google/gemma-4-12b-qat",
+        "name": "lmstudio-eclipse/google/gemma-4-12b-qat"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen/qwen3.8-27b",
+        "name": "lmstudio-eclipse/qwen/qwen3.8-27b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/ornith-1.5-35b-a3b",
+        "name": "lmstudio-eclipse/ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/ornith-1.0-35b",
+        "name": "lmstudio-eclipse/ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/diffusiongemma-26b-a4b-it",
+        "name": "lmstudio-eclipse/diffusiongemma-26b-a4b-it"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/nvidia/nemotron-3-nano-4b",
+        "name": "lmstudio-eclipse/nvidia/nemotron-3-nano-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/google/gemma-4-e4b",
+        "name": "lmstudio-eclipse/google/gemma-4-e4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/google/gemma-4-26b-a4b",
+        "name": "lmstudio-eclipse/google/gemma-4-26b-a4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/text-embedding-nomic-embed-text-v1.5",
+        "name": "lmstudio-eclipse/text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-32b",
+        "name": "lmstudio-eclipse/qwen3-32b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-8b",
+        "name": "lmstudio-eclipse/qwen3-8b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-14b",
+        "name": "lmstudio-eclipse/qwen3-14b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-4b",
+        "name": "lmstudio-eclipse/qwen3-4b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-30b-a3b",
+        "name": "lmstudio-eclipse/qwen3-30b-a3b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-1.7b",
+        "name": "lmstudio-eclipse/qwen3-1.7b"
+       },
+       {
+        "description": "Provider: CogOS Kernel (in-band)",
+        "modelId": "custom:cogos:lmstudio-eclipse/qwen3-0.6b",
+        "name": "lmstudio-eclipse/qwen3-0.6b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen/qwen3.6-35b-a3b",
+        "name": "qwen/qwen3.6-35b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:meta/muse-glimmer",
+        "name": "meta/muse-glimmer"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:google/gemma-4-31b-qat",
+        "name": "google/gemma-4-31b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:google/gemma-4-26b-a4b-qat",
+        "name": "google/gemma-4-26b-a4b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:google/gemma-4-12b-qat",
+        "name": "google/gemma-4-12b-qat"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen/qwen3.8-27b",
+        "name": "qwen/qwen3.8-27b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:ornith-1.5-35b-a3b",
+        "name": "ornith-1.5-35b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:ornith-1.0-35b",
+        "name": "ornith-1.0-35b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:diffusiongemma-26b-a4b-it",
+        "name": "diffusiongemma-26b-a4b-it"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:nvidia/nemotron-3-nano-4b",
+        "name": "nvidia/nemotron-3-nano-4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:google/gemma-4-e4b",
+        "name": "google/gemma-4-e4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:google/gemma-4-26b-a4b",
+        "name": "google/gemma-4-26b-a4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:text-embedding-nomic-embed-text-v1.5",
+        "name": "text-embedding-nomic-embed-text-v1.5"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-32b",
+        "name": "qwen3-32b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-8b",
+        "name": "qwen3-8b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-14b",
+        "name": "qwen3-14b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-4b",
+        "name": "qwen3-4b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-30b-a3b",
+        "name": "qwen3-30b-a3b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-1.7b",
+        "name": "qwen3-1.7b"
+       },
+       {
+        "description": "Provider: Eclipse (LM Studio, LAN)",
+        "modelId": "custom:eclipse-lms:qwen3-0.6b",
+        "name": "qwen3-0.6b"
+       }
+      ],
+      "currentModelId": "custom:claude-opus-5"
+     },
+     "modes": {
+      "availableModes": [
+       {
+        "description": "Ask before edits.",
+        "id": "default",
+        "name": "Default"
+       },
+       {
+        "description": "Auto-allow workspace and /tmp edits; still asks for sensitive paths.",
+        "id": "accept_edits",
+        "name": "Accept Edits"
+       },
+       {
+        "description": "Auto-allow file edits for this session except sensitive paths.",
+        "id": "dont_ask",
+        "name": "Don't Ask"
+       }
+      ],
+      "currentModeId": "default"
+     },
+     "sessionId": "6f278243-2d5a-43b4-955e-50bd629f8890"
+    }
+   }
+  },
+  {
+   "dir": "out",
+   "t": 1790191389303,
+   "msg": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "session/prompt",
+    "params": {
+     "sessionId": "6f278243-2d5a-43b4-955e-50bd629f8890",
+     "prompt": [
+      {
+       "type": "text",
+       "text": "evidence/hermes-oscine-status.ndjson"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191402688,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/.cog\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191402690,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/.cog\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191419969,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/.cog\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191419971,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/SOUL\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191419977,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/USER\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191437820,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/SOUL\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191437821,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/USER\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191437822,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/.cog\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191447876,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: echo \"===== SOUL.md =====\"; co\u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191455097,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: command cat ~/wor\u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191455282,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "skill view (cog-orient)\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191472147,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "skill view (cog-orient)\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191472149,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: echo \"=== BRANCH/STATUS ===\"; \u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191488132,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: P=$(command find /Users/slowbr\u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191505630,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: echo \"=== DASH (clock) ===\"; d\u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191511180,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "read: ~/workspaces/cog/.cog\u2026",
+      "kind": "read"
+     }
+    }
+   }
+  },
+  {
+   "dir": "in",
+   "t": 1790191517888,
+   "msg": {
+    "method": "session/update",
+    "params": {
+     "update": {
+      "sessionUpdate": "tool_call",
+      "title": "terminal: echo \"=== KERNEL HEALTH ===\"; \u2026",
+      "kind": "execute"
+     }
+    }
+   }
+  }
+ ]
+}
