@@ -82,6 +82,8 @@ export class Timeline {
       // Keep the song filling the width when the panel grows/shrinks, unless
       // the user has zoomed in on purpose (then just repaint).
       if (this.fitted) this.fitToWidth();
+      // Panel got taller (mixer closed): don't leave lanes scrolled off the top.
+      this.scrollY = Math.min(this.scrollY || 0, this.maxScrollY());
       this.dirty = true;
     }).observe(host);
   }
@@ -255,16 +257,19 @@ export class Timeline {
   // sub-lane is open (this.autoOpen has the lane id). laneY/laneIndexAt
   // are the only geometry anyone should use.
   laneY(i) {
-    let y = RULER_H;
+    let y = RULER_H - (this.scrollY || 0);
     const ls = this.lanes();
     for (let k = 0; k < i && k < ls.length; k++) y += LANE_H + (this.autoOpen?.has(ls[k].id) ? AUTO_H : 0);
     return y;
   }
   laneH(lane) { return LANE_H + (this.autoOpen?.has(lane.id) ? AUTO_H : 0); }
+  // Total height of all lane rows + the "+ lane" row, for vertical scroll bounds.
+  contentH() { return this.lanes().reduce((h, l) => h + this.laneH(l), 0) + 28; }
+  maxScrollY() { return Math.max(0, this.contentH() - (this.host.clientHeight - RULER_H)); }
   // Index of the lane whose ROW (clip part + automation part) contains py.
   laneIndexAt(py) {
     if (py < RULER_H) return -1;
-    let y = RULER_H;
+    let y = RULER_H - (this.scrollY || 0);
     const ls = this.lanes();
     for (let i = 0; i < ls.length; i++) { const h = this.laneH(ls[i]); if (py < y + h) return i; y += h; }
     return ls.length; // below the last lane
@@ -788,10 +793,16 @@ export class Timeline {
       const anchor = this.sec(x);
       this.pxPerSec = Math.max(0.5, Math.min(400, this.pxPerSec * (e.deltaY < 0 ? 1.1 : 0.9)));
       this.scrollX = anchor * this.pxPerSec - (x - GUTTER_W);
-    } else {
+      this.fitted = false;
+    } else if (e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      // Horizontal: trackpad sideways, or ⇧-wheel on a mouse.
       this.scrollX += (e.deltaX || e.deltaY);
+      this.fitted = false;
+    } else {
+      // Vertical: scroll the lanes when they don't fit (mixer open, many
+      // lanes, automation sub-lanes). Ruler stays pinned.
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY(), (this.scrollY || 0) + e.deltaY));
     }
-    this.fitted = false;
     this.scrollX = Math.max(0, Math.min(this.maxScrollX(), this.scrollX));
     this.dirty = true;
   }
@@ -834,8 +845,14 @@ export class Timeline {
     const text = cssVar('--text', '#dbe1f0'), faint = cssVar('--text-faint', '#3a4154');
     const line = cssVar('--line-soft', '#1b2030'), accent = cssVar('--accent', '#e33a41');
 
-    // ruler
+    // lanes (clipped below the ruler so a scrolled-up lane never paints over it)
+    g.save(); g.beginPath(); g.rect(0, RULER_H, w, h - RULER_H); g.clip();
+    this.paintLanes(g, w, h, lanes, arr, { text, faint, line, accent });
+    g.restore();
+
+    // ruler (painted after the lanes so it stays on top)
     g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(GUTTER_W, 0, w - GUTTER_W, RULER_H);
+    g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, 0, GUTTER_W, RULER_H);
     g.font = '11px system-ui, sans-serif'; g.textBaseline = 'middle';
     const s0 = Math.max(0, Math.floor(this.sec(GUTTER_W) / 5) * 5), s1 = this.sec(w);
     for (let s = s0; s <= s1; s += 5) {
@@ -844,7 +861,18 @@ export class Timeline {
       g.fillStyle = major ? faint : line; g.fillRect(x, major ? 4 : 12, 1, RULER_H - (major ? 4 : 12));
       if (major) { g.fillStyle = text; g.fillText(fmtTime(s), x + 3, 10); }
     }
+    g.fillStyle = line; g.fillRect(0, RULER_H - 1, w, 1);
+    // vertical scroll hint: a thin thumb on the right edge when content overflows
+    const maxSY = this.maxScrollY();
+    if (maxSY > 0) {
+      const trackH = h - RULER_H, viewH = this.host.clientHeight - RULER_H;
+      const thumbH = Math.max(24, trackH * viewH / this.contentH()), thumbY = RULER_H + (trackH - thumbH) * ((this.scrollY || 0) / maxSY);
+      g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(w - 5, thumbY, 3, thumbH);
+    }
+    this.paintOverlays(g, w, h, playheadSec, playing, { accent });
+  }
 
+  paintLanes(g, w, h, lanes, arr, { text, faint, line, accent }) {
     // lanes
     lanes.forEach((lane, i) => {
       const y = this.laneY(i);
@@ -981,7 +1009,11 @@ export class Timeline {
       }
       g.restore();
     }
+  }
 
+  // Overlays drawn after the ruler: snap guide, playhead (+ its ruler
+  // handle), drop hint. Separate so the ruler can't cover the handle.
+  paintOverlays(g, w, h, playheadSec, playing, { accent }) {
     // snap guide: a bright vertical line at the target we're stuck to
     if (this.drag && this.snapHit != null) {
       const x = this.x(this.snapHit);
