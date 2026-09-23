@@ -8,10 +8,11 @@
 // 'arrangement:changed' on pointerup so the transport (next play) and any
 // other view pick it up. Nothing here touches audio nodes.
 
-import { el } from './widgets.js';
+import { el, openMenu } from './widgets.js';
 import { AssetCache } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
-import { ensureEnvelope, findEnvelope, targetOf, addPoint, movePoint, removePoint, valueAt } from '../engine/automation.js';
+import { ensureEnvelope, findEnvelope, targetOf, parseTarget, rangeOf, addPoint, movePoint, removePoint, valueAt } from '../engine/automation.js';
+import { getEffectDef } from '../engine/effects/index.js';
 
 const TICK_H = 22;   // time ticks + playhead handle
 const MARKER_H = 16; // marker / section strip under the ticks
@@ -73,6 +74,16 @@ export class Timeline {
       if (m) { this.selectedMarker = m.id; this.renameMarker(m); }
       else { this.store.checkpoint(); const nm = this.addMarker(this.snapTime(this.sec(x), { e })); this.selectedMarker = nm.id; this.renameMarker(nm, { noCheckpoint: true }); }
       this.dirty = true;
+    });
+    // Right-click on an automation point: Linear / Hold / Exponential.
+    this.canvas.addEventListener('contextmenu', e => {
+      const { x, y } = this.pos(e);
+      if (x < GUTTER_W || y < RULER_H) return;
+      const li = this.laneIndexAt(y), sub = this.autoAt(li, y);
+      if (!sub) return;
+      e.preventDefault();
+      const idx = this.autoPointAt(sub.target, sub.y0, x, y);
+      if (idx >= 0) this.pointMenu(sub.target, idx, x, y);
     });
     this.canvas.addEventListener('pointermove', e => this.onMove(e));
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
@@ -267,16 +278,29 @@ export class Timeline {
     this.snapHit = bestD < tol ? best : null;
     return Math.max(0, best);
   }
-  // -- layout: lanes are LANE_H tall, plus AUTO_H when their automation
-  // sub-lane is open (this.autoOpen has the lane id). laneY/laneIndexAt
-  // are the only geometry anyone should use.
+  // -- layout: lanes are LANE_H tall, plus AUTO_H per open automation
+  // sub-lane. this.autoOpen is a Set of TARGET strings (lane:<id>:gainDb,
+  // lane:<id>:pan, lane:<id>:insert:<n>:<param>); each open target of a lane
+  // stacks one sub-lane under it, in the order it was opened. laneY /
+  // laneIndexAt / autoAt are the only geometry anyone should use.
+  autoTargets(lane) {
+    if (!this.autoOpen?.size) return [];
+    const out = [];
+    for (const t of this.autoOpen) {
+      const tg = parseTarget(t);
+      if (!tg || tg.kind !== 'lane' || tg.lane !== lane.id) continue;
+      if (!rangeOf(t, this.project)) continue; // insert removed / unknown param
+      out.push(t);
+    }
+    return out;
+  }
   laneY(i) {
     let y = RULER_H - (this.scrollY || 0);
     const ls = this.lanes();
-    for (let k = 0; k < i && k < ls.length; k++) y += LANE_H + (this.autoOpen?.has(ls[k].id) ? AUTO_H : 0);
+    for (let k = 0; k < i && k < ls.length; k++) y += this.laneH(ls[k]);
     return y;
   }
-  laneH(lane) { return LANE_H + (this.autoOpen?.has(lane.id) ? AUTO_H : 0); }
+  laneH(lane) { return LANE_H + this.autoTargets(lane).length * AUTO_H; }
   // Total height of all lane rows + the "+ lane" row, for vertical scroll bounds.
   contentH() { return this.lanes().reduce((h, l) => h + this.laneH(l), 0) + 28; }
   maxScrollY() { return Math.max(0, this.contentH() - (this.host.clientHeight - RULER_H)); }
@@ -288,8 +312,54 @@ export class Timeline {
     for (let i = 0; i < ls.length; i++) { const h = this.laneH(ls[i]); if (py < y + h) return i; y += h; }
     return ls.length; // below the last lane
   }
-  // Is py inside lane i's automation sub-lane?
-  inAutoPart(i, py) { const ls = this.lanes(); const l = ls[i]; return !!l && this.autoOpen?.has(l.id) && py >= this.laneY(i) + LANE_H; }
+  // The automation sub-lane of lane i under py: {target, y0, k} or null.
+  autoAt(i, py) {
+    const l = this.lanes()[i]; if (!l) return null;
+    const ts = this.autoTargets(l); if (!ts.length) return null;
+    const k = Math.floor((py - this.laneY(i) - LANE_H) / AUTO_H);
+    if (k < 0 || k >= ts.length) return null;
+    return { target: ts[k], y0: this.laneY(i) + LANE_H + k * AUTO_H, k };
+  }
+  // Is py inside one of lane i's automation sub-lanes?
+  inAutoPart(i, py) { return !!this.autoAt(i, py); }
+
+  // Display info for an automation target: range (from the engine's
+  // rangeOf), log mapping for log-curve effect params, gutter label, unit.
+  autoInfo(target) {
+    const r = rangeOf(target, this.project) ?? { min: -60, max: 12, default: 0 };
+    const tg = parseTarget(target);
+    const info = { min: r.min, max: r.max, default: r.default, log: false, unit: r.unit ?? '', label: tg?.param ?? target };
+    if (tg?.insert != null) {
+      const spec = this.arrangement?.lanes?.find(l => l.id === tg.lane)?.inserts?.[tg.insert];
+      try {
+        const def = getEffectDef(spec.type), p = def.params.find(q => q.key === tg.param);
+        info.log = p?.curve === 'log' && r.min > 0; info.unit = p?.unit ?? '';
+        // Short gutter label: 'EQ · Low Gain', 'EQ · HP Freq', 'EQ · Mid Q'.
+        const fx = def.label.replace(/\s*\(.*?\)\s*/g, '').trim(), pl = p?.label ?? tg.param;
+        info.label = `${fx} · ${p?.group && !/\s/.test(pl) ? p.group.split(/[\s-]/)[0] + ' ' : ''}${pl}`;
+        info.full = `${def.label} · ${p?.group ? p.group + ' ' : ''}${pl}`;
+      } catch { /* keep defaults */ }
+    } else if (tg?.param === 'gainDb') info.label = 'gain';
+    else if (tg?.param === 'pan') info.label = 'pan';
+    return info;
+  }
+  // value <-> 0..1 (bottom..top) on a target's axis.
+  autoFrac(info, v) {
+    const f = info.log ? Math.log(v / info.min) / Math.log(info.max / info.min) : (v - info.min) / (info.max - info.min);
+    return Math.max(0, Math.min(1, f));
+  }
+  autoVal(info, f) {
+    f = Math.max(0, Math.min(1, f));
+    const v = info.log ? info.min * Math.pow(info.max / info.min, f) : info.min + f * (info.max - info.min);
+    const span = info.max - info.min;
+    const q = info.log ? Math.pow(10, Math.floor(Math.log10(Math.max(1e-9, v))) - 2) : span >= 20 ? 0.1 : span >= 2 ? 0.01 : 0.001;
+    return Number((Math.round(v / q) * q).toFixed(Math.max(0, -Math.floor(Math.log10(q)))));
+  }
+  fmtAuto(info, v) {
+    const a = Math.abs(v);
+    const s = a >= 1000 ? (v / 1000).toFixed(a >= 10000 ? 0 : 1) + 'k' : a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2).replace(/\.?0+$/, '');
+    return (v > 0 && info.min < 0 ? '+' : '') + s;
+  }
 
   // Lane under a canvas point (any x), for drops from the asset bin.
   laneAt(px, py) {
@@ -331,8 +401,60 @@ export class Timeline {
     this.dirty = true;
   }
 
-  // y of an automation value inside lane i's sub-lane (dB scale -60..+12).
-  autoY(y0, v) { return y0 + 4 + (1 - (v + 60) / 72) * (AUTO_H - 8); }
+  // y of an automation value inside a sub-lane starting at y0, on the
+  // target's own axis (dB for gain, -1..1 for pan, the effect param's range).
+  autoY(y0, v, info = this.autoInfo('lane:_:gainDb')) { return y0 + 4 + (1 - this.autoFrac(info, v)) * (AUTO_H - 8); }
+  // value at py inside a sub-lane starting at y0 (inverse of autoY).
+  autoV(y0, py, info) { return this.autoVal(info, 1 - (py - y0 - 4) / (AUTO_H - 8)); }
+  // Index of the envelope point of `target` near (x, y) in sub-lane y0, or -1.
+  autoPointAt(target, y0, x, y) {
+    const env = findEnvelope(this.arrangement, target); if (!env) return -1;
+    const info = this.autoInfo(target);
+    return env.points.findIndex(p => Math.hypot(this.x(p.t) - x, this.autoY(y0, p.v, info) - y) <= PT_R + 3);
+  }
+  // A-button menu: Gain, Pan, then every param of every insert on the lane.
+  autoMenuItems(lane) {
+    const items = [], add = (label, target) => items.push({
+      label, checked: !!this.autoOpen?.has(target),
+      onPick: () => { this.autoOpen ??= new Set(); this.autoOpen.has(target) ? this.autoOpen.delete(target) : this.autoOpen.add(target); this.dirty = true; },
+    });
+    add('Gain', targetOf('lane', lane.id, 'gainDb'));
+    add('Pan', targetOf('lane', lane.id, 'pan'));
+    (this.arrangement?.lanes?.find(l => l.id === lane.id)?.inserts ?? []).forEach((spec, n) => {
+      let def; try { def = getEffectDef(spec.type); } catch { return; }
+      const knobs = def.params.filter(p => typeof p.min === 'number' && typeof p.max === 'number' && p.type !== 'select');
+      if (knobs.length) items.push({ label: `${def.label}${spec.bypass ? ' (bypassed)' : ''}`.toUpperCase(), disabled: true });
+      for (const p of knobs) add(`${def.label} · ${p.group ? p.group + ' ' : ''}${p.label}`, targetOf('lane', lane.id, p.key, n));
+    });
+    return items;
+  }
+  // Does lane have envelopes with points that are not currently shown?
+  hasHiddenAuto(lane) {
+    return (this.arrangement?.automation ?? []).some(a => {
+      if (!a.points?.length || this.autoOpen?.has(a.target)) return false;
+      const tg = parseTarget(a.target); return tg?.kind === 'lane' && tg.lane === lane.id;
+    });
+  }
+  // Right-click on an automation point: shape menu.
+  pointMenu(target, idx, cx, cy) {
+    const env = findEnvelope(this.arrangement, target); const p = env?.points?.[idx]; if (!p) return;
+    const cur = p.shape ?? 'linear';
+    const probe = addPoint({ target, points: [] }, 0, p.v, this.project, 'exp');
+    const expOk = !probe.shapeCoerced;
+    const set = (shape) => {
+      if (cur === shape) return;
+      this.store.checkpoint();
+      movePoint(env, idx, p.t, p.v, this.project, shape);
+      this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
+    };
+    const r = this.canvas.getBoundingClientRect();
+    const anchor = { getBoundingClientRect: () => ({ left: r.left + cx, right: r.left + cx, top: r.top + cy, bottom: r.top + cy }) };
+    openMenu(anchor, [
+      { label: 'Linear', checked: cur === 'linear', onPick: () => set('linear') },
+      { label: 'Hold', checked: cur === 'hold', onPick: () => set('hold') },
+      { label: 'Exponential', checked: cur === 'exp', disabled: !expOk, title: expOk ? '' : 'Exponential needs a range that stays above zero; this parameter reaches 0 (or silence), so the engine would play it as linear.', onPick: () => set('exp') },
+    ]);
+  }
 
   hit(px, py) {
     const arr = this.arrangement;
@@ -528,10 +650,16 @@ export class Timeline {
       const ly = y - this.laneY(li);
       const inBtn = (b) => x >= b[0] && x <= b[0] + b[1] && ly >= BTN_Y - 2 && ly <= BTN_Y + BTN_H + 2;
       if (inBtn(BTN.a)) {
-        // Toggle the automation sub-lane (gain envelope) for this lane.
-        this.autoOpen ??= new Set();
-        this.autoOpen.has(lane.id) ? this.autoOpen.delete(lane.id) : this.autoOpen.add(lane.id);
-        this.dirty = true;
+        // Parameter picker: each pick toggles one automation sub-lane.
+        const r = this.canvas.getBoundingClientRect(), by = this.laneY(li) + BTN_Y + BTN_H;
+        const anchor = { getBoundingClientRect: () => ({ left: r.left + BTN.a[0], right: r.left + BTN.a[0] + BTN.a[1], top: r.top + by - BTN_H, bottom: r.top + by }) };
+        openMenu(anchor, this.autoMenuItems(lane));
+        return;
+      }
+      // Sub-lane gutter: the small x closes that sub-lane.
+      const sub = this.autoAt(li, y);
+      if (sub) {
+        if (x >= GUTTER_W - 22 && y >= sub.y0 + 2 && y <= sub.y0 + 18) { this.autoOpen.delete(sub.target); this.dirty = true; }
         return;
       }
       if (inBtn(BTN.m) || inBtn(BTN.s)) {
@@ -565,16 +693,18 @@ export class Timeline {
     // ⌥-click removes. Values are dB on a -60..+12 vertical scale.
     if (x >= GUTTER_W) {
       const li = this.laneIndexAt(y), lane = this.lanes()[li];
-      if (lane && this.inAutoPart(li, y)) {
+      const sub = lane ? this.autoAt(li, y) : null;
+      if (sub) {
+        if (e.button === 2) return; // right-click: the contextmenu handler owns it
         this.canvas.setPointerCapture(e.pointerId);
-        const env = ensureEnvelope(this.arrangement, targetOf('lane', lane.id, 'gainDb'));
-        const y0 = this.laneY(li) + LANE_H;
-        const vOf = (py) => { const f = 1 - Math.max(0, Math.min(1, (py - y0 - 4) / (AUTO_H - 8))); return Math.round((-60 + f * 72) * 10) / 10; };
-        const hitIdx = env.points.findIndex(p => Math.hypot(this.x(p.t) - x, this.autoY(y0, p.v) - y) <= PT_R + 3);
+        const env = ensureEnvelope(this.arrangement, sub.target);
+        const y0 = sub.y0, info = this.autoInfo(sub.target);
+        const vOf = (py) => this.autoV(y0, py, info);
+        const hitIdx = this.autoPointAt(sub.target, y0, x, y);
         this.store.checkpoint();
         if (hitIdx >= 0 && e.altKey) { removePoint(env, hitIdx); this.app.bus.emit('arrangement:changed', {}); this.dirty = true; return; }
         let idx = hitIdx;
-        if (idx < 0) { const pt = addPoint(env, this.snapTime(this.sec(x), { e }), vOf(y)); idx = env.points.indexOf(pt); }
+        if (idx < 0) { const pt = addPoint(env, this.snapTime(this.sec(x), { e }), vOf(y), this.project); idx = env.points.indexOf(pt); }
         this.drag = { edge: 'auto', env, idx, li, y0, vOf, armed: true };
         this.dirty = true;
         return;
@@ -791,7 +921,7 @@ export class Timeline {
       return;
     }
     if (d.edge === 'auto') {
-      movePoint(d.env, d.idx, this.snapTime(this.sec(x), { e }), d.vOf(y));
+      movePoint(d.env, d.idx, this.snapTime(this.sec(x), { e }), d.vOf(y), this.project);
       this.dirty = true;
       return;
     }
@@ -1080,12 +1210,41 @@ export class Timeline {
     if (!m) return false;
     this.app.transport.songPos = m.t; this.follow?.(m.t); this.dirty = true;
   }
+  // Inline rename: an <input> over the marker strip at the marker's x.
+  // Enter / blur commit (one undo step; none if unchanged), Esc cancels.
+  // `noCheckpoint`: the caller already checkpointed (double-click-to-add),
+  // so add + name is a single undo step.
   renameMarker(m, { noCheckpoint = false } = {}) {
-    const name = prompt('Marker name', m.name);
-    if (name == null) return;
-    if (!noCheckpoint) this.store.checkpoint();
-    m.name = name.trim() || m.name;
-    this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
+    this.markerEdit?.cancel();
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.className = 'marker-edit'; inp.value = m.name ?? ''; inp.spellcheck = false;
+    inp.setAttribute('aria-label', 'Marker name');
+    const x = Math.max(GUTTER_W, this.x(m.t) + 3);
+    inp.style.left = x + 'px'; inp.style.top = TICK_H + 'px';
+    inp.style.width = Math.max(80, Math.min(220, this.canvas.clientWidth - x - 4)) + 'px';
+    let done = false;
+    const finish = (commit) => {
+      if (done) return; done = true;
+      this.markerEdit = null;
+      const name = inp.value.trim();
+      inp.remove();
+      if (commit && name && name !== m.name) {
+        if (!noCheckpoint) this.store.checkpoint();
+        m.name = name;
+        this.app.bus.emit('arrangement:changed', {});
+      }
+      this.dirty = true;
+      this.canvas.focus?.();
+    };
+    inp.addEventListener('keydown', e => {
+      e.stopPropagation(); // typing a name must not fire transport shortcuts
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    inp.addEventListener('blur', () => finish(true));
+    this.host.appendChild(inp);
+    this.markerEdit = { input: inp, marker: m, cancel: () => finish(false) };
+    inp.focus(); inp.select();
   }
   paintMarkers(g, w, { text, faint, accent }) {
     const ms = this.markers(), y0 = TICK_H, end = this.app.transport?.arrangementEnd?.() ?? 0;
@@ -1134,7 +1293,8 @@ export class Timeline {
         g.fillStyle = on ? '#0b0d12' : text; g.font = 'bold 10px system-ui, sans-serif';
         g.textAlign = 'center'; g.fillText(label, b[0] + b[1] / 2, y + BTN_Y + BTN_H / 2 + 0.5); g.textAlign = 'left';
       };
-      btn(BTN.a, 'A', !!this.autoOpen?.has(lane.id), col);
+      btn(BTN.a, 'A', this.autoTargets(lane).length > 0, col);
+      if (this.hasHiddenAuto(lane)) { g.fillStyle = '#e3a13a'; g.beginPath(); g.arc(BTN.a[0] + BTN.a[1] - 3, y + BTN_Y + 3, 2.5, 0, Math.PI * 2); g.fill(); }
       btn(BTN.m, 'M', !!lane.mute, '#e3a13a');
       btn(BTN.s, 'S', !!lane.solo, '#5ce0a8');
       // gain readout (drag vertically)
@@ -1146,35 +1306,61 @@ export class Timeline {
       g.fillStyle = col; g.fillRect(10, y + GAIN_Y + 12, meterW * frac, 3);
       // dim the whole lane's clip area when inaudible
       if (!audible) { g.fillStyle = 'rgba(11,13,18,0.55)'; g.fillRect(GUTTER_W, y, w - GUTTER_W, LANE_H - 1); }
-      // automation sub-lane: gain envelope (dB, -60..+12), points + line
-      if (this.autoOpen?.has(lane.id)) {
-        const y0 = y + LANE_H;
+      // automation sub-lanes: one per open target, stacked under the lane.
+      this.autoTargets(lane).forEach((target, k) => {
+        const y0 = y + LANE_H + k * AUTO_H, info = this.autoInfo(target);
         g.fillStyle = cssVar('--bg-0', '#0b0d12'); g.fillRect(0, y0, w, AUTO_H);
         g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y0, GUTTER_W, AUTO_H);
-        g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('gain', 10, y0 + 14);
-        g.fillText('+12', 10, y0 + 26); g.fillText('−60', 10, y0 + AUTO_H - 4);
+        g.fillStyle = col; g.globalAlpha = 0.5; g.fillRect(0, y0, 3, AUTO_H - 1); g.globalAlpha = 1;
+        g.fillStyle = text; g.font = '10px system-ui, sans-serif';
+        {
+          const maxW = GUTTER_W - 10 - 26; let s = info.label;
+          if (g.measureText(s).width > maxW) { while (s.length > 1 && g.measureText(s + '…').width > maxW) s = s.slice(0, -1); s += '…'; }
+          g.fillText(s, 10, y0 + 13);
+        }
+        // close x
+        g.fillStyle = faint; g.textAlign = 'center'; g.font = '12px system-ui, sans-serif'; g.fillText('×', GUTTER_W - 13, y0 + 13); g.textAlign = 'left';
+        g.fillStyle = faint; g.font = '9px system-ui, sans-serif';
+        g.fillText(this.fmtAuto(info, info.max) + (info.unit ? ' ' + info.unit : ''), 10, y0 + 26);
+        g.fillText(this.fmtAuto(info, info.min), 10, y0 + AUTO_H - 4);
         g.fillStyle = line; g.fillRect(0, y0 + AUTO_H - 1, w, 1);
-        const zeroY = this.autoY(y0, 0);
-        g.strokeStyle = 'rgba(255,255,255,0.12)'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(GUTTER_W, zeroY); g.lineTo(w, zeroY); g.stroke(); g.setLineDash([]);
-        const env = findEnvelope(arr, targetOf('lane', lane.id, 'gainDb'));
+        const refV = info.min < 0 && info.max > 0 ? 0 : info.default;
+        if (refV != null) {
+          const zeroY = this.autoY(y0, refV, info);
+          g.strokeStyle = 'rgba(255,255,255,0.12)'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(GUTTER_W, zeroY); g.lineTo(w, zeroY); g.stroke(); g.setLineDash([]);
+        }
+        const env = findEnvelope(arr, target);
         g.save(); g.beginPath(); g.rect(GUTTER_W, y0, w - GUTTER_W, AUTO_H); g.clip();
         if (env?.points?.length) {
+          const Y = v => this.autoY(y0, v, info), P = env.points;
           g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath();
-          const t0 = this.sec(GUTTER_W), t1 = this.sec(w);
-          g.moveTo(GUTTER_W, this.autoY(y0, valueAt(env, t0)));
-          for (const p of env.points) g.lineTo(this.x(p.t), this.autoY(y0, p.v));
-          g.lineTo(w, this.autoY(y0, valueAt(env, t1)));
+          g.moveTo(GUTTER_W, Y(P[0].v)); g.lineTo(this.x(P[0].t), Y(P[0].v));
+          // Each segment follows its START point's shape (engine valueAt).
+          for (let j = 0; j + 1 < P.length; j++) {
+            const a = P[j], b = P[j + 1], xa = this.x(a.t), xb = this.x(b.t), shape = a.shape ?? 'linear';
+            if (xb < GUTTER_W || xa > w) { g.moveTo(xb, Y(b.v)); continue; }
+            if (shape === 'hold') { g.lineTo(xb, Y(a.v)); g.lineTo(xb, Y(b.v)); }
+            else if (shape === 'exp') {
+              const n = Math.max(2, Math.min(200, Math.ceil((xb - xa) / 3)));
+              for (let q = 1; q <= n; q++) { const t = a.t + (b.t - a.t) * q / n; g.lineTo(this.x(t), Y(valueAt(env, Math.min(t, b.t - 1e-6)))); }
+              g.lineTo(xb, Y(b.v));
+            } else g.lineTo(xb, Y(b.v));
+          }
+          g.lineTo(w, Y(P[P.length - 1].v));
           g.stroke();
-          for (const p of env.points) {
-            const px = this.x(p.t), py = this.autoY(y0, p.v);
+          for (const p of P) {
+            const px = this.x(p.t), py = Y(p.v);
             g.fillStyle = cssVar('--bg-0', '#0b0d12'); g.beginPath(); g.arc(px, py, PT_R + 1, 0, Math.PI * 2); g.fill();
-            g.fillStyle = col; g.beginPath(); g.arc(px, py, PT_R, 0, Math.PI * 2); g.fill();
+            g.fillStyle = col; g.beginPath();
+            if ((p.shape ?? 'linear') === 'hold') g.rect(px - PT_R, py - PT_R, PT_R * 2, PT_R * 2);
+            else g.arc(px, py, PT_R, 0, Math.PI * 2);
+            g.fill();
           }
         } else {
-          g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('click to add a point · drag to move · ⌥-click removes', GUTTER_W + 8, y0 + 14);
+          g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('click to add a point · drag to move · ⌥-click removes · right-click a point for its shape', GUTTER_W + 8, y0 + 14);
         }
         g.restore();
-      }
+      });
     });
     // "+ lane" affordance under the last lane
     {

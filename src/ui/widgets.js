@@ -299,8 +299,15 @@ export function openMenu(anchor, items) {
   closeMenus();
   const menu = el('div', 'menu');
   for (const item of items) {
-    const row = el('button', 'menu-item' + (item.disabled ? ' menu-head' : ''), item.label);
+    // `checked` (bool, optional) renders a check column; a disabled item
+    // WITH onPick is a greyed-out option (tooltip via `title`), a disabled
+    // item without one is a section heading.
+    const greyed = item.disabled && item.onPick;
+    const label = 'checked' in item ? (item.checked ? '✓ ' : '\u2003') + item.label : item.label;
+    const row = el('button', 'menu-item' + (greyed ? ' menu-disabled' : item.disabled ? ' menu-head' : '') + (item.checked ? ' menu-checked' : ''), label);
     row.type = 'button';
+    if (item.title) row.title = item.title;
+    if (greyed) { row.setAttribute('aria-disabled', 'true'); menu.appendChild(row); continue; }
     if (item.disabled) { row.disabled = true; menu.appendChild(row); continue; }
     row.addEventListener('click', () => {
       closeMenus();

@@ -904,6 +904,9 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
   cursor: pointer;
 }
 .menu-item:hover { background: var(--accent-soft); color: var(--accent); }
+.menu-item.menu-disabled { opacity: 0.4; cursor: not-allowed; }
+.menu-item.menu-disabled:hover { background: none; color: inherit; }
+.marker-edit { position: absolute; z-index: 20; height: 16px; box-sizing: border-box; padding: 0 4px; font: 10px system-ui, sans-serif; color: var(--text, #e6e9ef); background: var(--bg-2, #171b26); border: 1px solid var(--accent, #5b8def); border-radius: 2px; outline: none; }
 
 .toast {
   position: fixed;
