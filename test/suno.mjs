@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   parseSunoComment, readMp4Tags, readId3Tags, readAudioTags, normalizeClip, mergeSource,
-  extractClipFromPage, ogFromPage, sourceFromTags, sunoIdFrom, cleanSource, ZERO_UUID,
+  extractClipFromPage, ogFromPage, sourceFromTags, sunoIdFrom, cleanSource, ZERO_UUID, emptySunoSource,
 } from '../src/core/suno.js';
 
 let fails = 0;
@@ -118,14 +118,32 @@ if (existsSync(ev + `song_${porchId}.clip.json`)) {
   check('extractClipFromPage: second page', extractClipFromPage(readFileSync(ev + `song_${onesId}.html`, 'utf8'), onesId)?.title === raw2.title);
 } else skip('evidence clip.json');
 
+// -- flight text rows ($ref strings) --------------------------------------------
+{
+  const clipObj = { id: synthId, entity_type: 'song_schema', title: 'Ref Song', metadata: { prompt: '$50', tags: 'pop', note: '$ff' } };
+  const lyr = 'We are home \u2014 not a thing.';
+  const bytes = new TextEncoder().encode(lyr).length.toString(16);
+  const flight = `0:["x"]\n50:T${bytes},${lyr}1:${JSON.stringify({ clip: clipObj })}\n`;
+  const html = `<script>self.__next_f.push([1,${JSON.stringify(flight)}])</script>`;
+  const got = extractClipFromPage(html, synthId);
+  check('flight: $50 resolves to its T row (UTF-8 length)', got?.metadata?.prompt === lyr, JSON.stringify(got?.metadata));
+  check('flight: unresolved $ref becomes null, not the ref', got?.metadata?.note === null);
+}
+
 // -- merge ---------------------------------------------------------------------
 const base = sourceFromTags(st);
 const lib = normalizeClip({ id: synthId, title: 'From Library', created_at: null, model_name: 'chirp-x', major_model_version: 'v5', metadata: { tags: 'dream pop', prompt: null } });
 const m1 = mergeSource(base, lib);
-check('merge: non-null library fields win, per-field provenance', m1.title === 'From Library' && m1.provenance.title === 'library' && m1.style === 'dream pop');
+check('merge: library fills gaps (style, model) with provenance; file title kept', m1.title === 'Synthetic' && m1.provenance.title === 'file' && m1.style === 'dream pop' && m1.provenance.style === 'library' && m1.model === 'v5 chirp-x');
 check('merge: null in incoming never clobbers', m1.lyrics.from === 'file' && m1.created === '2026-09-23T10:00:00Z' && m1.provenance.lyrics === 'file');
 const m2 = mergeSource(m1, lib);
 check('merge: idempotent', same(m2, m1));
+const page = normalizeClip({ id: synthId, title: 'Page Title', metadata: { prompt: 'short page lyrics' } }, 'page');
+const m3 = mergeSource(m1, page);
+check('merge: page never replaces file lyrics (trust rank)', m3.lyrics.from === 'file' && m3.provenance.lyrics === 'file');
+check('merge: page replaces library style (same rank, newer wins)', mergeSource(m1, normalizeClip({ id: synthId, metadata: { tags: 'shoegaze' } }, 'page')).style === 'shoegaze');
+const m4 = mergeSource(m3, { ...emptySunoSource(synthId), title: 'Mine', provenance: { title: 'user' } });
+check('merge: user beats everything, then sticks', m4.title === 'Mine' && mergeSource(m4, page).title === 'Mine');
 let threw = false; try { mergeSource(base, normalizeClip({ id: porchId, metadata: {} })); } catch { threw = true; }
 check('merge: different ids refuse', threw);
 check('cleanSource derived', same(cleanSource({ kind: 'derived', from: 'ast_x', by: 'demucs' }), { kind: 'derived', from: 'ast_x', by: 'demucs' }));

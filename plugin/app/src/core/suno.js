@@ -309,6 +309,9 @@ export function mergeSource(base, incoming) {
   for (const f of SOURCE_FIELDS) {
     const v = incoming[f];
     if (v == null) continue;
+    // What the user typed and what the file itself says outrank a page or
+    // library read: those only fill gaps or replace their own kind.
+    if (base[f] != null && trust(base.provenance?.[f]) > trust(incoming.provenance?.[f])) continue;
     out[f] = v;
     if (incoming.provenance?.[f]) out.provenance[f] = incoming.provenance[f];
   }
@@ -317,6 +320,10 @@ export function mergeSource(base, incoming) {
   if (incoming.fetched != null) out.fetched = incoming.fetched;
   return out;
 }
+
+// Provenance rank for mergeSource. Equal rank: the newer value wins.
+const TRUST = { user: 4, file: 3, page: 2, library: 2, 'sent-guess': 1 };
+export function trust(p) { return TRUST[p] ?? 2; }
 
 function structuredCloneish(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -349,14 +356,44 @@ export function extractClipFromPage(html, id = null) {
   let m;
   while ((m = re.exec(html))) { try { chunks.push(JSON.parse(m[1])); } catch { /* skip */ } }
   const flight = chunks.join('');
+  const texts = flightTextRows(flight);
   const needle = '"entity_type":"song_schema"';
   let at = flight.indexOf(needle);
   while (at >= 0) {
     const obj = enclosingObject(flight, at);
-    if (obj && (!id || obj.id === id) && obj.metadata) return obj;
+    if (obj && (!id || obj.id === id) && obj.metadata) return resolveRefs(obj, texts);
     at = flight.indexOf(needle, at + needle.length);
   }
   return null;
+}
+
+// Long strings (lyrics, often) are hoisted out of the object into their own
+// flight row, "<hex id>:T<hex byte length>,<text>", and the object holds
+// "$<hex id>" in their place. Collect those rows so we can put them back.
+export function flightTextRows(flight) {
+  const out = new Map();
+  const re = /(?:^|\n|[\]}"])([0-9a-f]{1,6}):T([0-9a-f]{1,8}),/g;
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  let m;
+  while ((m = re.exec(flight))) {
+    const start = m.index + m[0].length, bytes = parseInt(m[2], 16);
+    // length is in UTF-8 bytes; walk the string until we've covered them
+    const bytesOf = enc.encode(flight.slice(start, start + bytes));
+    const text = bytesOf.length <= bytes ? flight.slice(start, start + bytes) : dec.decode(bytesOf.subarray(0, bytes)).replace(/\uFFFD$/, '');
+    out.set(m[1], text);
+  }
+  return out;
+}
+
+function resolveRefs(v, texts) {
+  if (typeof v === 'string') {
+    const m = v.match(/^\$([0-9a-f]{1,6})$/);
+    if (!m) return v;
+    return texts.has(m[1]) ? texts.get(m[1]) : null; // unresolved ref: unknown, not "$50"
+  }
+  if (Array.isArray(v)) return v.map(x => resolveRefs(x, texts));
+  if (v && typeof v === 'object') { const o = {}; for (const [k, x] of Object.entries(v)) o[k] = resolveRefs(x, texts); return o; }
+  return v;
 }
 
 // Balanced-brace scan outward from index `at` to the smallest object that
