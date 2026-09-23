@@ -169,6 +169,30 @@ console.log('\n[5c] clip inspector: gain NumberDrag (up 40 px) and rename');
   }, (b, a) => (a[1][cid].name === 'Proof name') || `name ${a[1][cid].name}`);
 }
 
+console.log('\n[5d] source bin + lanes + cycle');
+{
+  // NOTE: the gutter "+ lane" row is unreachable on main too (onDown's gutter
+  // branch returns on !lane before the "+ lane" check), so drive newLane(),
+  // the handler that row would call.
+  await proves('+ lane (assetBin.newLane)', async () => {
+    await ev(() => window.oscine.app.assetBin.newLane());
+    await page.waitForTimeout(100);
+  }, (b, a) => (a[0].lanes.length === b[0].lanes.length + 1) || `lanes ${b[0].lanes.length} -> ${a[0].lanes.length}`);
+  await proves('drag source to lane', async () => {
+    const row = await page.locator('.asset-row').first().boundingBox();
+    const tgt = await clipPoint(idx, 0.2);
+    await drag({ x: row.x + 30, y: row.y + row.height / 2 }, { x: tgt.x, y: tgt.y }, 16);
+  }, (b, a) => (a[0].placements.length === b[0].placements.length + 1 && Object.keys(a[1]).length === Object.keys(b[1]).length + 1) || 'nothing placed');
+  await proves('remove lane (inspector path)', async () => {
+    await ev(() => window.oscine.app.assetBin.removeLane('carl'));
+    await page.waitForTimeout(100);
+  }, (b, a) => (!a[0].lanes.find(l => l.id === 'carl') && a[0].placements.every(p => p.track !== 'carl')) || 'carl still there');
+  await proves('cycle toggle (C)', async () => {
+    await page.mouse.click(5, 5);
+    await page.keyboard.press('KeyC'); await page.waitForTimeout(120);
+  }, (b, a) => (!b[0].loop && a[0].loop?.on === true && a[0].loop.b > a[0].loop.a) || `loop ${JSON.stringify(a[0].loop)}`);
+}
+
 console.log('\n[6] plain click on a clip adds no undo step');
 {
   const s0 = await state();

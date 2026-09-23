@@ -248,7 +248,7 @@ export function removePlacement(p, index) {
 
 // Place a clip (by id/name) or a whole asset (new clip over its full
 // duration) on a lane at song time `at`.
-export function placeClip(p, { clip, asset, lane, at = 0 }) {
+export function placeClip(p, { clip, asset, lane, at = 0, name }) {
   const arr = requireArrangement(p);
   const l = resolveLane(p, lane);
   let c;
@@ -256,7 +256,7 @@ export function placeClip(p, { clip, asset, lane, at = 0 }) {
   else if (asset != null) {
     const a = resolveAsset(p, asset);
     if (!(a.duration > 0)) throw new Error(`Asset ${a.id} has no duration; can't make a clip of it.`);
-    c = createClip(a.id, 0, a.duration, { name: a.name ?? a.id });
+    c = createClip(a.id, 0, a.duration, { name: name ?? a.name ?? a.id });
     p.clips[c.id] = c;
   } else throw new Error("place needs 'clip' (clip id/name) or 'asset' (asset id).");
   const pl = { track: l.id, clip: c.id, at: Math.max(0, at) };

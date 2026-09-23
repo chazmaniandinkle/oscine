@@ -110,45 +110,32 @@ export class AssetBin {
   }
 
   removeLane(id) {
-    const arr = this.arrangement, tl = this.app.timeline;
-    this.store.checkpoint();
-    arr.placements = arr.placements.filter(p => p.track !== id);
-    if (arr.lanes) arr.lanes = arr.lanes.filter(l => l.id !== id);
+    const tl = this.app.timeline;
     if (tl.selectedLane === id) tl.selectedLane = null;
     tl.selected = null;
-    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('lanes:changed', {}); this.app.bus.emit('lane:selected', { id: null });
+    this.store.laneRemove(id); // placements + that lane's envelopes, one undo step
+    this.app.bus.emit('lane:selected', { id: null });
     tl.dirty = true;
   }
 
   newLane(name = null, { quiet = false } = {}) {
-    const arr = this.arrangement;
-    const tl = this.app.timeline;
-    this.store.checkpoint();
-    if (!arr.lanes) arr.lanes = tl.lanes().map(l => ({ ...l }));
-    const id = `lane-${uid()}`;
-    arr.lanes.push({ id, name: name || `Lane ${arr.lanes.length + 1}`, gainDb: 0, mute: false, color: ['#7aa2ff', '#5ce0a8', '#ff8a4c', '#e3a13a', '#c47aff', '#4fd6d6'][arr.lanes.length % 6] });
-    this.app.bus.emit('lanes:changed', {});
+    const tl = this.app.timeline, n = tl.lanes().length;
+    const { lane } = this.store.laneAdd({
+      id: `lane-${uid()}`, name: name || `Lane ${n + 1}`,
+      color: ['#7aa2ff', '#5ce0a8', '#ff8a4c', '#e3a13a', '#c47aff', '#4fd6d6'][n % 6],
+    });
     tl.dirty = true;
     if (!quiet) toast('Lane added');
-    return id;
+    return lane.id;
   }
 
   place(asset, laneId, at) {
-    const arr = this.arrangement;
-    this.store.checkpoint();
-    const id = `seg_${asset.id.replace(/^ast_/, '')}_${uid()}`;
-    this.project.clips[id] = {
-      id, sourceOf: asset.id, in: 0, out: asset.duration, representation: null,
-      fadeIn: 0, fadeOut: 0, materializedAs: null, supersededBy: null, verified: false,
-      name: asset.name || asset.id.replace(/^ast_/, ''),
-    };
-    arr.placements.push({ track: laneId, clip: id, at: Math.max(0, at) });
+    const { clip } = this.store.clipPlace({ asset: asset.id, lane: laneId, at: Math.max(0, at), name: asset.name || asset.id.replace(/^ast_/, '') });
     const tl = this.app.timeline;
-    tl.selectedLane = null; tl.selected = arr.placements.length - 1; tl.dirty = true;
-    this.app.bus.emit('arrangement:changed', {});
+    tl.selectedLane = null; tl.selected = this.arrangement.placements.length - 1; tl.dirty = true;
     this.app.bus.emit('lane:selected', { id: null });
     this.app.bus.emit('clip:selected', { index: tl.selected });
-    toast(`Placed ${this.project.clips[id].name}`);
+    toast(`Placed ${clip.name}`);
   }
 
   // -- drag from bin to timeline -----------------------------------------------

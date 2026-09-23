@@ -337,6 +337,9 @@ console.log('\n[11] UI store actions (no catalog command): one undo step each');
   store.assetRename('vox', '');
   check('empty asset name removes it', !('name' in store.project.assets.vox));
 
+  const pl = await act('clipPlace with name', () => store.clipPlace({ asset: 'gtr', lane: 'guitar', at: 3, name: 'Bin name' }));
+  check('placed clip takes the given name', pl.clip.name === 'Bin name' && store.project.clips[pl.clip.id].sourceOf === 'gtr');
+
   const bt = await act('arrangementBatch', () => store.arrangementBatch([['clipSet', 'v2', { in: 11 }], ['movePlacement', 1, { at: 11 }]]));
   check('batch applies every op', store.project.clips.v2.in === 11 && arr().placements[1].at === 11 && bt.length === 2);
 

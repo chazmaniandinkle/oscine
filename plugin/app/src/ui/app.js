@@ -252,15 +252,14 @@ export class App {
       // playhead, if it doesn't exist yet); ⌘U copies the range into it.
       'loop.toggle':         () => {
         const arr = this.store.project.arrangement; if (!this.timeline.active || !arr) return false;
-        this.store.checkpoint();
-        if (!arr.loop) { const r = this.timeline.range, p = this.transport.songPos; arr.loop = r ? { a: r.a, b: r.b, on: true } : { a: p, b: p + 8, on: true }; }
-        else arr.loop.on = !arr.loop.on;
-        this.transport.armLoop?.(); this.timeline.dirty = true; this.bus.emit('loop:changed', { ...arr.loop });
+        if (!arr.loop) { const r = this.timeline.range, p = this.transport.songPos; this.store.cycleSet(r ? { a: r.a, b: r.b, on: true } : { a: p, b: p + 8, on: true }); }
+        else this.store.cycleSet({ on: !arr.loop.on });
+        this.transport.armLoop?.(); this.timeline.dirty = true;
       },
       'loop.fromRange':      () => {
         const arr = this.store.project.arrangement, r = this.timeline.range; if (!arr || !r) return false;
-        this.store.checkpoint(); arr.loop = { a: r.a, b: r.b, on: true };
-        this.transport.armLoop?.(); this.timeline.dirty = true; this.bus.emit('loop:changed', { ...arr.loop });
+        this.store.cycleSet({ a: r.a, b: r.b, on: true });
+        this.transport.armLoop?.(); this.timeline.dirty = true;
       },
       'marker.prev':         () => this.timeline.active ? this.timeline.markerNav(-1) : false,
       'marker.next':         () => this.timeline.active ? this.timeline.markerNav(1) : false,
