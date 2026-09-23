@@ -76,6 +76,7 @@ export async function saveProjectPath(store, api, path = null) {
   });
   if (!res.ok) { toast('Save failed: ' + await res.text()); return; }
   toast(`Saved ${path}`);
+  store.bus?.emit('project:saved', { path });
 }
 
 export function demoOrBlank(store, which) {

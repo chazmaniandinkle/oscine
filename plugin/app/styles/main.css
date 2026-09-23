@@ -36,9 +36,49 @@ html, body {
      transport can wrap to a second line and grow instead of clipping its
      right cluster on narrower viewports (a fold's inner screen, landscape,
      a small window). It stays exactly 50px whenever the bar fits one line. */
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
   height: 100vh;
 }
+
+/* ---------- toolbar / status bar / lyrics bar ---------- */
+
+.toolbar {
+  display: flex; align-items: center; gap: 14px; padding: 4px 12px; min-height: 32px;
+  background: var(--bg-1); border-bottom: 1px solid var(--line);
+}
+.tb-tools { display: flex; align-items: center; gap: 4px; }
+.tb-tools.tb-right { margin-left: auto; }
+.tb-sep { width: 1px; height: 16px; background: var(--line); margin: 0 4px; }
+.tool-btn { min-width: 30px; }
+.tool-btn:disabled { opacity: 0.35; cursor: default; }
+
+.statusbar {
+  display: flex; align-items: center; gap: 16px; padding: 3px 12px; min-height: 22px;
+  background: var(--bg-1); border-top: 1px solid var(--line);
+  font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px; color: var(--dim);
+}
+.sb-group { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+.sb-mid { flex: 1; min-width: 0; justify-content: center; }
+.sb-hint { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+.sb-pos { color: var(--text); min-width: 64px; }
+.sb-range { color: var(--accent); }
+.sb-sel { color: var(--text); }
+.sb-ear { color: var(--dim); }
+.sb-save.dirty { color: var(--warn, #f0b35a); }
+.sb-link.on { color: var(--ok, #5ce0a8); }
+
+.lyricsbar {
+  border-top: 1px solid var(--line); background: var(--bg-1); padding: 6px 10px; min-height: 30px;
+}
+.lyricsbar.hidden, .lyricsbar.empty { display: none; }
+.lyrics-strip {
+  display: flex; align-items: baseline; gap: 6px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+  scrollbar-width: thin; scroll-behavior: smooth; font-size: 13px; line-height: 1.4; color: var(--dim);
+}
+.lyr-word { cursor: pointer; padding: 1px 3px; border-radius: 3px; --lyr: var(--accent); }
+.lyr-word:hover { background: var(--bg-2); color: var(--text); }
+.lyr-word.current { color: var(--text); background: color-mix(in srgb, var(--lyr) 28%, transparent); box-shadow: inset 0 -2px 0 var(--lyr); }
+.lyr-break { color: var(--line); padding: 0 4px; }
 
 /* ---------- layout regions ---------- */
 
@@ -889,9 +929,10 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
      active panel fills the flexible row; keysbar + nav pin below it. The
      nav is a grid row (not fixed), so there is no overlap math. */
   #app {
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
     padding-bottom: 0;
   }
+  .toolbar, .statusbar { display: none; }
 
   /* The .body and .mixer are separate grid children. To make exactly one
      occupy the flexible row2, the inactive one is hidden. For the three

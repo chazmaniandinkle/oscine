@@ -13,6 +13,9 @@ import { KeyboardBar } from './keyboard.js';
 import { MidiInput } from './midi.js';
 import { Timeline } from './timeline.js';
 import { AssetBin } from './assetbin.js';
+import { Toolbar } from './toolbar.js';
+import { LyricsBar } from './lyricsbar.js';
+import { StatusBar } from './statusbar.js';
 import { saveProjectPath } from './fileops.js';
 import { keymap } from '../core/keymap.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
@@ -50,52 +53,37 @@ export class App {
     rootEl.textContent = '';
 
     const header = el('header');
+    const toolbarHost = el('div');
     const body = el('div', 'body');
     const trackPanel = el('aside', 'panel');
     const center = el('main', 'center');
     const editorBar = el('div', 'editor-bar');
     const editorHost = el('div', 'editor-host');
+    const lyricsHost = el('div');
     const inspectorPanel = el('aside', 'panel insp-panel');
     const mixerHost = el('div');
     const keysHost = el('footer');
+    const statusHost = el('div');
 
     center.appendChild(editorBar);
     center.appendChild(editorHost);
+    center.appendChild(lyricsHost);
     body.appendChild(trackPanel);
     body.appendChild(center);
     body.appendChild(inspectorPanel);
     rootEl.appendChild(header);
+    rootEl.appendChild(toolbarHost);
     rootEl.appendChild(body);
     rootEl.appendChild(mixerHost);
     rootEl.appendChild(keysHost);
+    rootEl.appendChild(statusHost);
+    this.lyricsHost = lyricsHost;
 
-    // Editor bar: title + snap control.
+    // Editor bar: just the title now; snap/tools live in the toolbar.
     this.editorTitle = el('div', 'editor-title', '');
     editorBar.appendChild(this.editorTitle);
     const spacer = el('div', 'spacer');
     editorBar.appendChild(spacer);
-    const snapSel = Select({
-      label: 'Snap',
-      options: SNAP_CHOICES,
-      value: store.ui.snap,
-      onChange: v => { store.ui.snap = Number(v); },
-    });
-    snapSel.root.classList.add('snap-ctl');
-    editorBar.appendChild(snapSel.root);
-    // Snap on/off: the same flag `snap.toggle` (N) flips; the grid select
-    // above picks the division. Off = free drag; hold timeline.noSnap
-    // (⌘ by default) to bypass momentarily while on.
-    const snapBtn = el('button', 'btn mini snap-btn', 'Snap');
-    snapBtn.type = 'button';
-    const paintSnap = () => {
-      const on = store.ui.snapOn !== false;
-      snapBtn.classList.toggle('on-accent', on);
-      snapBtn.title = `Snap ${on ? 'on' : 'off'} (${keymap.label('snap.toggle')}) · hold ${keymap.gestures['timeline.noSnap']} while dragging to bypass`;
-    };
-    snapBtn.addEventListener('click', () => { store.ui.snapOn = store.ui.snapOn === false; paintSnap(); this.timeline.dirty = true; });
-    bus.on('ui:snap', paintSnap);
-    paintSnap();
-    editorBar.appendChild(snapBtn);
 
     // Components. The left panel is either the instrument track list (pattern
     // projects) or the asset bin (arrangement projects); routeSidebar picks.
@@ -113,6 +101,13 @@ export class App {
     this.keys = new KeyboardBar(keysHost, this);
     this.midi = new MidiInput(this);
     this.midi.init();
+    // Bars: toolbar under the transport, lyrics under the editor, status at
+    // the very bottom. Built after the components they read from.
+    this.toolbar = new Toolbar(toolbarHost, this);
+    this.lyrics = new LyricsBar(lyricsHost, this);
+    this.status = new StatusBar(statusHost, this);
+    bus.on('project:replaced', () => this.routeLyrics());
+    this.routeLyrics();
 
     this.editorHost = editorHost;
     this.emptyState = el('div', 'editor-empty', 'Add a track to start composing.');
@@ -171,6 +166,14 @@ export class App {
     this.store.ui.mobilePanel = panel;
     this.rootEl.dataset.panel = panel;
     this.mobileTabs.forEach(b => b.classList.toggle('is-active', b.dataset.panel === panel));
+  }
+
+  // Lyrics bar shows only on arrangement projects with words, and only when
+  // the user hasn't hidden it.
+  routeLyrics() {
+    const arr = this.store.project.arrangement;
+    const want = !!arr?.placements?.length && this.store.ui.lyrics !== false && this.lyrics?.words?.length > 0;
+    this.lyricsHost.classList.toggle('hidden', !want);
   }
 
   // Left panel: asset bin when the project is an arrangement, else the
@@ -245,8 +248,13 @@ export class App {
       'clip.pitchDown':      () => this.timeline.nudgeSelected(-1, 'semitones'),
       'clip.gainUp':         () => this.timeline.nudgeSelected(1, 'gainDb'),
       'clip.gainDown':       () => this.timeline.nudgeSelected(-1, 'gainDb'),
-      'range.clear':         () => { if (!this.timeline.range) return false; this.timeline.range = null; this.timeline.multi = []; this.timeline.dirty = true; },
+      'range.clear':         () => { if (!this.timeline.range) return false; this.timeline.range = null; this.timeline.multi = []; this.timeline.dirty = true; this.bus.emit('range:changed', {}); },
       'snap.toggle':         () => { this.store.ui.snapOn = this.store.ui.snapOn === false; this.timeline.dirty = true; this.bus.emit('ui:snap', {}); },
+      'view.fit':            () => { this.timeline.fitToWidth(); this.timeline.dirty = true; },
+      'view.zoomIn':         () => { this.timeline.zoomBy(1.25); },
+      'view.zoomOut':        () => { this.timeline.zoomBy(0.8); },
+      'view.follow':         () => { this.store.ui.follow = this.store.ui.follow === false; this.bus.emit('ui:view', {}); },
+      'view.lyrics':         () => { this.store.ui.lyrics = this.store.ui.lyrics === false; this.routeLyrics(); this.bus.emit('ui:view', {}); },
       'slot.1': () => this.store.requestSlot(0, this.transport.playing),
       'slot.2': () => this.store.requestSlot(1, this.transport.playing),
       'slot.3': () => this.store.requestSlot(2, this.transport.playing),
@@ -266,7 +274,10 @@ export class App {
       if (handlers[action]() === false) return;
       e.preventDefault();
     });
+    this._handlers = handlers;
   }
+  // Run a keymap action by name (toolbar buttons, menus). Same table as keys.
+  runAction(action) { const h = this._handlers?.[action]; return h ? h() : false; }
 
   startFrameLoop() {
     const loop = () => {
@@ -276,6 +287,8 @@ export class App {
       this.pianoRoll.onFrame(pos);
       this.stepGrid.onFrame(pos);
       this.timeline.onFrame(pos);
+      this.lyrics.onFrame(pos);
+      this.status.onFrame(pos);
       this.mixer.onFrame();
       requestAnimationFrame(loop);
     };

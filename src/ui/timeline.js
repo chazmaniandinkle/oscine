@@ -745,8 +745,20 @@ export class Timeline {
   onFrame(pos) {
     if (!this.active) return;
     const playing = !!pos?.playing;
-    if (playing && !this.drag) this.follow(pos.sec);
+    if (playing && !this.drag && this.store.ui.follow !== false) this.follow(pos.sec);
     if (playing || this.dirty) this.paint(pos?.sec ?? null, playing);
+  }
+  // Zoom about the playhead (toolbar / keys); wheel zoom is about the cursor.
+  zoomBy(f) {
+    const anchor = this.app.transport.songPos;
+    const view = this.host.clientWidth - GUTTER_W;
+    const ax = anchor * this.pxPerSec - this.scrollX;
+    this.pxPerSec = Math.max(0.5, Math.min(400, this.pxPerSec * f));
+    this.scrollX = anchor * this.pxPerSec - ax;
+    this.fitted = false;
+    this.scrollX = Math.max(0, Math.min(this.maxScrollX(), this.scrollX));
+    void view;
+    this.dirty = true;
   }
 
   paint(playheadSec = null, playing = false) {

@@ -32,6 +32,11 @@ export const ACTIONS = {
   'clip.gainDown':         { label: 'Clip gain −1 dB', scope: 'timeline' },
   'range.clear':           { label: 'Clear range', scope: 'timeline' },
   'snap.toggle':           { label: 'Toggle snap', scope: 'timeline' },
+  'view.fit':              { label: 'Fit song to width', scope: 'timeline' },
+  'view.zoomIn':           { label: 'Zoom in', scope: 'timeline' },
+  'view.zoomOut':          { label: 'Zoom out', scope: 'timeline' },
+  'view.follow':           { label: 'Follow playhead', scope: 'timeline' },
+  'view.lyrics':           { label: 'Toggle lyrics bar', scope: 'timeline' },
   'slot.1': { label: 'Slot A', scope: 'pattern' }, 'slot.2': { label: 'Slot B', scope: 'pattern' },
   'slot.3': { label: 'Slot C', scope: 'pattern' }, 'slot.4': { label: 'Slot D', scope: 'pattern' },
   'keys.octaveDown':       { label: 'Keyboard octave −', scope: 'keys' },
@@ -72,6 +77,11 @@ export const SCHEMES = {
       'clip.gainDown': 'Shift+BracketLeft',
       'range.clear': 'Escape',
       'snap.toggle': 'KeyN',
+      'view.fit': 'KeyF',
+      'view.zoomIn': 'Equal',
+      'view.zoomOut': 'Minus',
+      'view.follow': 'KeyL',
+      'view.lyrics': 'Shift+KeyL',
       'slot.1': 'Digit1', 'slot.2': 'Digit2', 'slot.3': 'Digit3', 'slot.4': 'Digit4',
       'keys.octaveDown': 'KeyZ', 'keys.octaveUp': 'KeyX',
       'notes.selectAll': 'Mod+KeyA',
@@ -183,12 +193,16 @@ export class Keymap {
   // Is the pointer event carrying the modifiers this gesture wants?
   gesture(name, e) { return modsMatch(e, this.gestures[name] ?? ''); }
 
+  // For pickers/tooltips.
+  schemes() { return Object.entries(SCHEMES).map(([id, s]) => ({ id, label: s.label })); }
+  actionLabel(action) { return ACTIONS[action]?.label ?? action; }
+
   // Human label for a binding, for tooltips/menus: "⌘S", "⇧⌫".
   label(action) {
     const b = this.keys[action]; if (!b) return '';
     const s = Array.isArray(b) ? b[0] : b;
     return s.replace('Mod+', IS_MAC ? '⌘' : 'Ctrl+').replace('Shift+', '⇧').replace('Alt+', IS_MAC ? '⌥' : 'Alt+').replace('Ctrl+', '⌃')
-      .replace(/^Key/, '').replace(/Key([A-Z])$/, '$1').replace('Digit', '').replace('BracketLeft', '[').replace('BracketRight', ']')
+      .replace(/^Key/, '').replace(/Key([A-Z])$/, '$1').replace('Digit', '').replace('BracketLeft', '[').replace('BracketRight', ']').replace('Equal', '=').replace('Minus', '−')
       .replace('Backspace', '⌫').replace('Delete', '⌦').replace('Space', '␣').replace('Escape', 'esc');
   }
 }
