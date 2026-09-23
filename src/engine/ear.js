@@ -75,13 +75,54 @@ export function centroidTrack(x, sr, { win = 2048, hop = 1024 } = {}) {
 }
 
 // -- pitch (MPM) ---------------------------------------------------------------
+// The NSDF needs, for every lag tau, acf(tau) = Σ x[i]·x[i+tau] and
+// m(tau) = Σ x[i]² + x[i+tau]² over i + tau < win. Computed directly that's
+// O(win·maxLag) per frame (≈4 min per song at hop 512). Instead:
+//   acf  via Wiener–Khinchin: zero-pad to 2·win, FFT, |X|², inverse FFT.
+//   m    via a running sum of squares (prefix sums), O(win).
+// Same numbers (to float rounding), O(win log win). Scratch buffers are
+// reused across frames.
+let _mpmBuf = null;
+function mpmScratch(win) {
+  let n = 1; while (n < 2 * win) n <<= 1;
+  if (!_mpmBuf || _mpmBuf.n !== n || _mpmBuf.win !== win) _mpmBuf = { n, win, re: new Float64Array(n), im: new Float64Array(n), sq: new Float64Array(win + 1) };
+  return _mpmBuf;
+}
+function fft64(re, im, inverse = false) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (inverse ? 2 : -2) * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half;
+        const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+  if (inverse) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+}
 function mpmFrame(x, off, win, sr, { fmin = 60, fmax = 1200, threshold = 0.9 } = {}) {
   const maxLag = Math.min(win - 1, Math.floor(sr / fmin)), minLag = Math.max(2, Math.floor(sr / fmax));
   const nsdf = new Float32Array(maxLag + 1);
+  const S = mpmScratch(win), { re, im, sq } = S;
+  re.fill(0); im.fill(0);
+  sq[0] = 0;
+  for (let i = 0; i < win; i++) { const v = x[off + i]; re[i] = v; sq[i + 1] = sq[i] + v * v; }
+  fft64(re, im);
+  for (let k = 0; k < S.n; k++) { re[k] = re[k] * re[k] + im[k] * im[k]; im[k] = 0; }
+  fft64(re, im, true); // re[tau] = acf(tau)
+  const total = sq[win];
   for (let tau = minLag; tau <= maxLag; tau++) {
-    let acf = 0, m = 0;
-    for (let i = 0; i + tau < win; i++) { const a = x[off + i], b = x[off + i + tau]; acf += a * b; m += a * a + b * b; }
-    nsdf[tau] = m > 0 ? 2 * acf / m : 0;
+    // m(tau) = Σ_{i<win-tau} x[i]² + Σ_{i≥tau} x[i]²
+    const m = sq[win - tau] + (total - sq[tau]);
+    nsdf[tau] = m > 0 ? 2 * re[tau] / m : 0;
   }
   // key maxima: first positive-zero-crossing peaks; pick the first over threshold*max
   const peaks = [];
