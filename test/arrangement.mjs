@@ -328,6 +328,15 @@ console.log('\n[11] UI store actions (no catalog command): one undo step each');
   store.clipSet('v1', { gainDb: null, semitones: null });
   check('clipSet null clears gainDb/semitones', !('gainDb' in store.project.clips.v1) && !('semitones' in store.project.clips.v1));
 
+  store.clipSet('v1', { rate: 9, detune: -5000, name: 'X' });
+  check('clipSet rate/detune clamp', store.project.clips.v1.rate === 4 && store.project.clips.v1.detune === -1200);
+  store.clipSet('v1', { rate: null, detune: null, name: null });
+  check('clipSet null clears rate/detune/name', !('rate' in store.project.clips.v1) && !('detune' in store.project.clips.v1) && !('name' in store.project.clips.v1));
+  const rn = await act('assetRename', () => store.assetRename('vox', '  Lead vox '));
+  check('asset renamed (trimmed)', rn.name === 'Lead vox' && store.project.assets.vox.name === 'Lead vox');
+  store.assetRename('vox', '');
+  check('empty asset name removes it', !('name' in store.project.assets.vox));
+
   const bt = await act('arrangementBatch', () => store.arrangementBatch([['clipSet', 'v2', { in: 11 }], ['movePlacement', 1, { at: 11 }]]));
   check('batch applies every op', store.project.clips.v2.in === 11 && arr().placements[1].at === 11 && bt.length === 2);
 

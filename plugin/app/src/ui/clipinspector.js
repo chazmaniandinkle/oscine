@@ -61,9 +61,7 @@ export class AssetInspector {
       return v ? `${base}assets/${v.sha256}.${v.ext || 'wav'}` : null;
     };
     const setWords = (words) => {
-      store.checkpoint();
-      asset.words = words;
-      app.bus.emit('arrangement:changed', {});
+      store.wordsSet(asset.id, words);
       app.inspector?.render();
     };
     const status = el('span', 'clip-hint transcript-status', '');
@@ -150,11 +148,8 @@ export class AssetInspector {
     nameIn.spellcheck = false;
     nameIn.placeholder = asset.id;
     nameIn.addEventListener('change', () => {
-      store.checkpoint();
-      const v = nameIn.value.trim();
-      if (v) asset.name = v; else delete asset.name;
+      store.assetRename(asset.id, nameIn.value);
       this.app.assetBin.render();
-      this.app.bus.emit('arrangement:changed', {});
     });
     head.appendChild(nameIn);
     host.appendChild(head);
@@ -455,7 +450,7 @@ export class OverlapInspector {
     host.textContent = '';
     const { o, lo, up, len } = sel;
     const tl = this.app.timeline;
-    const commit = () => { this.app.bus.emit('arrangement:changed', {}); tl.peaks.clear(); tl.dirty = true; };
+    const commit = () => { tl.peaks.clear(); tl.dirty = true; };
 
     const head = el('div', 'panel-head');
     head.appendChild(el('div', 'panel-title', 'Overlap'));
@@ -468,13 +463,21 @@ export class OverlapInspector {
 
     const g = el('div', 'insp-group'); g.appendChild(el('div', 'insp-group-title', 'Crossfade'));
     const grid = el('div', 'clip-grid'); g.appendChild(grid); host.appendChild(g);
-    let armed = false;
+    // Fade drags: store.gesturePreview while dragging, ONE undo step on release.
+    let ops = null;
     const field = (label, clip, key, title) => {
       const row = el('div', 'clip-row'); row.appendChild(el('span', 'clip-label', label));
       const w = NumberDrag({
         value: clip[key] || 0, min: 0, max: len, step: 0.01, format: v => Number(v).toFixed(2), suffix: ' s', title,
-        onInput: v => { if (!armed) { store.checkpoint(); armed = true; } clip[key] = Math.min(len, Math.max(0, v)); tl.dirty = true; },
-        onCommit: () => { armed = false; commit(); },
+        onInput: v => {
+          const next = [['clipSet', clip.id, { [key]: Math.min(len, Math.max(0, v)) }]];
+          try { store.gesturePreview(next); ops = next; } catch {}
+          tl.dirty = true;
+        },
+        onCommit: () => {
+          if (store.inGesture) { try { store.gestureCommit(ops ?? []); } catch (err) { console.warn('[overlap] rejected:', err.message); } }
+          ops = null; tl.peaks.clear(); tl.dirty = true;
+        },
       });
       w.root.classList.add('clip-value'); row.appendChild(w.root); grid.appendChild(row);
     };
@@ -482,12 +485,12 @@ export class OverlapInspector {
     field('fade in (over)', up, 'fadeIn', 'The later clip fades in over this many seconds from the overlap start');
 
     const actions = el('div', 'clip-actions');
-    actions.appendChild(Btn('Crossfade whole overlap', () => { store.checkpoint(); lo.fadeOut = len; up.fadeIn = len; commit(); this.render(); }));
-    actions.appendChild(Btn('No fades', () => { store.checkpoint(); delete lo.fadeOut; delete up.fadeIn; lo.fadeOut = 0; up.fadeIn = 0; commit(); this.render(); }));
+    actions.appendChild(Btn('Crossfade whole overlap', () => { store.arrangementBatch([['clipSet', lo.id, { fadeOut: len }], ['clipSet', up.id, { fadeIn: len }]]); commit(); this.render(); }));
+    actions.appendChild(Btn('No fades', () => { store.arrangementBatch([['clipSet', lo.id, { fadeOut: 0 }], ['clipSet', up.id, { fadeIn: 0 }]]); commit(); this.render(); }));
     host.appendChild(actions);
     const resolve = el('div', 'clip-actions');
-    resolve.appendChild(Btn('Trim under to overlap start', () => { store.checkpoint(); const st = (lo.stretch ?? 1) / (lo.rate ?? 1); lo.out = lo.in + (o.a - sel.lower.at) / st; tl.selectedOverlap = null; commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
-    resolve.appendChild(Btn('Trim over to overlap end', () => { store.checkpoint(); const st = (up.stretch ?? 1) / (up.rate ?? 1); const cut = up.in + (o.b - sel.upper.at) / st; up.in = cut; sel.upper.at = o.b; tl.selectedOverlap = null; commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
+    resolve.appendChild(Btn('Trim under to overlap start', () => { const st = (lo.stretch ?? 1) / (lo.rate ?? 1); tl.selectedOverlap = null; store.clipSet(lo.id, { out: lo.in + (o.a - sel.lower.at) / st }); commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
+    resolve.appendChild(Btn('Trim over to overlap end', () => { const st = (up.stretch ?? 1) / (up.rate ?? 1); const cut = up.in + (o.b - sel.upper.at) / st; tl.selectedOverlap = null; store.arrangementBatch([['clipSet', up.id, { in: cut }], ['movePlacement', o.upper, { at: o.b }]]); commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
     host.appendChild(resolve);
     host.appendChild(el('div', 'clip-hint', 'Both clips play through the overlap; fades shape the blend. Trim buttons remove the overlap instead.'));
     return true;
@@ -511,7 +514,7 @@ export class LaneInspector {
     const tl = this.app.timeline;
     const arr = this.store.project.arrangement;
     if (!tl?.active || !tl.selectedLane || !arr) return null;
-    const lane = tl.laneRecord(tl.selectedLane);
+    const lane = tl.lanes().find(l => l.id === tl.selectedLane); // read-only; edits go through store.lane*
     return { lane, placements: arr.placements.map((p, i) => ({ p, i })).filter(({ p }) => p.track === lane.id) };
   }
 
@@ -533,14 +536,22 @@ export class LaneInspector {
     const { lane, placements } = sel;
     const tl = this.app.timeline;
     const color = tl.laneColor(lane);
-    const commit = () => { this.app.bus.emit('lanes:changed', {}); tl.dirty = true; };
+    const commit = () => { tl.dirty = true; };
+    // Drags (gain, color picker) preview through the store and commit ONE
+    // undo step on release; everything else is one store action.
+    let ops = null;
+    const preview = (next) => { try { store.gesturePreview(next, ['lanes:changed']); ops = next; } catch {} tl.dirty = true; };
+    const commitGesture = () => {
+      if (store.inGesture) { try { store.gestureCommit(ops ?? [], ['lanes:changed', 'arrangement:changed']); } catch (err) { console.warn('[lane] rejected:', err.message); } }
+      ops = null; tl.dirty = true;
+    };
 
     const head = el('div', 'panel-head');
     const nameIn = el('input', 'song-name lane-name');
     nameIn.value = lane.name || lane.id;
     nameIn.spellcheck = false;
     nameIn.style.color = color;
-    nameIn.addEventListener('change', () => { store.checkpoint(); lane.name = nameIn.value.trim() || lane.id; commit(); });
+    nameIn.addEventListener('change', () => { const v = nameIn.value.trim() || lane.id; if (v !== (lane.name ?? lane.id)) store.laneRename(lane.id, v); commit(); });
     head.appendChild(nameIn);
     host.appendChild(head);
 
@@ -552,18 +563,18 @@ export class LaneInspector {
     // Level + state
     const g1 = el('div', 'insp-group'); g1.appendChild(el('div', 'insp-group-title', 'Level'));
     const grid = el('div', 'clip-grid'); g1.appendChild(grid); host.appendChild(g1);
-    let armed = false;
     const row = el('div', 'clip-row'); row.appendChild(el('span', 'clip-label', 'gain'));
     this.gainW = NumberDrag({
       value: lane.gainDb ?? 0, min: -60, max: 12, step: 0.1, format: fmtDb, suffix: ' dB',
-      onInput: v => { if (!armed) { store.checkpoint(); armed = true; } lane.gainDb = v; this.app.bus.emit('lanes:changed', {}); tl.dirty = true; },
-      onCommit: () => { armed = false; commit(); },
+      onInput: v => preview([['setLane', lane.id, { gainDb: v }]]),
+      onCommit: () => commitGesture(),
     });
     this.gainW.root.classList.add('clip-value'); row.appendChild(this.gainW.root); grid.appendChild(row);
 
     const btns = el('div', 'clip-actions');
-    this.muteB = Btn('Mute', () => { store.checkpoint(); lane.mute = !lane.mute; commit(); this.refresh(); }, lane.mute ? 'on' : '');
-    this.soloB = Btn('Solo', () => { store.checkpoint(); lane.solo = !lane.solo; commit(); this.refresh(); }, lane.solo ? 'on' : '');
+    const now = () => this.selection?.lane ?? lane;
+    this.muteB = Btn('Mute', () => { store.laneSet(lane.id, { mute: !now().mute }); commit(); this.refresh(); }, lane.mute ? 'on' : '');
+    this.soloB = Btn('Solo', () => { store.laneSet(lane.id, { solo: !now().solo }); commit(); this.refresh(); }, lane.solo ? 'on' : '');
     btns.appendChild(this.muteB); btns.appendChild(this.soloB);
     host.appendChild(btns);
 
@@ -571,8 +582,8 @@ export class LaneInspector {
     const g2 = el('div', 'insp-group'); g2.appendChild(el('div', 'insp-group-title', 'Color'));
     const crow = el('div', 'clip-row'); crow.appendChild(el('span', 'clip-label', 'lane color'));
     const cin = el('input'); cin.type = 'color'; cin.value = /^#[0-9a-f]{6}$/i.test(color) ? color : '#7aa2ff'; cin.className = 'lane-color';
-    cin.addEventListener('input', () => { lane.color = cin.value; nameIn.style.color = cin.value; tl.dirty = true; });
-    cin.addEventListener('change', () => { store.checkpoint(); lane.color = cin.value; commit(); });
+    cin.addEventListener('input', () => { preview([['setLane', lane.id, { color: cin.value }]]); nameIn.style.color = cin.value; });
+    cin.addEventListener('change', () => { ops = [['setLane', lane.id, { color: cin.value }]]; if (store.inGesture) commitGesture(); else { store.laneSet(lane.id, { color: cin.value }); ops = null; } commit(); });
     crow.appendChild(cin); g2.appendChild(crow); host.appendChild(g2);
 
     // Clips on this lane: click to select on the timeline.
@@ -660,11 +671,9 @@ export class ClipInspector {
     title.style.color = color;
     title.title = 'Clip name — edit and press Enter';
     title.addEventListener('change', () => {
-      store.checkpoint();
       const v = title.value.trim();
-      if (v && v !== clip.id) clip.name = v; else delete clip.name;
+      store.clipSet(clip.id, { name: v && v !== clip.id ? v : null });
       this.app.timeline.dirty = true;
-      this.app.bus.emit('arrangement:changed', {});
     });
     head.appendChild(title);
     host.appendChild(head);
@@ -675,8 +684,9 @@ export class ClipInspector {
     meta.appendChild(el('div', 'clip-meta-row clip-len', this.lengthText(sel)));
     host.appendChild(meta);
 
-    // One row per field: label + NumberDrag. `apply` mutates in place;
-    // checkpoint on first input of a gesture, emit on commit.
+    // One row per field: label + NumberDrag. A drag previews through
+    // store.gesturePreview (clipSet / movePlacement) and commits ONE undo
+    // step on release; a typed value is the same path with one input.
     const section = (name) => {
       const s = el('div', 'insp-group');
       s.appendChild(el('div', 'insp-group-title', name));
@@ -685,14 +695,16 @@ export class ClipInspector {
       host.appendChild(s);
       return grid;
     };
-    let armed = false;
+    let ops = null;
+    const live = () => this.selection ?? sel; // fresh objects after a preview/undo
     const field = (grid, key, label, o) => {
       const get = () => key === 'at' ? placement.at : (clip[key] ?? o.default ?? 0);
       const set = v => {
         if (o.clampTo) { const [lo, hi] = o.clampTo(); v = Math.max(lo, Math.min(hi, v)); w.set(v); }
-        if (key === 'at') placement.at = v;
-        else if (o.default !== undefined && Math.abs(v - o.default) < 1e-9) delete clip[key];
-        else clip[key] = v;
+        const next = key === 'at'
+          ? [['movePlacement', sel.index, { at: v }]]
+          : [['clipSet', clip.id, { [key]: o.default !== undefined && Math.abs(v - o.default) < 1e-9 ? null : v }]];
+        try { store.gesturePreview(next); ops = next; } catch {}
       };
       const row = el('div', 'clip-row');
       row.appendChild(el('span', 'clip-label', label));
@@ -701,12 +713,14 @@ export class ClipInspector {
         value: get(), min: o.min, max: o.max, step: o.step ?? 0.01, format: o.format ?? fmt(2), suffix: o.suffix ?? '',
         title: o.title,
         onInput: v => {
-          if (!armed) { store.checkpoint(); armed = true; }
           set(v); o.after?.();
           this.app.timeline.peaks.clear(); this.app.timeline.dirty = true;
-          this.host.querySelector('.clip-len')?.replaceChildren(document.createTextNode(this.lengthText(sel)));
+          this.host.querySelector('.clip-len')?.replaceChildren(document.createTextNode(this.lengthText(live())));
         },
-        onCommit: () => { armed = false; this.app.bus.emit('arrangement:changed', {}); },
+        onCommit: () => {
+          if (store.inGesture) { try { store.gestureCommit(ops ?? []); } catch (err) { console.warn('[clip] rejected:', err.message); } }
+          ops = null;
+        },
       });
       w.root.classList.add('clip-value');
       this.widgets.set(key, w);

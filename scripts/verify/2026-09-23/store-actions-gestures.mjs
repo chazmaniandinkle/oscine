@@ -152,6 +152,23 @@ await proves('mixer bypass', () => page.locator(`${strip} .insert-byp`).last().c
 await proves('mixer remove insert', () => page.locator(`${strip} .insert-rm`).last().click(), (b, a) => (laneOf(a).inserts.length === laneOf(b).inserts.length - 1) || 'not removed');
 await ev(() => window.oscine.store.undo()); await page.waitForTimeout(100); // drop the kept insert
 
+console.log('\n[5c] clip inspector: gain NumberDrag (up 40 px) and rename');
+{
+  const a = await clipPoint(idx, 0.5);
+  await page.mouse.click(a.x, a.y); await page.waitForTimeout(200); // select -> inspector
+  const cid = await ev(i => window.oscine.store.project.arrangement.placements[i].clip, idx);
+  await proves('inspector gain drag', async () => {
+    const box = await page.locator('.clip-row', { has: page.locator('.clip-label', { hasText: /^gain$/ }) }).locator('.clip-value').boundingBox();
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    await drag(from, { x: from.x, y: from.y - 40 });
+  }, (b, a) => ((a[1][cid].gainDb ?? 0) > (b[1][cid].gainDb ?? 0) + 1) || `gain ${b[1][cid].gainDb} -> ${a[1][cid].gainDb}`);
+  await proves('inspector rename', async () => {
+    const t = page.locator('.panel-head input.lane-name').first();
+    await t.fill('Proof name'); await t.press('Enter'); await page.waitForTimeout(100);
+    await page.mouse.click(5, 5); // blur
+  }, (b, a) => (a[1][cid].name === 'Proof name') || `name ${a[1][cid].name}`);
+}
+
 console.log('\n[6] plain click on a clip adds no undo step');
 {
   const s0 = await state();

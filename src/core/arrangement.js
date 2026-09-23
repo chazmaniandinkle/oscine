@@ -65,6 +65,14 @@ export function resolveClip(p, ref) {
   return c;
 }
 
+// Rename a source (asset). An empty name removes it (the id shows instead).
+export function renameAsset(p, ref, name) {
+  const a = resolveAsset(p, ref), from = a.name ?? null;
+  const v = String(name ?? '').trim();
+  if (v) a.name = v.slice(0, 120); else delete a.name;
+  return { asset: a.id, from, name: a.name ?? null };
+}
+
 export function resolveAsset(p, ref) {
   const assets = p.assets ?? {};
   const s = String(ref ?? '');
@@ -122,10 +130,11 @@ export function summary(p) {
 
 // -- clips / placements ------------------------------------------------------
 
-const CLIP_FIELDS = ['in', 'out', 'gainDb', 'fadeIn', 'fadeOut', 'stretch', 'semitones', 'name'];
-// Fields that `null` removes (back to the default: unity stretch, no pitch
-// shift, 0 dB), as the timeline does when a nudge or stretch lands on neutral.
-const CLEARABLE = new Set(['gainDb', 'stretch', 'semitones']);
+const CLIP_FIELDS = ['in', 'out', 'gainDb', 'fadeIn', 'fadeOut', 'stretch', 'semitones', 'rate', 'detune', 'name'];
+// Fields that `null` removes (back to the default: unity stretch/rate, no
+// pitch shift, 0 dB, the id as name), as the timeline and inspector do when
+// a value lands on neutral.
+const CLEARABLE = new Set(['gainDb', 'fadeIn', 'fadeOut', 'stretch', 'semitones', 'rate', 'detune', 'name']);
 
 export function clipSet(p, ref, fields) {
   const c = resolveClip(p, ref);
@@ -145,6 +154,8 @@ export function clipSet(p, ref, fields) {
     else if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`'${k}' must be a number.`);
     if (k === 'fadeIn' || k === 'fadeOut') v = Math.max(0, Math.min(v, nOut - nIn));
     if (k === 'stretch') { if (v <= 0) throw new Error("'stretch' must be > 0 (1 = original length)."); }
+    if (k === 'rate') v = Math.max(0.25, Math.min(4, v));
+    if (k === 'detune') v = Math.max(-1200, Math.min(1200, v));
     if (k === 'gainDb') v = Math.max(-60, Math.min(24, v));
     if (k === 'semitones') v = Math.max(-24, Math.min(24, v));
     c[k] = v; changed[k] = v;

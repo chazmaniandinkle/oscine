@@ -575,6 +575,7 @@ export class Store {
   automationRemovePoint(target, which) { return this.arrangementEdit(p => A.removeAutomationPoint(p, target, which)); }
   automationClear(target) { return this.arrangementEdit(p => A.clearAutomation(p, target)); }
 
+  assetRename(ref, name) { return this.arrangementEdit(p => A.renameAsset(p, ref, name)); }
   wordsSet(asset, words) { return this.arrangementEdit(p => A.setWords(p, asset, words)); }
 
   // -- serialization -------------------------------------------------------------------
