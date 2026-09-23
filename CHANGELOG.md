@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.1.0 — 2026-09-23 · "Morning after"
+
+Everything from the first morning of real use, plus the top five gaps from the cross-DAW research (`cog://mem/semantic/research/daw/`). Every item verified headless against *Borrowed Light*; numbers in the commit messages.
+
+### Fixed (from Chaz, first hour of use)
+- Playback stops at the song's end and parks the playhead there.
+- Mixer is resizable (drag its handle; 120 px … 60 % of the window; remembered). Default is compact.
+- Lyrics bar follows **one** lane — picker on the left; follows lane/source selection.
+- Lanes scroll vertically (wheel); ⇧-wheel / sideways swipe scrolls time. Ruler stays pinned.
+- Lanes reorder: drag a lane's **name** in the gutter. The dB bar below it stays the gain drag.
+- Lane names ellipsize before the A/M/S buttons.
+
+### New
+- **Transcripts** — on a source or a clip: *Transcribe* (whisper, locally, through the sidecar; a clip transcribes only its span), *Export…* (SRT / WebVTT / word-JSON), *Import…* (those, or whisper JSON; phrase subtitles split evenly and flagged). Clip export/import is clip-local time.
+- **Drag clips between lanes** — body drag follows the pointer vertically.
+- **⌥-drag duplicates** — the copy follows the pointer; the original stays. (REAPER scheme: ⌘-drag.)
+- **Markers & sections** — a strip under the ruler ticks. M adds at the playhead; double-click adds/renames; drag to move; click a section to jump; ⇧-click a section to select it; ⌥, / ⌥. prev/next; ⌫ deletes.
+- **Cycle region, independent of the range** — C toggles (created from the range if none); ⌘U sets it from the range; click the yellow bar to toggle, drag its edges/middle. Gapless: the next pass is scheduled in the audio thread at the boundary.
+- **Ripple delete** — ⇧⌫ (or *Ripple* in the toolbar) cuts the range from every lane and closes the gap: clips, markers, cycle and automation all move left together.
+- **Automation engine** — targets `lane:<id>:gainDb|pan`, `master:gainDb`, `lane:<id>:insert:<n>:<param>` (effect params, ranges from the effects registry), `clip:<id>:gainDb` (clip-local, travels with the clip, stacks with clip gain). Per-point shapes linear / hold / exp (exp refused on anything that reaches zero — Web Audio no-ops it). eq3 exposes AudioParams for sample-accurate automation; other effects are sampled at ~30 Hz. *(UI for the new targets is next: param picker on the A button.)*
+
+### Keymap
+- Scheme bindings now cite the manual page they came from. Corrected: Ableton slip ⌘⇧; Logic loses three bindings that aren't in Logic (slip-drag, ⌘T split, Enter/0 transport) and inherits defaults; REAPER stretch is plain ⌥, no-snap ⇧, duplicate ⌘. New: M marker, C cycle, ⌘U cycle-from-range, ⌥-drag duplicate, ⇧⌫ ripple.
+
+### Research
+- Primary-source corpus (manuals for Logic, Ableton, REAPER, Pro Tools, Bitwig, Studio One; DAWproject XSD; Ardour; RPP; AAF; ALS; Web Audio) and three corpus-cited reports — UX conventions, automation, project formats — in `cog/.cog/mem/semantic/research/daw/`.
+
 ## 2.0.0 — 2026-09-23 · "Borrowed Light"
 
 The first release where a song lives in Oscine as a *project*: stems on lanes, words on the vocal, decisions as numbers, and a render that is the song. Built in one night around *Borrowed Light* — everything below was verified against that project, headless, with measurements rather than impressions.
