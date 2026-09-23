@@ -12,7 +12,7 @@
 // nothing. See docs/ui-store-actions.md. Nothing here touches audio nodes.
 
 import { el, openMenu } from './widgets.js';
-import { AssetCache } from '../core/assets.js';
+import { AssetCache, pickVariant } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
 import { findEnvelope, targetOf, parseTarget, rangeOf, addPoint, valueAt } from '../engine/automation.js';
 import { getEffectDef } from '../engine/effects/index.js';
@@ -105,7 +105,9 @@ export class Timeline {
       this.restoreSelOnUndo = null;
       this.multi = [];
       this.dirty = true;
+      this.decodeAll(); // an undone 'prefer' resolves to other bytes
     });
+    app.bus.on('assets:changed', () => { this.peaks.clear(); this.decodeAll(); this.dirty = true; });
     new ResizeObserver(() => {
       // Keep the song filling the width when the panel grows/shrinks, unless
       // the user has zoomed in on purpose (then just repaint).
@@ -163,7 +165,14 @@ export class Timeline {
     return anySolo ? !!lane.solo : !lane.mute;
   }
 
-  bufferKey(clip) { return `${clip.sourceOf}:${clip.representation ?? ''}`; }
+  // Keyed by the bytes the clip resolves to, so preferring another variant
+  // (or undoing that) redraws from the right file.
+  bufferKey(clip) {
+    const a = this.project.assets?.[clip.sourceOf];
+    let sha = '';
+    try { sha = a ? pickVariant(a, clip.representation).sha256 : ''; } catch {}
+    return `${clip.sourceOf}:${clip.representation ?? ''}:${sha}`;
+  }
 
   decodeAll() {
     const arr = this.arrangement;

@@ -455,6 +455,51 @@ export const COMMANDS = [
       required: ['action'],
     },
   },
+  {
+    name: 'asset',
+    description: "Sources (the files clips point at), their provenance, and their audio variants. 'list' all assets; 'get' one (variants with origin/codec/addedAt, which one plays, its source block, the clips using it; raw:true includes the verbatim Suno clip). 'source' sets asset.source ({kind:'suno', id|url, ...} or {kind:'derived', from:<assetId>, by}); source:null clears it; merge:true folds non-null fields into the existing Suno block. 'variant-add' attaches another file to the SAME asset under 'variant' (e.g. 'user', 'suno-wav', 'stream-m4a'): give 'sha256' (+ 'ext') of a file already in the project's assets/ folder, or 'path' to any audio file under the project root, which the sidecar copies into assets/<sha256>.<ext> and probes (the original is never moved). 'prefer' picks which variant plays for every clip that doesn't pin one (clips keep working when a better file arrives). 'variant-remove' drops one. 'import' makes a NEW asset from a 'path' (Suno tags fill its source and the Suno library). Each edit is one undo step.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'get', 'source', 'variant-add', 'variant-remove', 'prefer', 'import'] },
+        asset: { type: 'string', description: 'Asset id or name.' },
+        source: { type: ['object', 'null'], description: "{kind:'suno', id|url, title?, style?, model?, task?, lyrics?:{text, from}, sent?, parent?, provenance?} or {kind:'derived', from, by}; null clears." },
+        merge: { type: 'boolean', default: false },
+        variant: { type: 'string', description: "Variant name, e.g. 'user', 'suno-mp3', 'suno-wav', 'stream-m4a', 'default'. null with 'prefer' goes back to 'default'." },
+        sha256: { type: 'string', description: 'For variant-add: a file already at assets/<sha256>.<ext>.' },
+        ext: { type: 'string' },
+        path: { type: 'string', description: 'For variant-add / import: an audio file under the project root (copied, never moved).' },
+        origin: { type: 'string', enum: ['suno-download', 'suno-stream', 'user', 'render', 'derived', 'import'] },
+        note: { type: 'string' },
+        prefer: { type: 'boolean', description: 'For variant-add: also make it the playing variant (same undo step).' },
+        replace: { type: 'boolean', description: 'For variant-add: overwrite a variant of the same name.' },
+        name: { type: 'string', description: 'For import: display name.' },
+        id: { type: 'string', description: 'For import: asset id (default generated).' },
+        raw: { type: 'boolean' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'suno',
+    description: "Chaz's Suno library, metadata only (id, title, style, lyrics, model, created, duration, cover, task); no audio is ever fetched. Stored per workspace at <root>/.oscine/suno-library.json. 'library' lists songs (or one 'id'; full:true for everything incl. raw). 'scan' reads Suno ids from the tags of .m4a/.mp3 files under the project root plus any 'dirs' (read-only). 'import' merges raw Suno clip objects from any collector ('clips': an array or {clips:[...]}). 'fetch' reads ONE public song page (https://suno.com/song/<id>) for title/style/model/cover; cached, 1 request per 2 s; the whole library only with all:true and max <= 25. 'link' copies a library song onto a project asset as asset.source (one undo step).",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['library', 'scan', 'import', 'fetch', 'link'] },
+        id: { type: 'string', description: 'Suno song id or URL.' },
+        asset: { type: 'string', description: "For 'link': asset id or name." },
+        dirs: { type: 'array', items: { type: 'string' }, description: "For 'scan': extra folders (absolute), e.g. ~/Downloads." },
+        clips: { description: "For 'import': array of Suno clip objects, or {clips:[...]}." },
+        all: { type: 'boolean' },
+        max: { type: 'integer', minimum: 1, maximum: 25 },
+        force: { type: 'boolean', description: "For 'fetch': ignore the cache." },
+        full: { type: 'boolean' },
+        sent: { type: 'object', description: "For 'link': what Oscine sent, e.g. {lyrics:'file.txt', style:'file.txt', confidence:'high'|'guess'}." },
+      },
+      required: ['action'],
+    },
+  },
 ];
 
 export function getCommand(name) {

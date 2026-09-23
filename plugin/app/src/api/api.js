@@ -13,6 +13,7 @@ import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
 import { encodeWav } from '../core/wav.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 import * as Arr from '../core/arrangement.js';
+import * as Src from '../core/sources.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {
@@ -21,6 +22,15 @@ export class CommandAPI {
     this.transport = transport;
     this.bus = bus;
     this.version = API_VERSION;
+    // File + library work happens in the sidecar (node). In the browser this
+    // is a same-origin POST; tests can swap in a stub.
+    this.sidecar = async (route, body) => {
+      if (typeof fetch !== 'function' || typeof location === 'undefined') throw new Error(`${route} needs the Oscine sidecar (open the app from it).`);
+      const res = await fetch(route, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `${route}: HTTP ${res.status}`);
+      return JSON.parse(text);
+    };
   }
 
   list() {
@@ -943,6 +953,78 @@ export class CommandAPI {
         if (asset == null) throw new Error("words 'set' needs 'asset'.");
         return { ok: true, ...store.wordsSet(asset, words) };
       default: throw this.badAction('words', action, ['get', 'set']);
+    }
+  }
+
+  // -- sources: assets, variants, the Suno library ------------------------------
+
+  projectDir() {
+    const b = this.store.project.baseUrl || '';
+    return b.startsWith('/project/') ? decodeURIComponent(b.slice('/project/'.length)).replace(/\/+$/, '') : '';
+  }
+
+  async cmd_asset(args) {
+    const { store } = this, p = store.project;
+    const { action, asset } = args;
+    const needAsset = () => { if (asset == null) throw new Error(`asset '${action}' needs 'asset' (id or name).`); };
+    switch (action) {
+      case 'list': return Src.listAssets(p);
+      case 'get': needAsset(); return Src.describeAsset(p, asset, { raw: !!args.raw });
+      case 'source': {
+        needAsset();
+        if (!('source' in args)) throw new Error("asset 'source' needs 'source' (an object, or null to clear).");
+        return { ok: true, ...store.assetSourceSet(asset, args.source, { merge: !!args.merge }) };
+      }
+      case 'variant-add': {
+        needAsset();
+        if (!args.variant) throw new Error("variant-add needs 'variant' (a name like 'user' or 'suno-wav').");
+        Arr.resolveAsset(p, asset);
+        let file;
+        if (args.path) {
+          const got = await this.sidecar('/asset/ingest', { path: args.path, projectDir: this.projectDir() });
+          file = { sha256: got.sha256, ext: got.ext, filename: got.filename, codec: got.codec, sampleRate: got.sampleRate, channels: got.channels, duration: got.duration };
+          file.origin = args.origin ?? (got.source ? 'suno-download' : 'user');
+        } else if (args.sha256) file = { sha256: args.sha256, ext: args.ext, origin: args.origin ?? 'user' };
+        else throw new Error("variant-add needs 'path' (a file under the project root) or 'sha256' (already in assets/).");
+        if (args.note) file.note = args.note;
+        return { ok: true, ...store.assetVariantAdd(asset, args.variant, file, { prefer: !!args.prefer, replace: !!args.replace }) };
+      }
+      case 'variant-remove': needAsset(); return { ok: true, ...store.assetVariantRemove(asset, args.variant) };
+      case 'prefer': needAsset(); return { ok: true, ...store.assetPrefer(asset, args.variant ?? null) };
+      case 'import': {
+        if (!args.path) throw new Error("asset 'import' needs 'path' (an audio file under the project root).");
+        Arr.requireArrangement(p);
+        const got = await this.sidecar('/asset/ingest', { path: args.path, projectDir: this.projectDir() });
+        const file = { sha256: got.sha256, ext: got.ext, filename: got.filename, codec: got.codec, sampleRate: got.sampleRate, channels: got.channels, duration: got.duration, origin: args.origin ?? (got.source ? 'suno-download' : 'import') };
+        const variant = args.variant ?? 'default';
+        const name = args.name ?? got.source?.title ?? got.filename?.replace(/\.[^.]+$/, '');
+        const out = store.assetAdd({ id: args.id, name, duration: got.duration, variant, file, source: got.source });
+        return { ok: true, ...out, suno: got.source?.id ?? null, lines: got.lines?.length ?? 0 };
+      }
+      default: throw this.badAction('asset', action, ['list', 'get', 'source', 'variant-add', 'variant-remove', 'prefer', 'import']);
+    }
+  }
+
+  async cmd_suno(args) {
+    const { action } = args;
+    switch (action) {
+      case 'library': return this.sidecar(`/suno/library?${new URLSearchParams({ ...(args.id ? { id: args.id } : {}), ...(args.full ? { full: '1' } : {}) })}`);
+      case 'scan': return this.sidecar('/suno/scan', { dirs: args.dirs ?? [] });
+      case 'import': {
+        if (args.clips == null) throw new Error("suno 'import' needs 'clips' (an array of Suno clip objects, or {clips:[...]}).");
+        return this.sidecar('/suno/import', { clips: args.clips });
+      }
+      case 'fetch': return this.sidecar('/suno/fetch', { id: args.id ?? null, all: !!args.all, max: args.max, force: !!args.force });
+      case 'link': {
+        if (args.asset == null || !args.id) throw new Error("suno 'link' needs 'asset' and 'id'.");
+        Arr.resolveAsset(this.store.project, args.asset);
+        const song = await this.sidecar(`/suno/library?${new URLSearchParams({ id: args.id, full: '1' })}`);
+        const { seenIn, localFiles, ...rest } = song;
+        const source = { ...rest, kind: 'suno' };
+        if (args.sent) { source.sent = args.sent; source.provenance = { ...(source.provenance ?? {}), sent: 'user' }; }
+        return { ok: true, ...this.store.assetSourceSet(args.asset, source, { merge: true }), title: source.title ?? null };
+      }
+      default: throw this.badAction('suno', action, ['library', 'scan', 'import', 'fetch', 'link']);
     }
   }
 }

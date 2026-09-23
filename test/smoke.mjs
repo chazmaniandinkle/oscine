@@ -311,7 +311,7 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Count guard: the arrangement nouns (arrangement, clip, lane, marker, cycle,
   // range, insert, automation, words) took the count from 21 to 30. The e2e
   // tool-count check is derived from COMMANDS.length, so it tracks this.
-  check('catalog command count is 30', COMMANDS.length === 30, `got ${COMMANDS.length}`);
+  check('catalog command count is 32', COMMANDS.length === 32, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',

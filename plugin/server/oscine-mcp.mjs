@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { COMMANDS } from '../app/src/api/commands.js';
 import { OscGateway } from './osc-gateway.js';
 import { SessionRegistry } from './sessions.js';
+import { scanLocal, importClips, fetchPublic, loadLibrary, summarizeLibrary, ingestFile } from './suno-library.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
@@ -398,6 +399,38 @@ async function serveStatic(req, res) {
       res.writeHead(500); res.end(String(err?.message || err));
     }
     return;
+  }
+  // Suno library (metadata only) + file ingest. Same guard as /reveal:
+  // same-origin pages only, paths can't escape the project root.
+  //   GET  /suno/library[?id=&full=1]     the index (.oscine/suno-library.json)
+  //   POST /suno/scan   {dirs?:[abs]}     read Suno ids from local file tags (read-only)
+  //   POST /suno/import {clips}           merge raw clip objects from any collector
+  //   POST /suno/fetch  {id | all,max}    ONE public page per id, cached, 1 req / 2 s
+  //   POST /asset/ingest {path, projectDir} copy a file into <projectDir>/assets/<sha>.<ext> + probe
+  if (urlPath.startsWith('/suno/') || urlPath === '/asset/ingest') {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const reply = (code, obj) => { res.writeHead(code, { 'Content-Type': code === 200 ? 'application/json' : 'text/plain' }); res.end(code === 200 ? JSON.stringify(obj) : String(obj)); };
+    const root = resolve(PROJECT_ROOT);
+    try {
+      if (urlPath === '/suno/library' && req.method === 'GET') {
+        const q = new URL(req.url, 'http://x').searchParams;
+        return reply(200, summarizeLibrary(await loadLibrary(root), { id: q.get('id') || null, full: q.get('full') === '1' }));
+      }
+      if (req.method !== 'POST') return reply(405, 'use POST');
+      let body = ''; for await (const chunk of req) body += chunk;
+      let args; try { args = JSON.parse(body || '{}'); } catch { return reply(400, 'bad json'); }
+      if (urlPath === '/suno/scan') {
+        const dirs = (Array.isArray(args.dirs) ? args.dirs : []).map(d => String(d).replace(/^~(?=\/|$)/, process.env.HOME || '~'));
+        return reply(200, await scanLocal(root, dirs));
+      }
+      if (urlPath === '/suno/import') return reply(200, await importClips(root, args.clips));
+      if (urlPath === '/suno/fetch') return reply(200, await fetchPublic(root, args));
+      if (urlPath === '/asset/ingest') return reply(200, await ingestFile(root, args.projectDir || '', { path: args.path, bytes: args.base64 ? Buffer.from(args.base64, 'base64') : null, filename: args.filename }));
+      return reply(404, 'no such route');
+    } catch (err) { return reply(400, String(err?.message || err)); }
   }
   // POST /reveal {path}  Open the folder holding a project (or any file under
   // the project root) in the OS file manager: Finder on macOS (`open -R`

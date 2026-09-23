@@ -14,6 +14,7 @@ import {
 } from './schema.js';
 import { getInstrumentDef, presetParams, defaultParams } from '../engine/instruments/index.js';
 import * as A from './arrangement.js';
+import * as S from './sources.js';
 
 const HISTORY_LIMIT = 100;
 
@@ -577,6 +578,15 @@ export class Store {
 
   assetRename(ref, name) { return this.arrangementEdit(p => A.renameAsset(p, ref, name)); }
   wordsSet(asset, words) { return this.arrangementEdit(p => A.setWords(p, asset, words)); }
+
+  // Asset sources + variants (core/sources.js). One undo step each. The
+  // 'assets:changed' event tells the engine/timeline a variant may now
+  // resolve to different bytes.
+  assetAdd(opts) { return this.arrangementEdit(p => S.addAsset(p, opts), ['assets:changed', 'arrangement:changed']); }
+  assetSourceSet(ref, source, opts) { return this.arrangementEdit(p => S.setSource(p, ref, source, opts), ['assets:changed', 'arrangement:changed']); }
+  assetVariantAdd(ref, name, variant, opts) { return this.arrangementEdit(p => S.addVariant(p, ref, name, variant, opts), ['assets:changed', 'arrangement:changed']); }
+  assetVariantRemove(ref, name) { return this.arrangementEdit(p => S.removeVariant(p, ref, name), ['assets:changed', 'arrangement:changed']); }
+  assetPrefer(ref, name) { return this.arrangementEdit(p => S.preferVariant(p, ref, name), ['assets:changed', 'arrangement:changed']); }
 
   // -- serialization -------------------------------------------------------------------
 

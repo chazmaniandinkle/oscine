@@ -6,13 +6,19 @@
 
 export const ASSETS_DIR = 'assets'; // convention: <projectDir>/assets/<sha256>.<ext>
 
-// Pick a variant object off an asset: explicit name, else 'default', else
-// whatever key sorts first (Object.keys order = insertion order in JS,
-// which is stable enough for "first variant recorded").
-function pickVariant(asset, variantName) {
-  const variants = asset.variants || {};
-  const key = variantName || (variants.default ? 'default' : Object.keys(variants)[0]);
-  const v = variants[key];
+// Which variant plays: an explicit name, then asset.preferred (the user's
+// choice among several files for the same song), then 'default', then
+// whatever was recorded first (Object.keys order = insertion order).
+export function variantKey(asset, variantName = null) {
+  const variants = asset?.variants || {};
+  if (variantName) return variantName;
+  if (asset?.preferred && variants[asset.preferred]) return asset.preferred;
+  return variants.default ? 'default' : Object.keys(variants)[0];
+}
+
+export function pickVariant(asset, variantName) {
+  const key = variantKey(asset, variantName);
+  const v = (asset.variants || {})[key];
   if (!v) throw new Error(`asset ${asset.id} has no variant "${key}"`);
   return v;
 }
