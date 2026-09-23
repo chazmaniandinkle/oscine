@@ -56,12 +56,12 @@ Arrangement side:
 
 ## Now
 
-1. **Arrangement UI onto the arrangement commands.** The catalog commands
-   exist (`arrangement`, `clip`, `lane`, `marker`, `cycle`, `range`, `insert`,
-   `automation`, `words`, backed by `src/core/arrangement.js` and store
-   actions), so Claude can edit an arrangement over MCP. The timeline, mixer
-   and inspectors still mutate the project directly; rewire them to call the
-   same store actions. OSC addresses for the new commands are still to do.
+1. **Arrangement UI onto the arrangement commands.** Done on the
+   `ui-store-actions` branch: the timeline, mixer, inspectors, source bin and
+   app shortcuts now edit only through store actions, and every drag ends in
+   one undo step (`docs/ui-store-actions.md` has the pattern). Left to do: OSC
+   addresses for the new commands, and the "+ lane" row in the timeline gutter,
+   which doesn't respond to clicks (on `main` too).
 2. **Automation UI for the new targets.** A parameter picker on the A button
    (lane gain and pan, each insert's params), one sub-lane per open
    parameter, a shape menu on points, and clip envelopes drawn on the clip.
