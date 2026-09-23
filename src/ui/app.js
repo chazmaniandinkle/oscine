@@ -12,6 +12,7 @@ import { Mixer } from './mixer.js';
 import { KeyboardBar } from './keyboard.js';
 import { MidiInput } from './midi.js';
 import { Timeline } from './timeline.js';
+import { AssetBin } from './assetbin.js';
 import { saveProjectPath } from './fileops.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
@@ -80,12 +81,17 @@ export class App {
     snapSel.root.classList.add('snap-ctl');
     editorBar.appendChild(snapSel.root);
 
-    // Components.
+    // Components. The left panel is either the instrument track list (pattern
+    // projects) or the asset bin (arrangement projects); routeSidebar picks.
     this.transportBar = new TransportBar(header, this);
-    this.trackList = new TrackList(trackPanel, this);
+    this.trackListHost = el('div');
+    this.assetBinHost = el('div');
+    this.sidebarHost = trackPanel;
+    this.trackList = new TrackList(this.trackListHost, this);
     this.pianoRoll = new PianoRoll(el('div'), this);
     this.stepGrid = new StepGrid(el('div'), this);
     this.timeline = new Timeline(el('div'), this);
+    this.assetBin = new AssetBin(this.assetBinHost, this);
     this.inspector = new Inspector(inspectorPanel, this);
     this.mixer = new Mixer(mixerHost, this);
     this.keys = new KeyboardBar(keysHost, this);
@@ -151,6 +157,17 @@ export class App {
     this.mobileTabs.forEach(b => b.classList.toggle('is-active', b.dataset.panel === panel));
   }
 
+  // Left panel: asset bin when the project is an arrangement, else the
+  // instrument track list. Re-parents the pre-built hosts; no re-render.
+  routeSidebar() {
+    const want = this.store.project.arrangement?.placements?.length ? this.assetBinHost : this.trackListHost;
+    if (this.sidebarHost.firstChild !== want) {
+      this.sidebarHost.textContent = '';
+      this.sidebarHost.appendChild(want);
+      if (want === this.assetBinHost) this.assetBin.render();
+    }
+  }
+
   routeEditor() {
     const { store } = this;
     const track = store.getTrack(store.ui.selectedTrackId);
@@ -158,6 +175,7 @@ export class App {
     this.pianoRoll.active = false;
     this.stepGrid.active = false;
     this.timeline.active = false;
+    this.routeSidebar();
 
     // An arrangement (v2 clips) takes the editor over: it's the song, and
     // pattern tracks are subordinate to it. Selecting a pattern track still

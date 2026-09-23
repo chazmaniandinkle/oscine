@@ -498,6 +498,31 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 }
 .lane-clip:hover { background: var(--bg-2); }
 
+/* ---------- asset bin (left panel for arrangement projects) ---------- */
+
+.assetbin .panel-sub { font-size: 10px; color: var(--dim); }
+.asset-rows { display: flex; flex-direction: column; }
+.asset-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: grab;
+  user-select: none;
+}
+.asset-row:hover { background: var(--bg-2); }
+.asset-row:active { cursor: grabbing; }
+.asset-swatches { display: flex; flex-direction: column; gap: 2px; width: 6px; min-height: 14px; }
+.asset-swatch { width: 6px; height: 6px; border-radius: 1px; }
+.asset-mid { flex: 1; min-width: 0; }
+.asset-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-sub { font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-ghost {
+  position: fixed; z-index: 1000; pointer-events: none;
+  padding: 3px 8px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+  font-size: 11px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
 /* ---------- mixer ---------- */
 
 .mixer {

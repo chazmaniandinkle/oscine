@@ -162,6 +162,14 @@ export class Timeline {
   sec(x) { return (x - GUTTER_W + this.scrollX) / this.pxPerSec; }
   laneY(i) { return RULER_H + i * LANE_H; }
 
+  // Lane under a canvas point (any x), for drops from the asset bin.
+  laneAt(px, py) {
+    if (py < RULER_H) return null;
+    const i = Math.floor((py - RULER_H) / LANE_H);
+    const lane = this.lanes()[i];
+    return lane ? { lane, index: i } : null;
+  }
+
   hit(px, py) {
     const arr = this.arrangement;
     if (!arr || py < RULER_H || px < GUTTER_W) return null;
@@ -454,6 +462,16 @@ export class Timeline {
     if (playheadSec != null) {
       const x = this.x(playheadSec);
       if (x >= GUTTER_W && x <= w) { g.fillStyle = accent; g.fillRect(x, 0, playing ? 2 : 1, h); }
+    }
+    // drop hint from the asset bin: highlight the target lane + insertion x
+    if (this.dropHint) {
+      const t = this.laneAt(this.dropHint.x, this.dropHint.y);
+      if (t) {
+        const y = this.laneY(t.index);
+        g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(GUTTER_W, y, w - GUTTER_W, LANE_H - 1);
+        const x = Math.max(GUTTER_W, this.dropHint.x);
+        g.fillStyle = '#ffffff'; g.fillRect(x, y, 2, LANE_H - 1);
+      }
     }
     this.dirty = false;
   }
