@@ -56,12 +56,12 @@ Arrangement side:
 
 ## Now
 
-1. **Arrangement commands in the catalog.** Clips, placements, lanes, markers,
-   cycle, inserts, automation and transcripts get catalog commands (and so MCP
-   tools and OSC addresses). Until this lands Claude can open an arrangement
-   but not edit it, which is backwards for a tool whose point is that agents
-   and people share one surface. The UI then calls the commands instead of
-   mutating directly.
+1. **Arrangement UI onto the arrangement commands.** The catalog commands
+   exist (`arrangement`, `clip`, `lane`, `marker`, `cycle`, `range`, `insert`,
+   `automation`, `words`, backed by `src/core/arrangement.js` and store
+   actions), so Claude can edit an arrangement over MCP. The timeline, mixer
+   and inspectors still mutate the project directly; rewire them to call the
+   same store actions. OSC addresses for the new commands are still to do.
 2. **Automation UI for the new targets.** A parameter picker on the A button
    (lane gain and pan, each insert's params), one sub-lane per open
    parameter, a shape menu on points, and clip envelopes drawn on the clip.

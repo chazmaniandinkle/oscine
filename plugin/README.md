@@ -27,7 +27,12 @@ One tool per app command: status, transport, project
 (get/new/load/rename/undo/redo), list_instruments, add_track, remove_track,
 rename_track, select_track, set_mix, set_master, set_params, get_notes,
 set_notes, get_steps, set_steps, slots, midi, preview, export_wav, share,
-ledger. The list is generated from the app's own command registry
+ledger, and for arrangement projects arrangement (get), clip
+(get/set/split/duplicate/move/remove/place), lane
+(add/remove/rename/set/reorder), marker (list/add/move/rename/remove), cycle
+(get/set/clear), range (cut/ripple_delete), insert (list/add/set/remove/move),
+automation (list/set_points/add_point/remove_point/clear) and words
+(get/set). The list is generated from the app's own command registry
 (`app/src/api/commands.js`), so app capability and MCP surface can't drift
 apart.
 
@@ -48,9 +53,10 @@ Sidecar-level tools (no app command behind them):
 The bundled skills are also exposed as MCP resources (`resources/list`,
 `resources/read`), so an agent can find them without loading them.
 
-Arrangement editing (clips, lanes, markers, effects, automation, transcripts)
-is not in the tool list yet; Claude can open and save arrangement projects but
-edits happen in the UI. See `ROADMAP.md`.
+Arrangement projects are editable over MCP: open one with
+`oscine_project_open_file`, read it with `oscine_arrangement`, edit with the
+clip/lane/marker/cycle/range/insert/automation/words tools (each edit is one
+undo step), then save with `oscine_project_save_file`. Times are seconds.
 
 ## HTTP routes
 
