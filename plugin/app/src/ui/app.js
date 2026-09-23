@@ -12,6 +12,7 @@ import { Mixer } from './mixer.js';
 import { KeyboardBar } from './keyboard.js';
 import { MidiInput } from './midi.js';
 import { Timeline } from './timeline.js';
+import { saveProjectPath } from './fileops.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
 const SNAP_CHOICES = [
@@ -211,6 +212,11 @@ export class App {
           return;
         }
         if (e.code === 'Backspace' || e.code === 'Delete') { e.preventDefault(); this.timeline.deleteSelected(); return; }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyS' && !typing) {
+        e.preventDefault();
+        saveProjectPath(this.store, this.api);
+        return;
       }
       if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ' && !typing) {
         e.preventDefault();

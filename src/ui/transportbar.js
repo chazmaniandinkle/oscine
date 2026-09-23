@@ -2,7 +2,7 @@
 
 import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast } from './widgets.js';
 import { SLOT_NAMES, BAR_CHOICES } from '../core/schema.js';
-import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink } from './fileops.js';
+import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink, listProjects, openProjectPath, saveProjectPath } from './fileops.js';
 
 export class TransportBar {
   constructor(host, app) {
@@ -115,6 +115,8 @@ export class TransportBar {
 
     const fileBtn = Btn('File', () => {
       openMenu(fileBtn, [
+        { label: 'Open project…', onPick: () => this.pickProject(fileBtn) },
+        { label: 'Save project  (⌘S)', onPick: () => saveProjectPath(store, app.api) },
         { label: 'Copy share link', onPick: () => copyShareLink(app.api) },
         { label: 'Export audio (.wav)', onPick: () => exportWav(app.api) },
         { label: 'Export song (.json)', onPick: () => exportProject(store) },
@@ -200,6 +202,18 @@ export class TransportBar {
     this.paintSlots();
     this.paintMidi();
     this.paintMidiVel();
+  }
+
+  // List every *.oscine.json under the sidecar's project root and open the
+  // pick. Falls back to a toast when there's no sidecar (static deploy).
+  async pickProject(anchor) {
+    let list;
+    try { list = await listProjects(); } catch { toast('Open project… needs the Oscine sidecar (no project root).'); return; }
+    if (!list.projects.length) { toast(`No *.oscine.json under ${list.root}`); return; }
+    openMenu(anchor, list.projects.slice(0, 20).map(p => ({
+      label: `${p.name}  —  ${p.path}`,
+      onPick: () => openProjectPath(p.path, this.app.api).catch(err => toast('Open failed: ' + err.message)),
+    })));
   }
 
   pickImport() {

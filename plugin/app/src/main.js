@@ -14,6 +14,7 @@ import { CommandAPI } from './api/api.js';
 import { Bridge, clientId } from './api/bridge.js';
 import { CrossTab } from './api/crosstab.js';
 import { App } from './ui/app.js';
+import { openProjectPath, LAST_PROJECT_KEY } from './ui/fileops.js';
 import { projectFromUrl } from './core/share.js';
 
 // One stable per-tab id, shared by autosave (per-tab project keys), the
@@ -51,6 +52,11 @@ await maybeLoadSharedSong(store);
 
 const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab, assetCache });
 
+// Reopen the last project document on reload (?p=<rel> in the URL wins, then
+// localStorage). Quiet, after the UI exists so the timeline routes. A share
+// link (#s=) takes precedence and skips this.
+await maybeReopenLastProject(api);
+
 // Autoplay policy: resume the context on the first gesture anywhere.
 const unlock = () => { ensureRunning(); };
 window.addEventListener('pointerdown', unlock, { once: true });
@@ -75,4 +81,16 @@ async function maybeLoadSharedSong(store) {
 
 function tabTitle() {
   try { return document.title || 'Oscine'; } catch { return 'Oscine'; }
+}
+
+async function maybeReopenLastProject(api) {
+  try {
+    if (location.hash.startsWith('#s=')) return;
+    const fromUrl = new URLSearchParams(location.search).get('p');
+    const path = fromUrl || localStorage.getItem(LAST_PROJECT_KEY);
+    if (!path) return;
+    await openProjectPath(path, api, { quiet: true });
+  } catch (err) {
+    console.warn('[oscine] could not reopen last project:', err.message);
+  }
 }

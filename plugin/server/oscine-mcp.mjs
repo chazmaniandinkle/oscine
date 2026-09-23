@@ -299,6 +299,60 @@ async function serveStatic(req, res) {
   // Tier-3 bytes: `/project/<rel>` serves files under PROJECT_ROOT so a loaded
   // *.oscine.json can fetch its `assets/<sha256>.wav` siblings. Same traversal
   // guard as resolveProjectPath, read-only, no directory listings.
+  // `/projects.json` is the one listing: every *.oscine.json under the root,
+  // so the app's File menu can open them by relative path without the MCP
+  // side. `/project-doc/<rel>.oscine.json` returns that doc with baseUrl set,
+  // exactly as oscine_project_open_file would hand it to the app.
+  if (urlPath === '/projects.json') {
+    const found = [];
+    async function walk(dir, depth) {
+      if (depth > 6) return;
+      let ents;
+      try { ents = await readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) {
+        if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'assets') continue;
+        const full = resolve(dir, e.name);
+        if (e.isDirectory()) await walk(full, depth + 1);
+        else if (e.name.endsWith('.oscine.json')) {
+          let name = e.name.replace(/\.oscine\.json$/, '');
+          try { name = JSON.parse(await readFile(full, 'utf8')).name || name; } catch {}
+          found.push({ path: full.slice(PROJECT_ROOT.length + 1), name, mtime: (await stat(full)).mtimeMs });
+        }
+      }
+    }
+    await walk(PROJECT_ROOT, 0);
+    found.sort((a, b) => b.mtime - a.mtime);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ root: PROJECT_ROOT, projects: found }));
+    return;
+  }
+  if (urlPath.startsWith('/project-doc/')) {
+    let full;
+    try { full = resolveProjectPath(urlPath.slice('/project-doc/'.length)); }
+    catch (err) { res.writeHead(400); res.end(err.message); return; }
+    if (req.method === 'PUT') {
+      // Save from the app's File menu: same on-disk shape as
+      // oscine_project_save_file (baseUrl stripped, 2-space JSON).
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const { baseUrl, ...doc } = JSON.parse(body);
+        await mkdir(dirname(full), { recursive: true });
+        await writeFile(full, JSON.stringify(doc, null, 2) + '\n', 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, path: full, bytes: body.length }));
+      } catch (err) { res.writeHead(400); res.end(err.message); }
+      return;
+    }
+    try {
+      const doc = JSON.parse(await readFile(full, 'utf8'));
+      const relDir = dirname(full).slice(PROJECT_ROOT.length).replace(/^\/+/, '');
+      doc.baseUrl = `/project/${relDir}${relDir ? '/' : ''}`;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(doc));
+    } catch { res.writeHead(404); res.end('not found'); }
+    return;
+  }
   if (urlPath.startsWith('/project/')) {
     const full = resolve(PROJECT_ROOT, urlPath.slice('/project/'.length));
     if (full !== PROJECT_ROOT && !full.startsWith(PROJECT_ROOT + '/')) {

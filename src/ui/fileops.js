@@ -45,6 +45,39 @@ export async function copyShareLink(api) {
   }
 }
 
+// Open a project document by relative path through the sidecar's
+// /project-doc route (same doc oscine_project_open_file hands the app, baseUrl
+// included). Remembered in localStorage so a reload lands back on it.
+export const LAST_PROJECT_KEY = 'oscine.lastProjectPath';
+
+export async function listProjects() {
+  const res = await fetch('/projects.json');
+  if (!res.ok) throw new Error('no sidecar project root');
+  return res.json();
+}
+
+export async function openProjectPath(path, api, { quiet = false } = {}) {
+  const res = await fetch('/project-doc/' + path.split('/').map(encodeURIComponent).join('/'));
+  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  const project = await res.json();
+  const out = await api.execute('project', { action: 'load', project });
+  try { localStorage.setItem(LAST_PROJECT_KEY, path); } catch {}
+  if (!quiet) toast(`Opened "${out.project}"`);
+  return out;
+}
+
+// Save the live project back to the document it was opened from.
+export async function saveProjectPath(store, api, path = null) {
+  path = path || (() => { try { return localStorage.getItem(LAST_PROJECT_KEY); } catch { return null; } })();
+  if (!path) { toast('No project file open — use Open project… first.'); return; }
+  const project = await api.execute('project', { action: 'get' });
+  const res = await fetch('/project-doc/' + path.split('/').map(encodeURIComponent).join('/'), {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(project),
+  });
+  if (!res.ok) { toast('Save failed: ' + await res.text()); return; }
+  toast(`Saved ${path}`);
+}
+
 export function demoOrBlank(store, which) {
   const ok = window.confirm(
     `Replace "${store.project.name}" with a ${which === 'demo' ? 'demo song' : 'blank project'}? ` +
