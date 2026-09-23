@@ -25,6 +25,27 @@ const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
 const SNAP_PX = 8;
+// The noSnap modifier may be held ON TOP of the range gesture (⇧⌘-drag =
+// unsnapped range) without breaking its exact modifier match. Scoped to range
+// selection only: a general rule leaks (REAPER's noSnap is ⇧, so ⌥⇧ would
+// read as ⌥-stretch).
+const MOD_OF = (e, m) => m === 'Mod' ? (/Mac|iPhone|iPad/.test(navigator.platform || '') ? e.metaKey : e.ctrlKey)
+  : m === 'Alt' ? e.altKey : m === 'Shift' ? e.shiftKey : m === 'Ctrl' ? e.ctrlKey : false;
+function noSnapHeld(e) {
+  const ns = keymap.gestures?.['timeline.noSnap'];
+  return !!ns && ns.split('+').every(m => MOD_OF(e, m));
+}
+function rangeGesture(e) {
+  if (keymap.gesture('timeline.rangeSelect', e)) return true;
+  const ns = keymap.gestures?.['timeline.noSnap'], rs = keymap.gestures?.['timeline.rangeSelect'] ?? '';
+  if (!ns || rs.split('+').some(m => ns.split('+').includes(m)) || !noSnapHeld(e)) return false;
+  const strip = { metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey };
+  for (const m of ns.split('+')) {
+    if (m === 'Mod') { if (/Mac|iPhone|iPad/.test(navigator.platform || '')) strip.metaKey = false; else strip.ctrlKey = false; }
+    else if (m === 'Alt') strip.altKey = false; else if (m === 'Shift') strip.shiftKey = false; else if (m === 'Ctrl') strip.ctrlKey = false;
+  }
+  return keymap.gesture('timeline.rangeSelect', strip);
+}
 const AUTO_H = 44;   // automation sub-lane height
 const PT_R = 4;      // automation point radius
 const LANE_COLORS = { bed: '#7aa2ff', vocal: '#5ce0a8', carl: '#ff8a4c' };
@@ -259,11 +280,14 @@ export class Timeline {
       t.push(p.at, p.at + placedDur(c));
     });
     t.push(this.app.transport.songPos);
-    if (this.range) t.push(this.range.a, this.range.b);
+    // A range being dragged must not snap to its own moving edges (it stuck
+    // to where the cursor was a frame ago); only its fixed anchor counts.
+    if (this.drag?.edge === 'range') t.push(this.drag.anchor);
+    else if (this.range) t.push(this.range.a, this.range.b);
     return t;
   }
   snapTime(sec, { exclude = null, e = null, extraLen = 0 } = {}) {
-    if (!this.snapOn || (e && keymap.gesture('timeline.noSnap', e))) return sec;
+    if (!this.snapOn || (e && (keymap.gesture('timeline.noSnap', e) || (this.drag?.edge === 'range' && noSnapHeld(e))))) return sec;
     const tol = SNAP_PX / this.pxPerSec;
     let best = sec, bestD = tol;
     // Object targets: snap the dragged clip's START or END to them.
@@ -273,12 +297,14 @@ export class Timeline {
         if (d < bestD) { bestD = d; best = cand; }
       }
     }
-    // Grid: beats at bpm (snap value in beats from store.ui.snap), else seconds.
+    // Grid: beats at bpm (snap value in beats from store.ui.snap). A chosen
+    // grid QUANTIZES (every DAW does this: Logic/Ableton/REAPER grid snap is
+    // absolute, not magnetic). Object targets above stay magnetic and win when
+    // they're within SNAP_PX, so clip edges / playhead / range still catch.
     const div = this.store.ui.snap; // beats; 0 = off
-    if (div > 0) {
+    if (div > 0 && bestD >= tol) {
       const beat = 60 / (this.project.bpm || 120) * div;
-      const g = Math.round(sec / beat) * beat;
-      if (Math.abs(g - sec) < bestD) { bestD = Math.abs(g - sec); best = g; }
+      best = Math.round(sec / beat) * beat; bestD = 0;
     }
     this.snapHit = bestD < tol ? best : null;
     return Math.max(0, best);
@@ -562,7 +588,7 @@ export class Timeline {
         const ms = this.markers(), t = this.sec(x);
         const sec = [...ms].reverse().find(k => k.t <= t);
         if (sec) this.app.transport.songPos = sec.t;
-        if (sec && keymap.gesture('timeline.rangeSelect', e)) { // ⇧-click: select the whole section as the range
+        if (sec && rangeGesture(e)) { // ⇧-click: select the whole section as the range
           const nx = ms[ms.indexOf(sec) + 1]?.t ?? this.app.transport.arrangementEnd();
           this.range = { a: sec.t, b: nx }; this.app.bus.emit('range:changed', {});
         }
@@ -590,20 +616,20 @@ export class Timeline {
       const px = this.x(this.app.transport.songPos);
       // Range edges on the ruler are grab handles: drag either to resize --
       // unless the playhead is there, in which case the playhead wins.
-      if (this.range && !keymap.gesture('timeline.rangeSelect', e) && Math.abs(x - px) > EDGE_PX) {
+      if (this.range && !rangeGesture(e) && Math.abs(x - px) > EDGE_PX) {
         const xa = this.x(this.range.a), xb = this.x(this.range.b);
         if (Math.abs(x - xa) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.b }; return; }
         if (Math.abs(x - xb) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.a }; return; }
       }
-      if (keymap.gesture('timeline.rangeSelect', e)) {
+      if (rangeGesture(e)) {
         this.prevRange = this.range; // what a no-drag ⇧-click extends from
         // ⇧-press anchors HERE. If it turns into a drag, the range is
         // press→cursor. If it's released without moving (a ⇧-click), onUp
         // reinterprets it as "extend from the playhead / nearest range edge
         // to here" so click-then-⇧-click works without a drag.
-        const t = Math.max(0, this.sec(x));
+        const raw = Math.max(0, this.sec(x)), t = noSnapHeld(e) ? raw : this.snapTime(raw, { e });
         this.range = { a: t, b: t };
-        this.drag = { edge: 'range', anchor: t, pressT: t, moved: false };
+        this.drag = { edge: 'range', anchor: t, pressT: t, pressX: x, moved: false };
         this.dirty = true;
         return;
       }
@@ -622,7 +648,7 @@ export class Timeline {
     // range is set, and grabbing it must always scrub.
     if (x >= GUTTER_W && y >= RULER_H) {
       const px = this.x(this.app.transport.songPos);
-      if (Math.abs(x - px) <= 4 && !keymap.gesture('timeline.rangeSelect', e)) {
+      if (Math.abs(x - px) <= 4 && !rangeGesture(e)) {
         this.canvas.setPointerCapture(e.pointerId);
         const wasPlaying = this.app.transport.playing;
         if (wasPlaying) this.app.transport.stop();
@@ -838,7 +864,7 @@ export class Timeline {
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
     if (d.edge === 'range') {
       const t = this.snapTime(Math.max(0, this.sec(x)), { e });
-      if (Math.abs(t - d.pressT) > 0.5 / this.pxPerSec) d.moved = true;
+      if (d.pressX != null && Math.abs(x - d.pressX) > 3) d.moved = true;
       this.range = { a: Math.min(d.anchor, t), b: Math.max(d.anchor, t) };
       this.dirty = true;
       return;
@@ -987,6 +1013,7 @@ export class Timeline {
       } else if (this.range && this.range.b - this.range.a < 0.02) this.range = null;
       if (this.range) this.app.transport.songPos = this.range.a;
       this.prevRange = this.range;
+      this.app.bus.emit('range:changed', {});
       this.dirty = true;
       return;
     }

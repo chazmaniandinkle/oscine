@@ -16,6 +16,10 @@ export class LyricsBar {
     this.picker.title = 'Which lane the lyrics bar follows';
     this.picker.addEventListener('change', () => { this.laneFilter = this.picker.value || null; this.store.ui.lyricsLane = this.laneFilter; this.rebuild(); });
     this.strip = el('div', 'lyrics-strip');
+    // No visible scrollbar: a vertical wheel scrolls the strip sideways.
+    this.strip.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { this.strip.scrollLeft += e.deltaY; e.preventDefault(); }
+    }, { passive: false });
     host.append(this.picker, this.strip);
     this.words = [];      // [{s, e, word, lane, el}] in song time, sorted
     this.current = -1;

@@ -79,8 +79,10 @@ html, body {
 .lyricsbar.hidden, .lyricsbar.empty { display: none; }
 .lyrics-strip {
   display: flex; align-items: baseline; gap: 6px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
-  scrollbar-width: thin; scroll-behavior: smooth; font-size: 13px; line-height: 1.4; color: var(--dim);
+  scrollbar-width: none; scroll-behavior: smooth; font-size: 13px; line-height: 1.4; color: var(--dim);
 }
+.lyrics-strip::-webkit-scrollbar { display: none; }
+.lyricsbar { overflow: hidden; }
 .lyr-word { cursor: pointer; padding: 1px 3px; border-radius: 3px; --lyr: var(--accent); }
 .lyr-word:hover { background: var(--bg-2); color: var(--text); }
 .lyr-word.current { color: var(--text); background: color-mix(in srgb, var(--lyr) 28%, transparent); box-shadow: inset 0 -2px 0 var(--lyr); }
