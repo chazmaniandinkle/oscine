@@ -101,12 +101,13 @@ try {
   const list = await rpc('tools/list');
   const tools = list.result?.tools ?? [];
   // Derive the expected tool count from the catalog so it never goes stale:
-  // every command surfaces as a tool, plus the two sidecar-only meta tools
-  // (open_app, sessions) that are not in the catalog.
+  // every command surfaces as a tool, plus the sidecar-only meta tools that
+  // are not in the catalog (named, so adding one is a deliberate test edit).
   const { COMMANDS } = await import(`${ROOT}/src/api/commands.js`);
-  const expectedTools = COMMANDS.length + 2;
-  check(`tools/list exposes open_app + sessions + all ${COMMANDS.length} catalog commands`,
-    tools.length === expectedTools, `got ${tools.length}, expected ${expectedTools}`);
+  const META = ['oscine_open_app', 'oscine_sessions', 'oscine_project_open_file', 'oscine_project_save_file'];
+  const expectedTools = COMMANDS.length + META.length;
+  check(`tools/list exposes ${META.length} sidecar tools + all ${COMMANDS.length} catalog commands`,
+    tools.length === expectedTools && META.every(m => tools.some(t => t.name === m)), `got ${tools.length}, expected ${expectedTools}`);
   check('oscine_sessions meta-tool is present', tools.some(t => t.name === 'oscine_sessions'));
   check('catalog tools carry the optional session targeting arg',
     tools.find(t => t.name === 'oscine_set_notes')?.inputSchema?.properties?.session?.type === 'string');
