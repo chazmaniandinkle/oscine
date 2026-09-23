@@ -90,6 +90,7 @@ export class Store {
   }
 
   afterReplace() {
+    this._gesture = null; // an undo/redo/load mid-drag invalidates the snapshot
     const hasArrangement = !!this.project.arrangement?.placements?.length;
     if (!this.project.tracks.find(t => t.id === this.ui.selectedTrackId)) {
       // A loaded arrangement is the song; don't auto-select a pattern track
@@ -444,11 +445,97 @@ export class Store {
     return out;
   }
 
+  // Run ops = [[name, ...args]] (exports of core/arrangement.js) in order.
+  _runOps(p, ops) {
+    return ops.map(([name, ...args]) => {
+      if (typeof A[name] !== 'function') throw new Error(`No arrangement op '${name}'.`);
+      return A[name](p, ...args);
+    });
+  }
+
+  // Several arrangement ops as ONE undo step (a trim that moves clip.in and
+  // placement.at, a split at both range edges, ...).
+  arrangementBatch(ops, events) { return this.arrangementEdit(p => this._runOps(p, ops), events); }
+
+  // Fold ops into the PREVIOUS undo step (no new checkpoint). For a two-part
+  // edit the user sees as one: add a marker, then type its name.
+  arrangementAmend(ops, events = ['arrangement:changed']) {
+    A.requireArrangement(this.project);
+    this._runOps(deepClone(this.project), ops);
+    const out = this._runOps(this.project, ops);
+    this.redoStack.length = 0;
+    this._emitAll(events);
+    return out;
+  }
+
+  // -- continuous gestures (drag, fader, trim, marker/automation drags) -----
+  // One gesture = one store action = one undo step, and the UI never mutates
+  // the project itself, not even for the live preview:
+  //   gestureBegin()               first real movement: snapshot, no history
+  //   gesturePreview(ops, events)  each move: apply ops to the live project,
+  //                                no history. Ops carry ABSOLUTE values (at,
+  //                                in, t, gainDb), so re-applying is idempotent
+  //                                and object identity is kept mid-drag.
+  //   gestureCommit(ops, events)   pointerup: restore the snapshot, then apply
+  //                                the FULL op list (relative to the
+  //                                pre-gesture state) as ONE undo step
+  //   gestureCancel(events)        abandon: restore the snapshot, no history
+  // Ops are [[name, ...args]] naming exports of core/arrangement.js. A commit
+  // with no ops (a click that never moved) restores and adds no history.
+  // Only arrangement, clips and assets are restored; arrangement ops touch
+  // nothing else. See docs/ui-store-actions.md.
+  gestureBegin() {
+    if (this._gesture) return;
+    A.requireArrangement(this.project);
+    this._gesture = JSON.stringify(this.project);
+  }
+  get inGesture() { return !!this._gesture; }
+  _gestureRestore(snap) {
+    const o = JSON.parse(snap);
+    for (const k of ['arrangement', 'clips', 'assets']) {
+      if (k in o) this.project[k] = o[k]; else delete this.project[k];
+    }
+  }
+  _emitAll(events) {
+    for (const ev of events) this.emit(ev, ev === 'loop:changed' ? { ...(this.project.arrangement?.loop ?? {}) } : {});
+  }
+  gesturePreview(ops, events = []) {
+    if (!this._gesture) this.gestureBegin();
+    const out = this._runOps(this.project, ops);
+    this._emitAll(events);
+    return out;
+  }
+  gestureCommit(ops, events = ['arrangement:changed']) {
+    const snap = this._gesture;
+    if (!snap) return ops.length ? this.arrangementBatch(ops, events) : [];
+    this._gesture = null;
+    this._gestureRestore(snap);
+    if (!ops.length) { this._emitAll(events); return []; }
+    this._runOps(deepClone(this.project), ops); // throws before touching history
+    this.undoStack.push(snap);
+    if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift();
+    this.redoStack.length = 0;
+    const out = this._runOps(this.project, ops);
+    this._emitAll(events);
+    return out;
+  }
+  gestureCancel(events = []) {
+    const snap = this._gesture;
+    if (!snap) return false;
+    this._gesture = null;
+    this._gestureRestore(snap);
+    this._emitAll(events);
+    return true;
+  }
+
   clipSet(ref, fields) { return this.arrangementEdit(p => A.clipSet(p, ref, fields)); }
   clipSplit(index, t) { return this.arrangementEdit(p => A.splitPlacement(p, index, t)); }
   clipDuplicate(index, opts) { return this.arrangementEdit(p => A.duplicatePlacement(p, index, opts)); }
   clipMove(index, opts) { return this.arrangementEdit(p => A.movePlacement(p, index, opts)); }
   clipRemove(index) { return this.arrangementEdit(p => A.removePlacement(p, index)); }
+  clipCopy(index) { return this.arrangementEdit(p => A.copyPlacement(p, index)); }
+  clipSplitMany(indices, times) { return this.arrangementEdit(p => A.splitPlacements(p, indices, times)); }
+  clipCutRange(indices, a, b) { return this.arrangementEdit(p => A.cutPlacements(p, indices, a, b)); }
   clipPlace(opts) { return this.arrangementEdit(p => A.placeClip(p, opts)); }
 
   laneAdd(opts) { return this.arrangementEdit(p => A.addLane(p, opts), ['lanes:changed', 'arrangement:changed']); }
@@ -475,6 +562,7 @@ export class Store {
 
   automationSetPoints(target, points) { return this.arrangementEdit(p => A.setAutomationPoints(p, target, points)); }
   automationAddPoint(target, pt) { return this.arrangementEdit(p => A.addAutomationPoint(p, target, pt)); }
+  automationMovePoint(target, index, pt) { return this.arrangementEdit(p => A.moveAutomationPoint(p, target, index, pt)); }
   automationRemovePoint(target, which) { return this.arrangementEdit(p => A.removeAutomationPoint(p, target, which)); }
   automationClear(target) { return this.arrangementEdit(p => A.clearAutomation(p, target)); }
 

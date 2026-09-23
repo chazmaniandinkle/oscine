@@ -284,6 +284,97 @@ console.log('\n[10] errors leave history clean');
   check('failed edits add no undo entries and change nothing', store.undoStack.length === depth && snap() === before);
 }
 
+console.log('\n[11] UI store actions (no catalog command): one undo step each');
+{
+  // Direct store calls, same one-undo-step contract as the catalog commands.
+  async function act(label, fn) {
+    const before = snap(), depth = store.undoStack.length;
+    const out = fn();
+    const after = snap();
+    check(`${label}: one undo step`, store.undoStack.length === depth + 1, `depth ${depth} -> ${store.undoStack.length}`);
+    store.undo(); check(`${label}: undo restores`, snap() === before);
+    store.redo(); check(`${label}: redo re-applies`, snap() === after);
+    return out;
+  }
+  store.load(fixture());
+  const cp = await act('clipCopy', () => store.clipCopy(1));
+  check('copy appended with <clip>_copy id', cp.clip === 'v2_copy' && arr().placements.length === 4 && arr().placements[3].at === 10 && store.project.clips.v2_copy.name === 'Chorus vox (copy)');
+  const cp2 = store.clipCopy(1);
+  check('second copy gets _copy2', cp2.clip === 'v2_copy2');
+
+  store.load(fixture());
+  const sm = await act('clipSplitMany', () => store.clipSplitMany([0, 2], [6, 2]));
+  check('split both clips at both times', sm.splits === 4 && arr().placements.length === 7);
+  const vocal = arr().placements.filter(p => p.track === 'vocal').map(p => p.at).sort((a, b) => a - b);
+  check('vocal cut at 2 and 6', JSON.stringify(vocal) === '[0,2,6,10]', JSON.stringify(vocal));
+  check('times outside a clip are skipped', store.clipSplitMany([1], [2]).splits === 0);
+
+  store.load(fixture());
+  const cr = await act('clipCutRange', () => store.clipCutRange([2], 4, 6));
+  check('cut only the selected placement', cr.placementsTouched === 1 && arr().placements.length === 4 && arr().placements.filter(p => p.track === 'vocal').length === 2);
+
+  store.load(fixture());
+  const mv = await act('automationMovePoint', () => store.automationMovePoint('lane:vocal:gainDb', 1, { t: 7, v: -9 }));
+  check('point moved', mv.point.t === 7 && mv.point.v === -9);
+  const pts = () => arr().automation[0].points;
+  store.automationMovePoint('lane:vocal:gainDb', 1, { t: 50 });
+  check('move clamps between neighbours', pts()[1].t < 12 && pts()[1].t > 11.9);
+  store.automationMovePoint('lane:vocal:gainDb', 0, { shape: 'hold' });
+  check('shape-only change keeps t/v', pts()[0].shape === 'hold' && pts()[0].t === 2);
+  check('bad index throws', await throws(() => store.automationMovePoint('lane:vocal:gainDb', 9, { t: 1 }), /No point 9/));
+
+  store.load(fixture());
+  store.clipSet('v1', { gainDb: 3, semitones: 2 });
+  store.clipSet('v1', { gainDb: null, semitones: null });
+  check('clipSet null clears gainDb/semitones', !('gainDb' in store.project.clips.v1) && !('semitones' in store.project.clips.v1));
+
+  const bt = await act('arrangementBatch', () => store.arrangementBatch([['clipSet', 'v2', { in: 11 }], ['movePlacement', 1, { at: 11 }]]));
+  check('batch applies every op', store.project.clips.v2.in === 11 && arr().placements[1].at === 11 && bt.length === 2);
+
+  // Gesture: many previews, one commit = one undo step back to the pre-drag state.
+  store.load(fixture());
+  const before = snap(), depth = store.undoStack.length;
+  store.gestureBegin();
+  for (const at of [1, 2, 3, 4.5]) store.gesturePreview([['movePlacement', 0, { at }]]);
+  check('preview mutates live without history', arr().placements[0].at === 4.5 && store.undoStack.length === depth);
+  store.gestureCommit([['movePlacement', 0, { at: 5 }]]);
+  const after = snap();
+  check('gesture commit = one undo step', store.undoStack.length === depth + 1 && arr().placements[0].at === 5);
+  store.undo(); check('gesture undo restores pre-drag', snap() === before);
+  store.redo(); check('gesture redo re-applies', snap() === after);
+
+  // Duplicate-drag: copy + moves replayed from the snapshot, never two copies.
+  store.load(fixture());
+  const d0 = store.undoStack.length;
+  store.gestureBegin();
+  const { index } = store.gesturePreview([['copyPlacement', 1]])[0];
+  store.gesturePreview([['movePlacement', index, { at: 15 }]]);
+  store.gestureCommit([['copyPlacement', 1], ['movePlacement', index, { at: 16 }]]);
+  check('dup-drag: one copy, one undo step', arr().placements.length === 4 && arr().placements[3].at === 16 && Object.keys(store.project.clips).filter(k => k.startsWith('v2_copy')).length === 1 && store.undoStack.length === d0 + 1);
+
+  // Cancel and no-op commit leave no history.
+  store.load(fixture());
+  const b2 = snap();
+  store.gestureBegin(); store.gesturePreview([['moveMarker', 'm2', 11]]); store.gestureCancel();
+  check('cancel restores, no history', snap() === b2 && store.undoStack.length === 0);
+  store.gestureBegin(); store.gestureCommit([]);
+  check('empty commit (a click) adds no history', snap() === b2 && store.undoStack.length === 0);
+  store.gestureBegin(); store.gesturePreview([['setLane', 'vocal', { gainDb: -6 }]]);
+  check('bad commit throws and restores', await throws(() => store.gestureCommit([['setLane', 'nope', { gainDb: 1 }]]), /No lane/) && snap() === b2 && store.undoStack.length === 0);
+  store.markerAdd(3);
+  store.gestureBegin(); store.gesturePreview([['setLane', 'vocal', { gainDb: -6 }]]);
+  store.undo();
+  check('undo mid-gesture drops the gesture', !store.inGesture);
+
+  // Amend folds into the previous step (marker add + rename = one undo).
+  store.load(fixture());
+  const b3 = snap();
+  const { marker } = store.markerAdd(4);
+  store.arrangementAmend([['renameMarker', marker.id, 'Bridge']]);
+  check('amend: add+rename is one step', store.undoStack.length === 1 && arr().markers.find(m => m.id === marker.id).name === 'Bridge');
+  store.undo(); check('amend: one undo removes both', snap() === b3);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.log(`${failed} check(s) FAILED`); process.exit(1); }
 console.log('All arrangement tests passed.');

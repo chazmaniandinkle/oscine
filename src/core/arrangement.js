@@ -13,7 +13,7 @@
 // straight through to the agent.
 
 import { createClip, createInsert } from './schema.js';
-import { parseTarget, rangeOf, findEnvelope, ensureEnvelope, addPoint } from '../engine/automation.js';
+import { parseTarget, rangeOf, findEnvelope, ensureEnvelope, addPoint, movePoint } from '../engine/automation.js';
 import { getEffectDef, listEffectDefs } from '../engine/effects/index.js';
 
 const r3 = x => Math.round(x * 1000) / 1000;
@@ -123,6 +123,9 @@ export function summary(p) {
 // -- clips / placements ------------------------------------------------------
 
 const CLIP_FIELDS = ['in', 'out', 'gainDb', 'fadeIn', 'fadeOut', 'stretch', 'semitones', 'name'];
+// Fields that `null` removes (back to the default: unity stretch, no pitch
+// shift, 0 dB), as the timeline does when a nudge or stretch lands on neutral.
+const CLEARABLE = new Set(['gainDb', 'stretch', 'semitones']);
 
 export function clipSet(p, ref, fields) {
   const c = resolveClip(p, ref);
@@ -137,6 +140,7 @@ export function clipSet(p, ref, fields) {
   for (const k of CLIP_FIELDS) {
     if (f[k] === undefined) continue;
     let v = f[k];
+    if (v === null && CLEARABLE.has(k)) { delete c[k]; changed[k] = null; continue; }
     if (k === 'name') v = String(v);
     else if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`'${k}' must be a number.`);
     if (k === 'fadeIn' || k === 'fadeOut') v = Math.max(0, Math.min(v, nOut - nIn));
@@ -189,6 +193,39 @@ export function movePlacement(p, index, { at, lane } = {}) {
   if (at !== undefined) pl.at = Math.max(0, at);
   if (lane !== undefined) pl.track = resolveLane(p, lane).id;
   return { from, to: placementSummary(p, pl, i) };
+}
+
+// The timeline's ⌥-drag copy: a `<clip>_copy` clip (deterministic id, so a
+// gesture can be replayed) placed at the same spot and APPENDED to the
+// placements (drawn on top). The drag then moves the copy.
+export function copyPlacement(p, index) {
+  const { arr, pl, clip } = placementAt(p, index);
+  let n = 2, id = `${clip.id}_copy`; while (p.clips[id]) id = `${clip.id}_copy${n++}`;
+  p.clips[id] = { ...structuredClone(clip), id, name: clip.name ? `${clip.name} (copy)` : undefined };
+  const np = { ...pl, clip: id };
+  arr.placements.push(np);
+  return { index: arr.placements.length - 1, clip: id, placement: placementSummary(p, np, arr.placements.length - 1) };
+}
+
+// Split several placements at several times in one edit, skipping any time
+// that isn't strictly inside a placement (the timeline's S with a range:
+// cut at both range edges). Tracks placements by identity, so the insertions
+// from earlier splits don't shift later ones onto the wrong clip.
+export function splitPlacements(p, indices, times) {
+  const arr = requireArrangement(p);
+  const targets = indices.map(i => arr.placements[i]).filter(Boolean);
+  let splits = 0;
+  for (const t of times) {
+    for (const pl of [...targets]) {
+      const i = arr.placements.indexOf(pl), c = p.clips[pl.clip];
+      if (i < 0 || !c) continue;
+      if (t <= pl.at + 0.02 || t >= pl.at + placedDur(c) - 0.02) continue;
+      splitPlacement(p, i, t);
+      targets.push(arr.placements[i + 1]); // the right half can be cut again at a later time
+      splits++;
+    }
+  }
+  return { splits, placements: arr.placements.length };
 }
 
 export function removePlacement(p, index) {
@@ -247,6 +284,15 @@ function checkRange(a, b) {
   if (typeof a !== 'number' || typeof b !== 'number' || !(b - a >= 0.01) || a < 0) {
     throw new Error(`Bad range a=${a}, b=${b}: need 0 <= a < b (song seconds).`);
   }
+}
+
+// Cut [a,b] out of the given placement indices only (the timeline's ⌫ with
+// a range and a clip selection), leaving a gap.
+export function cutPlacements(p, indices, a, b) {
+  const arr = requireArrangement(p);
+  checkRange(a, b);
+  const touched = cutIndices(p, arr, indices.filter(i => arr.placements[i]), a, b);
+  return { a, b, placementsTouched: touched, placements: arr.placements.length };
 }
 
 export function cutRange(p, a, b, lanes) {
@@ -536,7 +582,20 @@ export function addAutomationPoint(p, target, { t, v, shape }) {
   const { target: tg } = normalizeTarget(p, target);
   const e = ensureEnvelope(arr, tg);
   const pt = addPoint(e, t, v, p, shape ?? 'linear');
-  return { target: tg, point: { t: r3(pt.t), v: r3(pt.v), shape: pt.shape }, points: e.points.length };
+  return { target: tg, index: e.points.indexOf(pt), point: { t: r3(pt.t), v: r3(pt.v), shape: pt.shape }, points: e.points.length };
+}
+
+// Move point `index` (and/or change its shape). t stays between its
+// neighbours and v clamps to the target's range, as when dragging it.
+export function moveAutomationPoint(p, target, index, { t, v, shape } = {}) {
+  const arr = requireArrangement(p);
+  const { target: tg } = normalizeTarget(p, target);
+  const e = findEnvelope(arr, tg);
+  const cur = e?.points?.[index];
+  if (!cur) throw new Error(`No point ${index} on '${tg}' (it has ${e?.points?.length ?? 0}).`);
+  movePoint(e, index, t ?? cur.t, v ?? cur.v, p, shape);
+  const pt = e.points[index];
+  return { target: tg, index, point: { t: r3(pt.t), v: r3(pt.v), shape: pt.shape } };
 }
 
 export function removeAutomationPoint(p, target, { index, t }) {
