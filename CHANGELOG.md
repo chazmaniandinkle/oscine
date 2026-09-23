@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.2.0 · 2026-09-23 · "Same hands"
+
+Claude can now edit an arrangement, not just open one, and automation reaches every parameter the engine supports.
+
+### Arrangement in the catalog
+- Nine commands (so nine MCP tools): `arrangement` (get), `clip` (get/set/split/duplicate/move/remove/place), `lane` (add/remove/rename/set/reorder), `marker` (list/add/move/rename/remove), `cycle` (get/set/clear), `range` (cut/ripple_delete), `insert` (list/add/set/remove/move), `automation` (list/set_points/add_point/remove_point/clear), `words` (get/set).
+- The edits live in `src/core/arrangement.js` behind store actions: each is one undo step and emits the same events the UI does, so the open app updates live. A bad input throws before touching history.
+- `test/arrangement.mjs`: 192 checks, every action, undo/redo, events, ripple math, error paths.
+- Verified through the real MCP path on *Borrowed Light*: markers, lane gain, an EQ insert with a hold envelope on its high band (in the live chain during playback), cycle over the bridge, a lyrics query, a clip split; ten edits undone back to the start; 0 page errors.
+
+### Automation UI
+- The **A** button opens a picker: Gain, Pan, and every numeric param of every insert on the lane. Each opens its own sub-lane with its own axis (dB, −1..1, or the param's range; log for frequencies). × closes one; an amber dot on A means hidden envelopes.
+- Right-click a point: Linear / Hold / Exponential. Exponential is disabled where Web Audio can't do it (anything that reaches zero). Hold draws a step, exponential a curve.
+- Measured: an EQ low-gain hold envelope (−18 dB then +18 dB) moved the band below 150 Hz by −11.1 / +11.9 dB in the render; above 2 kHz stayed within 0.9 dB.
+
+### Also
+- Marker names are edited inline on the strip (Enter, Esc, or click away), no browser prompt.
+- Fixed (found in review): pitch analysis 40× faster via an FFT NSDF, so all sources are profiled about 28 s after load (it never finished before); mixer strips show their names, fit the panel, and master is a proper strip; gutter names get the full width; CI's end-to-end job is green again.
+
+### Still open
+- The timeline, mixer and inspectors still mutate the project themselves rather than calling the new store actions. That rewiring is next.
+- Master-gain and clip envelopes have no drawing UI (the `automation` command writes them).
+
 ## 2.1.0 · 2026-09-23 · "Morning after"
 
 Everything from the first morning of real use, plus the top five gaps from the cross-DAW research (`cog://mem/semantic/research/daw/`). Every item verified headless against *Borrowed Light*; numbers in the commit messages.
