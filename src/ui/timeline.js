@@ -279,6 +279,11 @@ export class Timeline {
       this.selectLane(lane.id);
       return;
     }
+    // Below the last lane in the gutter: "+ lane".
+    if (x < GUTTER_W && y >= this.laneY(this.lanes().length) && y <= this.laneY(this.lanes().length) + 28) {
+      this.app.assetBin?.newLane();
+      return;
+    }
     const h = this.hit(x, y);
     if (!h) {
       if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
@@ -423,6 +428,12 @@ export class Timeline {
       // dim the whole lane's clip area when inaudible
       if (!audible) { g.fillStyle = 'rgba(11,13,18,0.55)'; g.fillRect(GUTTER_W, y, w - GUTTER_W, LANE_H - 1); }
     });
+    // "+ lane" affordance under the last lane
+    {
+      const y = this.laneY(lanes.length);
+      g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y, GUTTER_W, 28);
+      g.fillStyle = faint; g.font = '11px system-ui, sans-serif'; g.fillText('+ lane', 10, y + 14);
+    }
 
     // clips
     if (arr) {

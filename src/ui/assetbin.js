@@ -7,7 +7,7 @@
 // copies audio -- a placement is {track, clip, at} and a clip is a
 // reference into the asset by sha256.
 
-import { el, Btn, openMenu, toast } from './widgets.js';
+import { el, openMenu, toast } from './widgets.js';
 
 const fmtTime = v => { const m = Math.floor(v / 60), s = Math.floor(v % 60); return `${m}:${String(s).padStart(2, '0')}`; };
 const uid = () => Math.random().toString(36).slice(2, 8);
@@ -82,41 +82,6 @@ export class AssetBin {
       list.appendChild(row);
     }
     host.appendChild(list);
-
-    // -- lanes ---------------------------------------------------------------
-    const lhead = el('div', 'panel-head');
-    lhead.appendChild(el('div', 'panel-title', 'Lanes'));
-    const addLane = Btn('+ lane', () => this.newLane(), 'accent');
-    lhead.appendChild(addLane);
-    host.appendChild(lhead);
-    const lanes = el('div', 'track-rows');
-    const tl = this.app.timeline;
-    for (const lane of tl.lanes()) {
-      const row = el('div', 'track-row');
-      row.classList.toggle('selected', lane.id === tl.selectedLane);
-      const led = el('div', 'led'); led.style.background = tl.laneColor(lane); row.appendChild(led);
-      const mid = el('div', 'track-mid');
-      mid.appendChild(el('div', 'track-name', lane.name || lane.id));
-      const n = arr.placements.filter(p => p.track === lane.id).length;
-      mid.appendChild(el('div', 'track-sub', `${n} clip${n === 1 ? '' : 's'}${lane.mute ? ' · muted' : ''}${lane.solo ? ' · solo' : ''}`));
-      row.appendChild(mid);
-      const del = el('button', 'btn mini del', '✕'); del.title = 'Remove lane (and its placements)';
-      del.addEventListener('click', e => {
-        e.stopPropagation();
-        if (!del.classList.contains('confirm')) { del.classList.add('confirm'); del.textContent = '?'; setTimeout(() => { del.classList.remove('confirm'); del.textContent = '✕'; }, 1600); return; }
-        this.store.checkpoint();
-        arr.placements = arr.placements.filter(p => p.track !== lane.id);
-        if (arr.lanes) arr.lanes = arr.lanes.filter(l => l.id !== lane.id);
-        if (tl.selectedLane === lane.id) tl.selectedLane = null;
-        tl.selected = null;
-        this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('lanes:changed', {}); this.app.bus.emit('lane:selected', { id: null });
-        tl.dirty = true;
-      });
-      row.appendChild(del);
-      row.addEventListener('click', () => tl.selectLane(lane.id));
-      lanes.appendChild(row);
-    }
-    host.appendChild(lanes);
   }
 
   // -- placing ---------------------------------------------------------------
@@ -128,6 +93,17 @@ export class AssetBin {
       ...tl.lanes().map(l => ({ label: `on ${l.name || l.id} at ${fmtTime(at)}`, onPick: () => this.place(asset, l.id, at) })),
       { label: 'on a new lane', onPick: () => this.place(asset, this.newLane(asset.name || asset.id.replace(/^ast_/, ''), { quiet: true }), 0) },
     ]);
+  }
+
+  removeLane(id) {
+    const arr = this.arrangement, tl = this.app.timeline;
+    this.store.checkpoint();
+    arr.placements = arr.placements.filter(p => p.track !== id);
+    if (arr.lanes) arr.lanes = arr.lanes.filter(l => l.id !== id);
+    if (tl.selectedLane === id) tl.selectedLane = null;
+    tl.selected = null;
+    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('lanes:changed', {}); this.app.bus.emit('lane:selected', { id: null });
+    tl.dirty = true;
   }
 
   newLane(name = null, { quiet = false } = {}) {

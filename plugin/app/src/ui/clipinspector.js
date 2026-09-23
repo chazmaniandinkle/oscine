@@ -104,6 +104,13 @@ export class LaneInspector {
     if (!placements.length) list.appendChild(el('div', 'clip-hint', 'Nothing on this lane.'));
     g3.appendChild(list); host.appendChild(g3);
 
+    const danger = el('div', 'clip-actions');
+    const rm = Btn(`Remove lane${placements.length ? ` (${placements.length} clip${placements.length === 1 ? '' : 's'})` : ''}`, () => {
+      if (!rm.classList.contains('confirm')) { rm.classList.add('confirm'); rm.textContent = 'Really remove?'; setTimeout(() => { rm.classList.remove('confirm'); this.render(); }, 2000); return; }
+      this.app.assetBin.removeLane(lane.id);
+    }, 'danger');
+    danger.appendChild(rm); host.appendChild(danger);
+
     host.appendChild(el('div', 'clip-hint', 'Rename in the header · drag gain · click a clip to edit it'));
     return true;
   }
