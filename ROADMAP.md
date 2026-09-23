@@ -60,8 +60,7 @@ Arrangement side:
    `ui-store-actions` branch: the timeline, mixer, inspectors, source bin and
    app shortcuts now edit only through store actions, and every drag ends in
    one undo step (`docs/ui-store-actions.md` has the pattern). Left to do: OSC
-   addresses for the new commands, and the "+ lane" row in the timeline gutter,
-   which doesn't respond to clicks (on `main` too).
+   addresses for the new commands.
 2. **Automation UI for the new targets.** A parameter picker on the A button
    (lane gain and pan, each insert's params), one sub-lane per open
    parameter, a shape menu on points, and clip envelopes drawn on the clip.

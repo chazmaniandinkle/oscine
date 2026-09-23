@@ -171,11 +171,9 @@ console.log('\n[5c] clip inspector: gain NumberDrag (up 40 px) and rename');
 
 console.log('\n[5d] source bin + lanes + cycle');
 {
-  // NOTE: the gutter "+ lane" row is unreachable on main too (onDown's gutter
-  // branch returns on !lane before the "+ lane" check), so drive newLane(),
-  // the handler that row would call.
-  await proves('+ lane (assetBin.newLane)', async () => {
-    await ev(() => window.oscine.app.assetBin.newLane());
+  await proves('+ lane (click the gutter row)', async () => {
+    const pt = await ev(() => { const tl = window.oscine.app.timeline; const r = tl.canvas.getBoundingClientRect(); return { x: r.left + 30, y: r.top + tl.laneY(tl.lanes().length) + 12 }; });
+    await page.mouse.click(pt.x, pt.y);
     await page.waitForTimeout(100);
   }, (b, a) => (a[0].lanes.length === b[0].lanes.length + 1) || `lanes ${b[0].lanes.length} -> ${a[0].lanes.length}`);
   await proves('drag source to lane', async () => {

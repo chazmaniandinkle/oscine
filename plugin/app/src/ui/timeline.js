@@ -626,6 +626,12 @@ export class Timeline {
         if (Math.abs(x - xb) <= 4) { this.canvas.setPointerCapture(e.pointerId); this.drag = { edge: 'range', anchor: this.range.a }; return; }
       }
     }
+    // Checked before the lane gutter, which returns early when no lane is hit.
+    // Below the last lane in the gutter: "+ lane".
+    if (x < GUTTER_W && y >= this.laneY(this.lanes().length) && y <= this.laneY(this.lanes().length) + 28) {
+      this.app.assetBin?.newLane();
+      return;
+    }
     // Gutter: M / S buttons, the gain readout (vertical drag), or the lane
     // name (select the lane -> inspector shows its properties).
     if (x < GUTTER_W && y >= RULER_H) {
@@ -660,11 +666,6 @@ export class Timeline {
       // (The dB bar below is the gain drag; the two zones don't overlap.)
       this.canvas.setPointerCapture(e.pointerId);
       this.drag = { edge: 'reorder', laneId: lane.id, from: li, startY: y, to: li, armed: false };
-      return;
-    }
-    // Below the last lane in the gutter: "+ lane".
-    if (x < GUTTER_W && y >= this.laneY(this.lanes().length) && y <= this.laneY(this.lanes().length) + 28) {
-      this.app.assetBin?.newLane();
       return;
     }
     // Automation sub-lane: click adds a point (snapped), drag moves one,
