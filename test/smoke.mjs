@@ -308,10 +308,10 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Catalog sanity.
   const names = COMMANDS.map(c => c.name);
   check('catalog names are unique', new Set(names).size === names.length);
-  // Count guard: the always-on performance 'ledger' command (read/clear) is the
-  // newest catalog addition, taking the count from 20 to 21. The e2e tool-count
-  // check is derived from COMMANDS.length, so it tracks this automatically.
-  check('catalog command count is 21', COMMANDS.length === 21, `got ${COMMANDS.length}`);
+  // Count guard: the arrangement nouns (arrangement, clip, lane, marker, cycle,
+  // range, insert, automation, words) took the count from 21 to 30. The e2e
+  // tool-count check is derived from COMMANDS.length, so it tracks this.
+  check('catalog command count is 30', COMMANDS.length === 30, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -445,6 +445,29 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   check('project new + named', fresh.project === 'API Song' && store.project.tracks.length === 0);
   await api.execute('project', { action: 'undo' });
   check('project new is undoable', store.project.tracks.length > 0);
+
+  // Arrangement commands on a pattern project: each one answers with a clear
+  // 'no arrangement' error and leaves history untouched. The full behaviour is
+  // covered against a v2 project in test/arrangement.mjs.
+  const arrCalls = [
+    ['arrangement', { action: 'get' }],
+    ['clip', { action: 'get', index: 0 }],
+    ['lane', { action: 'add', name: 'Vox' }],
+    ['marker', { action: 'list' }],
+    ['cycle', { action: 'get' }],
+    ['range', { action: 'ripple_delete', a: 1, b: 2 }],
+    ['insert', { action: 'list' }],
+    ['automation', { action: 'list' }],
+    ['words', { action: 'get', asset: 'nope' }],
+  ];
+  const undoDepth = store.undoStack.length;
+  for (const [name, args] of arrCalls) {
+    let err = null;
+    try { await api.execute(name, args); } catch (e) { err = e.message; }
+    const want = name === 'words' ? /No asset/ : /no arrangement/;
+    check(`${name} on a pattern project errors clearly`, want.test(err ?? ''), err ?? 'did not throw');
+  }
+  check('arrangement errors leave no undo entries', store.undoStack.length === undoDepth);
 }
 
 // ---------------------------------------------------------------------------

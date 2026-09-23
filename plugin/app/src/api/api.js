@@ -12,6 +12,7 @@ import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/in
 import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
 import { encodeWav } from '../core/wav.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
+import * as Arr from '../core/arrangement.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {
@@ -789,5 +790,159 @@ export class CommandAPI {
     return out
       .map(({ _onT, ...rest }) => rest)
       .sort((a, b) => a.startSec - b.startSec);
+  }
+
+  // -- arrangement (v2) -------------------------------------------------------
+  // Thin dispatch: the store actions (store.js) own checkpoint + bus events;
+  // the pure edits live in core/arrangement.js.
+
+  badAction(name, action, allowed) {
+    return new Error(`Bad action '${action}' for ${name}. Use one of: ${allowed.join(', ')}.`);
+  }
+
+  cmd_arrangement({ action = 'get' } = {}) {
+    if (action !== 'get') throw this.badAction('arrangement', action, ['get']);
+    return Arr.summary(this.store.project);
+  }
+
+  cmd_clip(args) {
+    const { store } = this, p = store.project;
+    const { action, index, clip, asset, lane, at, t } = args;
+    const needIndex = () => { if (index === undefined) throw new Error(`clip '${action}' needs 'index' (placement index from arrangement get).`); };
+    switch (action) {
+      case 'get': {
+        Arr.requireArrangement(p);
+        if (clip == null && index === undefined) throw new Error("clip 'get' needs 'clip' (id/name) or 'index'.");
+        const ref = clip ?? p.arrangement.placements[index]?.clip;
+        if (ref == null) throw new Error(`No placement at index ${index}.`);
+        const c = Arr.resolveClip(p, ref);
+        const placements = p.arrangement.placements.map((pl, i) => pl.clip === c.id ? Arr.placementSummary(p, pl, i) : null).filter(Boolean);
+        return { clip: Arr.clipSummary(c), placements };
+      }
+      case 'set': {
+        const ref = clip ?? (index !== undefined ? Arr.requireArrangement(p).placements[index]?.clip : undefined);
+        if (ref == null) throw new Error("clip 'set' needs 'clip' (id/name) or a valid placement 'index'.");
+        const fields = {};
+        for (const k of ['in', 'out', 'gainDb', 'fadeIn', 'fadeOut', 'stretch', 'pitch', 'name']) if (args[k] !== undefined) fields[k] = args[k];
+        return { ok: true, ...store.clipSet(ref, fields) };
+      }
+      case 'split':
+        needIndex();
+        if (typeof t !== 'number') throw new Error("clip 'split' needs 't' (song seconds inside the placement).");
+        return { ok: true, ...store.clipSplit(index, t) };
+      case 'duplicate': needIndex(); return { ok: true, ...store.clipDuplicate(index, { at, lane }) };
+      case 'move': needIndex(); return { ok: true, ...store.clipMove(index, { at, lane }) };
+      case 'remove': needIndex(); return { ok: true, ...store.clipRemove(index) };
+      case 'place':
+        if (lane == null) throw new Error("clip 'place' needs 'lane'.");
+        return { ok: true, ...store.clipPlace({ clip, asset, lane, at }) };
+      default: throw this.badAction('clip', action, ['get', 'set', 'split', 'duplicate', 'move', 'remove', 'place']);
+    }
+  }
+
+  cmd_lane(args) {
+    const { store } = this;
+    const { action, lane, name, index } = args;
+    const needLane = () => { if (lane == null) throw new Error(`lane '${action}' needs 'lane' (id or name).`); };
+    switch (action) {
+      case 'add': return { ok: true, ...store.laneAdd({ name, color: args.color }) };
+      case 'remove': needLane(); return { ok: true, ...store.laneRemove(lane) };
+      case 'rename': needLane(); return { ok: true, ...store.laneRename(lane, name) };
+      case 'set': {
+        needLane();
+        const fields = {};
+        for (const k of ['gainDb', 'pan', 'mute', 'solo', 'color']) if (args[k] !== undefined) fields[k] = args[k];
+        return { ok: true, ...store.laneSet(lane, fields) };
+      }
+      case 'reorder':
+        needLane();
+        if (!Number.isInteger(index)) throw new Error("lane 'reorder' needs integer 'index' (0 = top).");
+        return { ok: true, ...store.laneReorder(lane, index) };
+      default: throw this.badAction('lane', action, ['add', 'remove', 'rename', 'set', 'reorder']);
+    }
+  }
+
+  cmd_marker({ action, marker, t, name }) {
+    const { store } = this;
+    const needMarker = () => { if (marker == null) throw new Error(`marker '${action}' needs 'marker' (id or name).`); };
+    switch (action) {
+      case 'list': return Arr.listMarkers(store.project);
+      case 'add': return { ok: true, ...store.markerAdd(t, name) };
+      case 'move': needMarker(); return { ok: true, ...store.markerMove(marker, t) };
+      case 'rename': needMarker(); return { ok: true, ...store.markerRename(marker, name) };
+      case 'remove': needMarker(); return { ok: true, ...store.markerRemove(marker) };
+      default: throw this.badAction('marker', action, ['list', 'add', 'move', 'rename', 'remove']);
+    }
+  }
+
+  cmd_cycle({ action, a, b, on }) {
+    const { store } = this;
+    switch (action) {
+      case 'get': return Arr.getCycle(store.project);
+      case 'set': {
+        const out = store.cycleSet({ a, b, on });
+        this.transport?.armLoop?.();
+        return { ok: true, ...out };
+      }
+      case 'clear': {
+        const out = store.cycleClear();
+        this.transport?.armLoop?.();
+        return { ok: true, ...out };
+      }
+      default: throw this.badAction('cycle', action, ['get', 'set', 'clear']);
+    }
+  }
+
+  cmd_range({ action, a, b, lanes }) {
+    const { store } = this;
+    switch (action) {
+      case 'cut': return { ok: true, ...store.rangeCut(a, b, lanes) };
+      case 'ripple_delete': {
+        const out = store.rangeRippleDelete(a, b);
+        this.transport?.armLoop?.();
+        return { ok: true, ...out };
+      }
+      default: throw this.badAction('range', action, ['cut', 'ripple_delete']);
+    }
+  }
+
+  cmd_insert({ action, lane, type, params, index, to, bypass }) {
+    const { store } = this;
+    const needIndex = () => { if (!Number.isInteger(index)) throw new Error(`insert '${action}' needs integer 'index' (see insert list).`); };
+    switch (action) {
+      case 'list': return Arr.listInserts(deepClone(store.project), lane);
+      case 'add': return { ok: true, ...store.insertAdd(lane, type, params) };
+      case 'set': needIndex(); return { ok: true, ...store.insertSet(lane, index, { params, bypass }) };
+      case 'remove': needIndex(); return { ok: true, ...store.insertRemove(lane, index) };
+      case 'move':
+        needIndex();
+        if (!Number.isInteger(to)) throw new Error("insert 'move' needs integer 'to'.");
+        return { ok: true, ...store.insertMove(lane, index, to) };
+      default: throw this.badAction('insert', action, ['list', 'add', 'set', 'remove', 'move']);
+    }
+  }
+
+  cmd_automation({ action, target, points, t, v, shape, index }) {
+    const { store } = this;
+    const needTarget = () => { if (!target) throw new Error(`automation '${action}' needs 'target', e.g. 'lane:Vocal:gainDb'.`); };
+    switch (action) {
+      case 'list': return Arr.listAutomation(deepClone(store.project), target);
+      case 'set_points': needTarget(); return { ok: true, ...store.automationSetPoints(target, points) };
+      case 'add_point': needTarget(); return { ok: true, ...store.automationAddPoint(target, { t, v, shape }) };
+      case 'remove_point': needTarget(); return { ok: true, ...store.automationRemovePoint(target, { index, t }) };
+      case 'clear': needTarget(); return { ok: true, ...store.automationClear(target) };
+      default: throw this.badAction('automation', action, ['list', 'set_points', 'add_point', 'remove_point', 'clear']);
+    }
+  }
+
+  cmd_words({ action, asset, clip, from, to, limit, words }) {
+    const { store } = this;
+    switch (action) {
+      case 'get': return Arr.getWords(store.project, { asset, clip, from, to, limit });
+      case 'set':
+        if (asset == null) throw new Error("words 'set' needs 'asset'.");
+        return { ok: true, ...store.wordsSet(asset, words) };
+      default: throw this.badAction('words', action, ['get', 'set']);
+    }
   }
 }
