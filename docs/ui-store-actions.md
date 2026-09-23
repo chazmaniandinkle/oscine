@@ -28,6 +28,7 @@ A click, a key or a menu pick calls one action and gets one undo step:
 | insert add / bypass / reorder / remove / preset | `insertAdd`, `insertSet`, `insertMove`, `insertRemove` |
 | automation point remove / shape | `automationRemovePoint`, `automationMovePoint` |
 | source rename, transcript import | `assetRename`, `wordsSet` |
+| source link, variant add / remove / prefer, new source from a file | `assetSourceSet`, `assetVariantAdd`, `assetVariantRemove`, `assetPrefer`, `assetAdd` (see `docs/sources.md`) |
 | fades on both sides of an overlap | `arrangementBatch([...])` (several ops, one undo step) |
 
 A two-part edit that the user sees as one (double-click to add a marker, then

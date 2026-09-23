@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased · Suno sources
+
+- Assets can say where they came from: `asset.source` is a Suno song (id, link, created, title, style, model, task, cover, lyrics, what Oscine sent, with the source of each field) or `derived` from another asset. See `docs/sources.md`.
+- Several files per asset: variants record origin, file name, codec, sample rate, channels, length and when they were added; `asset.preferred` picks the one that plays. Add your own file to a Suno song at any time; clips follow the preferred file and one undo switches back.
+- Importing a Suno download reads its id, date, lyrics and line timings from the file's own tags. No network.
+- A per-workspace Suno library (`.oscine/suno-library.json`): scan local files, import clip lists from anywhere, fetch one public song page on request. No audio is ever fetched.
+- Two new commands (MCP tools): `asset` and `suno`. The asset inspector gets a Suno card and a Variants list.
+
 ## 2.2.0 · 2026-09-23 · "Same hands"
 
 Claude can now edit an arrangement, not just open one, and automation reaches every parameter the engine supports.

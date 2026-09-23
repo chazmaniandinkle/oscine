@@ -81,6 +81,9 @@ node test/arrangement.mjs  # every arrangement command action, undo/redo,
 node test/automation.mjs   # envelope grammar, shapes, scheduling math
 node test/ear.mjs          # analysis vs synthetic ground truth
 node test/timedtext.mjs    # transcript formats round-trip
+node test/suno.mjs         # m4a/ID3 tag readers, Suno clip normalizing, merge
+node test/sources.mjs      # asset sources + variants, asset/suno commands,
+                           # the Suno library (scan/import/fetch/ingest)
 node test/stretch.mjs      # phase vocoder
 node test/fx-<name>.mjs    # one per effect (shared fake AudioContext in
                            # test/fx-fake-ctx.mjs)
