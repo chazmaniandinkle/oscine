@@ -258,6 +258,17 @@ export class Timeline {
 
   onDown(e) {
     const { x, y } = this.pos(e);
+    // Ruler: press-and-drag scrubs the playhead. If playing, stop, scrub,
+    // and resume from the release point (a DAW's "seek while playing").
+    if (y < RULER_H && x >= GUTTER_W) {
+      this.canvas.setPointerCapture(e.pointerId);
+      const wasPlaying = this.app.transport.playing;
+      if (wasPlaying) this.app.transport.stop();
+      this.app.transport.songPos = Math.max(0, this.sec(x));
+      this.drag = { edge: 'scrub', wasPlaying };
+      this.dirty = true;
+      return;
+    }
     // Gutter: M / S buttons, the gain readout (vertical drag), or the lane
     // name (select the lane -> inspector shows its properties).
     if (x < GUTTER_W && y >= RULER_H) {
@@ -312,10 +323,15 @@ export class Timeline {
     const { x, y } = this.pos(e);
     if (!this.drag) {
       const h = this.hit(x, y);
-      this.canvas.style.cursor = !h ? 'default' : h.edge === 'body' ? 'grab' : (h.edge === 'right' && e.altKey) ? 'col-resize' : 'ew-resize';
+      this.canvas.style.cursor = (y < RULER_H && x >= GUTTER_W) ? 'ew-resize' : !h ? 'default' : h.edge === 'body' ? 'grab' : (h.edge === 'right' && e.altKey) ? 'col-resize' : 'ew-resize';
       return;
     }
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
+    if (d.edge === 'scrub') {
+      this.app.transport.songPos = Math.max(0, this.sec(x));
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'gain') {
       // 1 px = 0.25 dB, up is louder; range -60..+12. Live-applied.
       const g = Math.max(-60, Math.min(12, d.g0 + (d.startY - y) * 0.25));
@@ -348,8 +364,14 @@ export class Timeline {
   onUp(e) {
     if (!this.drag) return;
     try { this.canvas.releasePointerCapture(e.pointerId); } catch {}
-    const wasGain = this.drag.edge === 'gain';
+    const d = this.drag;
     this.drag = null;
+    if (d.edge === 'scrub') {
+      if (d.wasPlaying) this.app.transport.play();
+      this.dirty = true;
+      return;
+    }
+    const wasGain = d.edge === 'gain';
     this.app.bus.emit(wasGain ? 'lanes:changed' : 'arrangement:changed', {});
     this.dirty = true;
   }
@@ -475,10 +497,19 @@ export class Timeline {
       g.restore();
     }
 
-    // playhead
+    // playhead: line through the lanes, a triangle handle on the ruler, and
+    // the time next to it so you don't have to read the ruler ticks.
     if (playheadSec != null) {
       const x = this.x(playheadSec);
-      if (x >= GUTTER_W && x <= w) { g.fillStyle = accent; g.fillRect(x, 0, playing ? 2 : 1, h); }
+      if (x >= GUTTER_W && x <= w) {
+        g.fillStyle = accent; g.fillRect(x - (playing ? 1 : 0), RULER_H, playing ? 2 : 1, h - RULER_H);
+        g.beginPath(); g.moveTo(x - 6, 2); g.lineTo(x + 6, 2); g.lineTo(x, RULER_H - 2); g.closePath(); g.fill();
+        const label = fmtTime(playheadSec) + (playing ? '' : '.' + String(Math.floor((playheadSec % 1) * 100)).padStart(2, '0'));
+        g.font = '10px system-ui, sans-serif'; const tw = g.measureText(label).width + 8;
+        const lx = x + 8 + tw > w ? x - 8 - tw : x + 8;
+        g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(lx - 2, 2, tw + 4, RULER_H - 4);
+        g.fillStyle = accent; g.fillText(label, lx + 4, RULER_H / 2);
+      }
     }
     // drop hint from the asset bin: highlight the target lane + insertion x
     if (this.dropHint) {
