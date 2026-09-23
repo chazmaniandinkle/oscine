@@ -124,6 +124,16 @@ export class Transport {
   get songPos() { return this._songPos ?? 0; }
   set songPos(s) { this._songPos = Math.max(0, s || 0); }
 
+  // End of the arrangement in seconds: explicit length, else the last
+  // placement's end. Cheap enough to call per frame at these sizes.
+  arrangementEnd() {
+    const p = this.store.project, arr = p.arrangement;
+    if (!arr) return 0;
+    let end = arr.length || 0;
+    for (const pl of arr.placements) { const c = p.clips[pl.clip]; if (c) end = Math.max(end, pl.at + (c.out - c.in) * (c.stretch ?? 1) / (c.rate ?? 1)); }
+    return end;
+  }
+
   async startClips(startAt, fromSeconds) {
     const project = this.store.project;
     if (!project.arrangement?.placements?.length) return;
@@ -211,6 +221,13 @@ export class Transport {
     const sec = this.clipAnchorTime != null
       ? this.clipAnchorSec + (this.ctx.currentTime - this.clipAnchorTime)
       : this.songPos;
+    // Arrangement projects end: stop at the song's length (plus a hair for
+    // tails) and park the playhead at the end. Pattern projects loop forever.
+    const arr = this.store.project.arrangement;
+    if (arr?.placements?.length && this.clipAnchorTime != null) {
+      const end = this.arrangementEnd();
+      if (sec >= end + 0.05) { this.stop(); this.songPos = end; this.bus.emit('transport:ended', { sec: end }); return { playing: false, localBeat: 0, loopBeats: this.loopBeats, sec: end }; }
+    }
     return {
       playing: true,
       localBeat: Math.max(0, abs - this.loopStartAbs),

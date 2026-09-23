@@ -10,20 +10,51 @@ export class LyricsBar {
   constructor(host, app) {
     this.app = app; this.store = app.store; this.host = host;
     host.className = 'lyricsbar';
+    // Lane picker: the bar shows ONE lane's words. Auto-follows lane / source
+    // selection; the picker overrides until the next selection.
+    this.picker = el('select', 'lyrics-lane');
+    this.picker.title = 'Which lane the lyrics bar follows';
+    this.picker.addEventListener('change', () => { this.laneFilter = this.picker.value || null; this.store.ui.lyricsLane = this.laneFilter; this.rebuild(); });
     this.strip = el('div', 'lyrics-strip');
-    host.appendChild(this.strip);
+    host.append(this.picker, this.strip);
     this.words = [];      // [{s, e, word, lane, el}] in song time, sorted
     this.current = -1;
-    this.laneFilter = null; // lane id or null = all lanes with words
+    this.laneFilter = this.store.ui.lyricsLane ?? null;
     const { bus } = app;
     for (const t of ['project:replaced', 'arrangement:changed']) bus.on(t, () => { this.rebuild(); this.app.routeLyrics?.(); });
+    // Follow what the user points at: a lane, or a source (→ the lane that
+    // uses it most).
+    bus.on('lane:selected', ({ id }) => { if (id && this.lanesWithWords().includes(id)) this.setLane(id); });
+    bus.on('asset:selected', ({ id }) => {
+      if (!id) return;
+      const p = this.store.project, counts = {};
+      for (const pl of p.arrangement?.placements ?? []) if (p.clips[pl.clip]?.sourceOf === id) counts[pl.track] = (counts[pl.track] || 0) + 1;
+      const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (best && this.lanesWithWords().includes(best)) this.setLane(best);
+    });
     this.rebuild();
   }
+  lanesWithWords() {
+    const p = this.store.project, out = new Set();
+    for (const pl of p.arrangement?.placements ?? []) { const c = p.clips[pl.clip]; if (c && wordsFor(p, c).length) out.add(pl.track); }
+    return [...out];
+  }
+  setLane(id) { if (id === this.laneFilter) return; this.laneFilter = id; this.store.ui.lyricsLane = id; this.rebuild(); }
   rebuild() {
     const p = this.store.project, arr = p.arrangement;
     this.strip.textContent = '';
     this.words = []; this.current = -1;
     if (!arr?.placements?.length) { this.host.classList.add('empty'); return; }
+    // Picker options = lanes that have any words; default to the first.
+    const withWords = this.lanesWithWords();
+    if (!this.laneFilter || !withWords.includes(this.laneFilter)) this.laneFilter = withWords[0] ?? null;
+    this.picker.textContent = '';
+    for (const id of withWords) {
+      const l = (arr.lanes || []).find(x => x.id === id);
+      const o = el('option', '', l?.name || id); o.value = id; o.selected = id === this.laneFilter;
+      if (l?.color) o.style.color = l.color;
+      this.picker.appendChild(o);
+    }
     for (const pl of arr.placements) {
       const c = p.clips[pl.clip]; if (!c) continue;
       if (this.laneFilter && pl.track !== this.laneFilter) continue;

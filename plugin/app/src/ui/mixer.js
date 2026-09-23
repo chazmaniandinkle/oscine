@@ -17,7 +17,30 @@ export class Mixer {
 
     this.handle = el('button', 'mixer-handle');
     this.handle.type = 'button';
+    // Click toggles; drag (when open) resizes. Distinguish by movement.
+    let press = null;
+    this.handle.addEventListener('pointerdown', (e) => {
+      if (!this.store.ui.mixerOpen) return;
+      press = { y: e.clientY, h: this.body.getBoundingClientRect().height, moved: false };
+      this.handle.setPointerCapture(e.pointerId);
+    });
+    this.handle.addEventListener('pointermove', (e) => {
+      if (!press) return;
+      const dy = press.y - e.clientY; // drag up = taller
+      if (Math.abs(dy) > 3) press.moved = true;
+      if (press.moved) {
+        const h = Math.max(120, Math.min(window.innerHeight * 0.6, press.h + dy));
+        this.store.ui.mixerHeight = Math.round(h);
+        this.host.style.setProperty('--mixer-h', h + 'px');
+      }
+    });
+    this.handle.addEventListener('pointerup', (e) => {
+      const wasDrag = press?.moved; press = null;
+      try { this.handle.releasePointerCapture(e.pointerId); } catch {}
+      if (wasDrag) { e.preventDefault(); this._suppressClick = true; }
+    });
     this.handle.addEventListener('click', () => {
+      if (this._suppressClick) { this._suppressClick = false; return; }
       this.store.ui.mixerOpen = !this.store.ui.mixerOpen;
       this.paintOpen();
     });
@@ -63,7 +86,8 @@ export class Mixer {
   paintOpen() {
     const open = this.store.ui.mixerOpen;
     this.host.classList.toggle('open', open);
-    this.handle.textContent = open ? 'Mixer ▾' : 'Mixer ▴';
+    this.handle.textContent = open ? 'Mixer ▾  (drag to resize)' : 'Mixer ▴';
+    if (this.store.ui.mixerHeight) this.host.style.setProperty('--mixer-h', this.store.ui.mixerHeight + 'px');
   }
 
   paintMuteSolo(trackId) {

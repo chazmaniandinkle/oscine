@@ -69,7 +69,13 @@ html, body {
 
 .lyricsbar {
   border-top: 1px solid var(--line); background: var(--bg-1); padding: 6px 10px; min-height: 30px;
+  display: flex; align-items: center; gap: 10px;
 }
+.lyrics-lane {
+  flex: none; background: var(--bg-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px;
+  font: inherit; font-size: 11px; padding: 2px 6px; max-width: 160px;
+}
+.lyrics-strip { flex: 1; min-width: 0; }
 .lyricsbar.hidden, .lyricsbar.empty { display: none; }
 .lyrics-strip {
   display: flex; align-items: baseline; gap: 6px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
@@ -623,8 +629,18 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
   gap: 6px;
   padding: 4px 10px 10px;
   overflow-x: auto;
+  overflow-y: auto;
   align-items: stretch;
+  /* Height is user-set by dragging the handle (persisted); default is
+     compact. Insert lists scroll inside the strip instead of growing it. */
+  height: var(--mixer-h, 200px);
+  min-height: 120px;
+  max-height: 60vh;
+  box-sizing: border-box;
 }
+.mixer-handle { cursor: ns-resize; user-select: none; touch-action: none; }
+.mixer:not(.open) .mixer-handle { cursor: pointer; }
+.lane-strip .inserts { max-height: 96px; overflow-y: auto; scrollbar-width: thin; }
 
 .strip {
   display: flex;
