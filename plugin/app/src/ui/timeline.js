@@ -699,6 +699,43 @@ export class Timeline {
     return true;
   }
 
+  // Ripple delete: cut [a,b] out of EVERY lane and close the gap — everything
+  // after b moves left by (b-a): placements, markers, the cycle, and
+  // automation points. Logic "Cut Section Between Locators", REAPER "ripple
+  // edit all tracks" ("Ripple edit all affects envelopes on all tracks"
+  // [reaper_userguide.txt:6108]). One undo step.
+  rippleDeleteRange() {
+    if (!this.range || this.range.b - this.range.a < 0.01) return false;
+    const arr = this.arrangement; if (!arr) return false;
+    const { a, b } = this.range, gap = b - a;
+    this.store.checkpoint();
+    // 1. cut the range out of every placement that crosses it (reuse the
+    //    per-placement cutter by selecting all overlapping indices).
+    const all = arr.placements.map((p, i) => i).filter(i => {
+      const p = arr.placements[i], c = this.project.clips[p.clip];
+      return c && p.at < b && p.at + placedDur(c) > a;
+    });
+    const saveCk = this.store.checkpoint; this.store.checkpoint = () => {}; // one undo step
+    this.multi = all; this.selected = null;
+    try { this.deleteRangeFromSelection(); } finally { this.store.checkpoint = saveCk; }
+    // 2. shift everything starting at/after b left by the gap
+    for (const p of arr.placements) if (p.at >= b - 1e-6) p.at = Math.max(a, p.at - gap);
+    for (const m of arr.markers ?? []) { if (m.t >= b) m.t -= gap; else if (m.t > a) m.t = a; }
+    arr.markers = (arr.markers ?? []).filter((m, i, ms) => ms.findIndex(k => Math.abs(k.t - m.t) < 1e-6) === i);
+    if (arr.loop) { const sh = t => t >= b ? t - gap : t > a ? a : t; arr.loop.a = sh(arr.loop.a); arr.loop.b = sh(arr.loop.b); if (arr.loop.b - arr.loop.a < 0.05) arr.loop = null; }
+    for (const env of arr.automation ?? []) {
+      if (env.target?.startsWith('clip:')) continue; // clip-local time: travels with its clip
+      env.points = env.points.filter(p => p.t <= a || p.t >= b).map(p => p.t >= b ? { ...p, t: p.t - gap } : p);
+    }
+    if (arr.length) arr.length = Math.max(0, arr.length - gap);
+    this.range = null; this.multi = [];
+    this.app.transport.songPos = a;
+    this.peaks.clear();
+    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('range:changed', {});
+    this.dirty = true;
+    return true;
+  }
+
   // Split placement `i` at song time `t` if t is strictly inside it.
   _splitIndexAt(i, t, { checkpoint = true } = {}) {
     const arr = this.arrangement;

@@ -27,6 +27,7 @@ export class Toolbar {
     edit.appendChild(el('span', 'tb-sep'));
     btn(edit, 'clip.split', 'Split', { needs: 'clip', title: 'Split at playhead (or at range edges)' });
     btn(edit, 'clip.delete', 'Remove', { needs: 'clip', title: 'Remove clip (or cut the range slice)' });
+    btn(edit, 'range.rippleDelete', 'Ripple', { needs: 'range', title: 'Cut the range from every lane and close the gap' });
     btn(edit, 'range.clear', 'Clear range', { needs: 'range' });
     edit.appendChild(el('span', 'tb-sep'));
     btn(edit, 'clip.pitchDown', '♭', { needs: 'clip', title: 'Pitch −1 semitone' });
