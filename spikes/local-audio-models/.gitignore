@@ -1,0 +1,8 @@
+weights/
+bin/
+out/
+.venv/
+cache/
+*.gguf
+*.tar.gz
+*.wav

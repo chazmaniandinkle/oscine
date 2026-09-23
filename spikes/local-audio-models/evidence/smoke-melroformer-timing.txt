@@ -1,0 +1,10 @@
+metrics.wall_ms=25508.5
+metrics.rtf=0.850282
+metrics.x_realtime=1.17608
+       26.52 real         0.64 user         0.29 sys
+           606880872  peak memory footprint
+metrics.wall_ms=20414.6
+metrics.rtf=0.680488
+metrics.x_realtime=1.46953
+       21.79 real         0.88 user         0.44 sys
+           607667304  peak memory footprint

@@ -1,0 +1,12 @@
+{
+ "mix_rms_db": -17.86,
+ "stems_rms_db": {
+  "bass.wav": -21.98,
+  "drums.wav": -39.8,
+  "other.wav": -27.92,
+  "vocals.wav": -21.05
+ },
+ "residual_rms_db": -54.1,
+ "reconstruction_snr_db": 36.24,
+ "samples_compared": 2646000
+}

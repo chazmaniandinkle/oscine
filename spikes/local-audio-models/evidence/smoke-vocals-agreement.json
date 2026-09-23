@@ -1,0 +1,9 @@
+{
+ "mix_rms_db": -20.96,
+ "stems_rms_db": {
+  "htdemucs_vocals.wav": -21.05
+ },
+ "residual_rms_db": -39.83,
+ "reconstruction_snr_db": 18.87,
+ "samples_compared": 2646000
+}

@@ -1,0 +1,8 @@
+metrics.wall_ms=21500.8
+metrics.rtf=0.716693
+metrics.x_realtime=1.3953
+real 22.23
+metrics.wall_ms=21122.5
+metrics.rtf=0.704083
+metrics.x_realtime=1.42029
+real 21.61

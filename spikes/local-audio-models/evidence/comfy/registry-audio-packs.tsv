@@ -1,0 +1,353 @@
+deno-custom-nodes	950184	172	2026-09-10	https://github.com/Deno2026/comfyui-deno-custom-nodes	DENO RTX node pack for ComfyUI: MiniMax H3 multi-reference image and Reference to Video helpers, direct Alibaba MiniMax 
+audio-separation-nodes-comfyui	361439	618	2026-04-11	https://github.com/christian-byrne/audio-separation-nodes-comfyui	Separate audio track into stems (vocals, bass, drums, other). Along with tools to recombine, tempo match, slice/crop aud
+basic_data_handling	242550	49	2026-09-18	https://github.com/StableLlama/ComfyUI-basic_data_handling	Basic Python functions for manipulating data that every programmer is used to, lightweight with no additional dependenci
+tts_audio_suite	159543	1210	2026-08-21	https://github.com/diodiogod/TTS-Audio-Suite	TTS Audio Suite - Universal multi-engine TTS extension for ComfyUI with unified architecture supporting IndexTTS 2/2.5, 
+comfyui-levelpixel	113995	31	2026-02-24	https://github.com/LevelPixel/ComfyUI-LevelPixel	Main nodes of the Level Pixel company (levelpixel, LP). In this package you will find easy-to-use atomic nodes that can 
+ComfyUI-Pixaroma	78380	395	2026-09-07	https://github.com/pixaroma/ComfyUI-Pixaroma	Creative suite for ComfyUI: Image Composer, Paint Pixaroma, 3D Builder, AudioReact, Save Mp4, Load Video, Load Video Fra
+comfyui-if_llm	50711	158	2025-03-17	https://github.com/if-ai/ComfyUI-IF_LLM	Run Local and API LLMs, Features Gemini2 image generation, DEEPSEEK R1, QwenVL2.5, QWQ32B, Ollama, LlamaCPP LMstudio, Ko
+comfyui_yvann-nodes	49208	714	2026-01-18	https://github.com/yvann-ba/ComfyUI_Yvann-Nodes	Audio Reactive nodes for AI animations 🔊 Analyze audio, extract drums, bass, vocals. Compatible with IPAdapter, ControlN
+comfyui-crystools-save	46832	53	2025-06-01	https://github.com/crystian/ComfyUI-Crystools-save	[Deprecated in favor of the new saving system] With this quality of life extension, you can save your workflow with a sp
+comfyui-depthflow-nodes	46418	365	2025-11-30	https://github.com/akatz-ai/ComfyUI-Depthflow-Nodes	Implementation of DepthFlow nodes for ComfyUI, adds a 2.5D parallax effect to images and videos. Compatible with Ryan's 
+ace-step	42530	251	2025-05-28	https://github.com/billwuhao/ComfyUI_ACE-Step	ACE-Step: A Step Towards Music Generation Foundation Model
+comfyui-agent-panel	34196	117	2026-09-07	https://github.com/artokun/comfyui-mcp-panel	Autonomous AI agent in the ComfyUI sidebar - local-first, bring any LLM. Run it on your Claude or ChatGPT subscription (
+Listhelper	32511	76	2026-02-08	https://github.com/dseditor/ComfyUI-ListHelper	The ListHelper collection is a comprehensive set of custom nodes for ComfyUI that provides powerful list manipulation ca
+promptmanager	28703	170	2026-04-10	https://github.com/ComfyAssets/ComfyUI_PromptManager	A powerful ComfyUI custom node that extends the standard text encoder with persistent prompt storage, advanced search ca
+chatterbox_srt_voice	26388	83	2025-08-29	https://github.com/diodiogod/ComfyUI_ChatterBox_SRT_Voice	⚠️ ARCHIVED PROJECT: This project has evolved into TTS Audio Suite (https://github.com/diodiogod/TTS-Audio-Suite). This 
+comfyui-simple-prompt-batcher	26206	52	2026-02-10	https://github.com/ai-joe-git/ComfyUI-Simple-Prompt-Batcher	A simple and efficient ComfyUI custom node that allows you to batch process multiple prompts in a single queue. Perfect 
+prompt-manager	23608	153	2026-08-23	https://github.com/FranckyB/ComfyUI-Prompt-Manager	A comprehensive prompt management system for ComfyUI that saves complete workflow recipes including prompts, LoRAs, and 
+Comfyui-Spark-TTS	21377	125	2025-04-15	https://github.com/1038lab/ComfyUI-SparkTTS	ComfyUI-SparkTTS is a custom ComfyUI node implementation of SparkTTS, an advanced text-to-speech system that harnesses t
+ltx2_sm	21081	31	2026-03-17	https://github.com/smthemex/ComfyUI_LTX2_SM	LTX-2 is the first DiT-based audio-video foundation model that contains all core capabilities of modern video generation
+comfy-rvc	18448	39	2024-07-22	https://github.com/SayanoAI/Comfy-RVC	
+comfyui-my-nodes	17302	11	2025-05-27	https://github.com/Tagbliton/ComfyUI-My-Nodes	一个支持在ComfyUI中使用阿里百炼模型库（包括Qwen、Omni、Audio、VL、ImageEdit、TTS、Flux等）进行各种提示词反推或提示词创意、翻译、润色及额外一些小工具的插件
+ComfyUI_Eclipse	16730	36	2026-09-23	https://github.com/r-vage/ComfyUI_Eclipse	Comprehensive ComfyUI custom node suite featuring Smart Prompt with wildcards, a pipe ecosystem, universal type converte
+comfyui-videodircombiner	16221	8	2024-12-22	https://github.com/DarioFT/ComfyUI-VideoDirCombiner	A custom node for ComfyUI that combines multiple videos from a directory with optional transitions and background music.
+XB_ToolBox	15369	327	2026-08-21	https://github.com/wjluoxiao/XB_ToolBox	XB_ToolBox: An easy-to-use ComfyUI custom node suite that streamlines workflow generation. Featuring exclusive data-flow
+comfyui-crewai	14146	63	2025-01-17	https://github.com/luandev/ComfyUI-CrewAI	ComfyUI-CrewAI aims to integrate Crew AI's multi-agent collaboration framework into the ComfyUI environment. By combinin
+ComfyUI-Qwen-Omni	13556	41	2025-06-08	https://github.com/SXQBW/ComfyUI-Qwen-Omni	ComfyUI-Qwen-Omni is the first ComfyUI plugin supporting end-to-end multimodal interaction.  Integrating the Qwen2.5-Omn
+audio-batch	12589	8	2025-07-26	https://github.com/set-soft/ComfyUI-AudioBatch	Audio batch creation, extraction, information, resample, mono and stereo conversion. Also cut, concatenate, blend (mix) 
+comfyui-whisper-translator	12463	12	2025-01-04	https://github.com/civen-cn/ComfyUI-Whisper-Translator	Nodes related to [Whisper](https://github.com/openai/whisper).
+HeartMuLa_ComfyUI	11937	435	2026-01-18	https://github.com/benjiyaya/HeartMuLa_ComfyUI	ComfyUI Custom Node for HeartMuLa AI Music Generation and Transcript Text
+ComfyUI-Zonos	11783	73	2025-02-22	https://github.com/BuffMcBigHuge/ComfyUI-Zonos	TTS with Zyphra Zonos
+ComfyUI_XISER_Nodes	11405	29	2026-01-31	https://github.com/grinlau18/ComfyUI_XISER_Nodes	This extension integrates interactive multi-layer canvas editing, multimodal LLM intelligent processing (supporting main
+dynamic-ramcache	10571	82	2025-11-29	https://github.com/Windecay/ComfyUI_Dynamic-RAMCache	A custom node for ComfyUI that dynamically manages RAM usage by intelligently controlling cache purging based on availab
+comfyui-gguf-loader	9991	13	2026-08-25	https://github.com/ChrisColeTech/ComfyUI-GGUF-Loader	🚀 CCTech GGUF loaders for ComfyUI — UNET / CLIP quantization, dual VAE, ClipProj, Scenema Audio, MiniMax Music 3, stem s
+lazy-pony-prompter	9814	54	2024-11-04	https://github.com/Siberpone/lazy-pony-prompter	A booru API powered prompt generator for A1111 and ComfyUI with flexible tag filtering system and customizable prompt te
+Comfyui-VideoConcat	9739	0	2025-09-26	https://github.com/ahkimkoo/Comfyui-VideoConcat	Video file management and merging capabilities, fully compatible with the VideoHelperSuite plugin ecosystem.
+ComfyUI-Kitchen-nvfp4-converter	9592	105	2026-08-09	https://github.com/tritant/ComfyUI_Kitchen_nvfp4_Converter	Quantize diffusion models to W4A8_INT8, NVFP4, MXFP8, INT8 ConvRot or INT4 ConvRot using ComfyUI's internal kitchen. Per
+comfyui-image-captioner	9568	29	2024-08-01	https://github.com/neverbiasu/ComfyUI-Image-Captioner	A ComfyUI extension for generating captions for your images. Runs on your own system, no external services used, no filt
+audio-separation	9386	31	2026-02-11	https://github.com/set-soft/AudioSeparation	Audio separation (aka demixing) nodes, for Vocals, Instruments, Bass, Drums and Others (experimental Piano and Guitar). 
+hunyuanvideo-foley	8613	179	2025-09-05	https://github.com/if-ai/ComfyUI_HunyuanVideoFoley	ComfyUI custom node for HunyuanVideo-Foley text-video-to-audio synthesis
+customdia	8443	14	2025-04-26	https://github.com/nobrainX2/comfyUI-customDia	This is a ComfyUI integration of the [a/Dia TTS model](https://github.com/nari-labs/dia/). Many thanks to nari-labs for 
+sparktts_mw	7838	52	2025-05-23	https://github.com/billwuhao/ComfyUI_SparkTTS	Using Spark-TTS in Comfyui. Spark-TTS: An Efficient LLM-Based Text-to-Speech Model with Single-Stream Decoupled Speech T
+comfyui-if_ai_wishperspeechnode	7807	46	2025-03-09	https://github.com/if-ai/ComfyUI-IF_AI_WishperSpeechNode	This repository hosts a Text-to-Speech (TTS) application that leverages Whisper Speech for voice synthesis, allowing use
+comfyui-minimaxh3-contex-loop	7330	458	2026-09-08	https://github.com/ethanfel/ComfyUI-MiniMaxH3-Contex-Loop	Recursive, checkpointed MiniMax H3 scene loops plus native-first AV target masking for inpainting, motion/audio continui
+comfyui-step-audio-editx-tts	7314	63	2025-11-17	https://github.com/Saganaki22/ComfyUI-Step_Audio_EditX_TTS	Professional voice cloning and audio editing node for ComfyUI using Step Audio EditX
+aiia	7041	13	2026-02-24	https://github.com/havvk/ComfyUI_AIIA	Advanced AI Audio/Video toolkit for ComfyUI. Features Multi-Role Podcast/Dialogue Generation, High-Fidelity Voice Clonin
+majoor-assetsmanager	6888	135	2026-07-09	https://github.com/MajoorWaldi/ComfyUI-Majoor-AssetsManager	Majoor Assets Manager is an advanced asset browser for ComfyUI that provides a comprehensive solution for managing, orga
+comfyui_fl-heartmula	6883	134	2026-09-14	https://github.com/filliptm/ComfyUI_FL-HeartMuLa	FL HeartMuLa - Multilingual AI music generation nodes for ComfyUI. Generate full songs with lyrics using the HeartMuLa m
+SaveImageWithMetaDataUniversal	6330	28	2026-07-21	https://github.com/xxmjskxx/ComfyUI_SaveImageWithMetaDataUniversal	Node for saving PNGs, WEBPs, and JPEGs with rich automatically captured metadata from any node: prompts, model/VAE/LoRA 
+easy-comfy-nodes	6223	18	2024-07-08	https://github.com/wmatson/easy-comfy-nodes	A collection of utility nodes primarily for interacting with comfy via automated systems
+ACE-Step-ComfyUI	6137	79	2026-03-01	https://github.com/ace-step/ACE-Step-ComfyUI	Official ComfyUI node for ACE-Step v1.5 AI music generation via ACEMusic API
+comfyui_msspeech_tts	5530	29	2024-05-25	https://github.com/chflame163/ComfyUI_MSSpeech_TTS	A text-to-speech plugin used under ComfyUI. It utilizes the Microsoft Speech TTS interface to convert text content into 
+ComfyUI-Qwen-TTS	5520	5	2025-09-23	https://github.com/mailzwj/ComfyUI-Qwen-TTS.git	Qwen-TTS nodes for ComfyUI
+ComfyUI-Layers-Utility	5255	72	2025-10-07	https://github.com/tritant/ComfyUI_Layers_Utility	This custom node for ComfyUI provides a powerful and flexible dynamic layering system, similar to what you would find in
+comfyui-enhancement-utils	5116	35	2026-08-05	https://github.com/phazei/ComfyUI-Enhancement-Utils	A curated set of ComfyUI enhancements built on the V3 API with full subgraph support: real-time resource monitor (CPU/RA
+comfyui_parlertts	5026	52	2024-06-25	https://github.com/smthemex/ComfyUI_ParlerTTS	you can using parlertts in comfyUI 
+ComfyUI-MegaTTS	4878	51	2025-04-11	https://github.com/1038lab/ComfyUI-MegaTTS	ComfyUI custom node based on ByteDance's MegaTTS3, supporting Chinese and English text-to-speech with high-quality voice
+img2colors-comfyui-node	4873	16	2025-01-05	https://github.com/christian-byrne/img2colors-comfyui-node	Extract the most common colors from an image, up to any number. Convert colors to plain English names using various colo
+videoclipgenerator	4726	7	2025-10-28	https://github.com/lazniak/videoclipgenerator	Vibe Music Engine is a custom node  that processes audio input using OpenAI's Whisper models. It provides transcription,
+comfyui-if_ai_parlerttsnode	4532	17	2025-03-14	https://github.com/if-ai/ComfyUI-IF_AI_ParlerTTSNode	Parler TTS is a zeroshot voice synthesis with emotion and entonations, you can control the voice style via text prompt
+comfyui-easy-indextts2	4307	274	2025-09-16	https://github.com/yolain/ComfyUI-Easy-IndexTTS2	A ComfyUI custom node for zero-shot text-to-speech synthesis system.
+comfyui-sonic	4200	1	2026-01-06	https://github.com/Sean-Bradley/ComfyUI-Sonic	Custom node that takes an audio mp3 and an image, and creates a lip synced video from them.
+comfyui-enhancedlinksandnodes	4150	81	2026-03-24	https://github.com/AEmotionStudio/ComfyUI-EnhancedLinksandNodes	A visually stunning extension for ComfyUI that adds beautiful, customizable animations to both links and nodes in your w
+comfyui-extras	3932	5	2025-03-25	https://github.com/assemly/comfyui-extras	A real-time system resource monitoring plugin designed for ComfyUI, helping you track computer resource usage during the
+ComfyUI-FireRedTTS	3865	43	2025-09-16	https://github.com/1038lab/ComfyUI-FireRedTTS	A ComfyUI integration for FireRedTTS‑2, a real-time multi-speaker TTS system enabling high-quality, emotionally expressi
+erax-wow-turbo-mw	3864	14	2025-05-23	https://github.com/billwuhao/ComfyUI_EraX-WoW-Turbo	Super fast multilingual speech recognition model based on Whisper Large-v3 Turbo. A node for ComfyUI.
+ComfyUI-F5-TTS-TH	3769	14	2026-01-24	https://github.com/gordon123/ComfyUI-F5-TTS-TH	From F5-TTS for Thai language only เอาไว้สังเคราะห์เสียงภาษาไทย ตัวอย่างการใช้ https://youtu.be/Hpa2dnaRCmA
+comfyui_beatbyte	3741	11	2024-12-28	https://github.com/c0ffymachyne/ComfyUI_BeatByte	Bytebeat is like composing music with the tools of a programmer’s toolkit. Instead of piano keys, you have operators lik
+ComfyUI-omnivoice-tts	3620	555	2026-06-11	https://github.com/Saganaki22/ComfyUI-OmniVoice-TTS	ComfyUI custom nodes for OmniVoice TTS | voice clone, multi-speaker, voice design, text-to-speech
+comfyui-diatts	3549	7	2026-02-16	https://github.com/BobRandomNumber/ComfyUI-DiaTTS	An implementation of Nari-Labs Dia TTS
+comfyui-kokorotts	3434	13	2025-02-24	https://github.com/1038lab/ComfyUI-KokoroTTS	ComfyUI-KokoroTTS is a powerful text-to-speech node for ComfyUI. It leverages the KokoroTTS to convert text into natural
+ComfyUI-MiniMaxH3Mod	3388	212	2026-09-13	https://github.com/Luisacaotica/ComfyUI-MiniMaxH3Mod	Extract, save and combine reusable MiniMax H3 image, video and audio references as RefMod safetensors, with a unified Ma
+Preview_Selector	3263	2	2025-08-06	https://github.com/NyaFuP/ComfyUI_Preview_Selector	A floating dialog-based image preview and selection system for ComfyUI.
+comfyui-kaola-ace-step	3231	29	2026-02-22	https://github.com/kana112233/ComfyUI-kaola-ace_step	ACE-Step 1.5 music generation nodes for ComfyUI - Generate high-quality music from text
+fl-acestep-training	3164	148	2026-04-25	https://github.com/filliptm/ComfyUI-FL-AceStep-Training	FL AceStep Training - LoRA Training nodes for ACE-Step 1.5 in ComfyUI
+11labs	3153	8	2025-05-27	https://github.com/gabe-init/ComfyUI-11labs	ComfyUI ElevenLabs TTS Node - Text-to-speech integration with advanced voice controls
+aaa-metadata-system	3022	14	2025-12-19	https://github.com/EricRollei/AAA_Metadata_System	Advanced metadata management and multi-format image save/load system for ComfyUI including SVG, TIFF, and PSD with layer
+notagen-mw	2926	65		https://github.com/billwuhao/ComfyUI_NotaGen	Symbolic Music Generation, NotaGen node for ComfyUI.
+obvirm-whisperxx	2899	10	2026-08-09	https://github.com/obvirm/ComfyUI-WhisperCPP	WhisperCPP for ComfyUI - whisper.cpp with full CPP params, alignment, diarization
+spark_tts	2825	4	2025-06-10	https://github.com/KERRY-YUAN/ComfyUI_Spark_TTS	Spark-TTS controllable synthesis and voice cloning. 用于可控语音合成和语音克隆，基于官方 Spark-TTS 库的核心逻辑实现。.
+nanobanana2	2778	4	2026-05-30	https://github.com/IxMxAMAR/ComfyUI-NanoBanana2	Full-featured Google Gemini integration for ComfyUI - Image Gen, Vision, Text, Editing, Audio, Music, Video, Embeddings
+herrgotts-h3-infinite-continuation-suite	2727	76	2026-08-11	https://github.com/HerrgottMargott/Herrgotts-H3-Infinite-Continuation-Suite	MiniMax H3 FL2VA long-video continuation for ComfyUI with freeze-safe native masked video context, independent audio-tai
+ComfyUI-Chinese-CLIP	2681	2	2025-03-25	https://github.com/leeneo/ComfyUI-Chinese-CLIP	Support for directly inputting Chinese characters in the CLIP text box. The system will automatically translate them int
+translate-offline	2652	3	2025-12-28	https://github.com/Jairodaniel-17/ComfyUI-translate-offline	ComfyUI-translate-offline is a custom node for ComfyUI designed to perform offline text translations using ONNX–based tr
+ComfyUI-OrpheusTTS-LMStudio	2596	5	2025-09-10	https://github.com/phazei/ComfyUI-OrpheusTTS-LMStudio	Generate Orpheus TTS audio via LM Studio
+comfyui-prompt-factory	2582	0	2025-03-26	https://github.com/satche/comfyui-prompt-factory	A modular system that adds randomness to prompt generation
+qutets-mw	2558	9	2025-05-23	https://github.com/billwuhao/ComfyUI_OuteTTS	OuteTTS - Unified Text-To-Speech. A node for ComfyUI.
+comfyui-h3-motion-context	2500	976	2026-09-06	https://github.com/NikoDemon80/ComfyUI-H3-Motion-Context	Clip chaining for MiniMax H3 in ComfyUI: pin the tail of the previous clip, picture and sound, so the next clip genuinel
+comfyui-Qwen3-TTS-Multi-character	2446	8	2026-01-25	https://github.com/aistudynow/ComfyUI-Qwen3-TTS-Multi-character	ComfyUI nodes for Qwen3 TTS Multi character.
+ComfyUI-QwenVL-Mod	2306	109	2026-09-07	https://github.com/huchukato/ComfyUI-QwenVL-Mod	Enhanced QwenVL node with MiniMax H3 loop mode and presets, multilingual prompt generation, camera & style tag dropdowns
+saltai_whisper_transcribe	2283	1	2024-07-10	https://github.com/haohaocreates/PR-SaltAI_Whisper_Transcriber-e087b361	Transcribe videos or audio with Whisper, either locally or via OpenAI's API
+ai_text_comfyui	2234	1	2025-06-05	https://github.com/Zch6111/AI_Text_Comfyui	AI_Text_Comfyui is a custom node for ComfyUI that connects to the OpenAI Chat API and automatically generates creative t
+ComfyUI-World_weaver	2133	30	2026-06-04	https://github.com/Creepybits/World_weaver	Character Consistency System developed for ComfyUI.
+ComfyUI-KaniTTS	2024	39	2025-10-02	https://github.com/wildminder/ComfyUI-KaniTTS	Kani TTS. Generate natural, high‑quality speech from text
+ComfyUI-kokoro-TTS	2022	1	2025-03-12	https://github.com/Apache0ne/ComfyUI-kokoro	Kokoro is an open-weight TTS model with 82 million parameters.
+comfyui-faster-whisper	1868	23		https://github.com/jhj0517/ComfyUI-faster-whisper	Nodes to use [a/faster-whisper](https://github.com/SYSTRAN/faster-whisper) for transcription.
+comfyui-sparktts	1851	16	2025-03-09	https://github.com/civen-cn/ComfyUI_SparkTTS	Nodes related to [Spark-TTS](https://github.com/SparkAudio/Spark-TTS).
+ComfyUI-FL-Qwen3TTS	1849	151	2026-04-25	https://github.com/filliptm/ComfyUI-FL-Qwen3TTS	Qwen3 TTS for ComfyUI - High-quality text-to-speech with voice cloning, voice design, and custom voices
+step_audio_editx_sm	1801	28	2025-11-11	https://github.com/smthemex/ComfyUI_Step_Audio_EditX_SM	Step_Audio_EditX锛歵he first open-source LLM-based audio model excelling at expressive and iterative audio editing鈥攅ncompa
+ComfyUI-AV-MegaTTS3	1795	0	2025-04-17	https://github.com/avenstack/ComfyUI-AV-MegaTTS3	🎧Ultra High-Quality Voice Cloning, Chinese and English.
+comfyui-jen	1771	1	2024-08-05	https://github.com/futureversecom/ComfyUI-JEN	Comfy UI custom nodes for JEN music generation powered by Futureverse
+ComfyUI_pyannote	1769	5	2025-10-27	https://github.com/ramesh-x90/ComfyUI_pyannote	This repository provides custom nodes for ComfyUI designed to process audio files, performing speaker diarization and in
+DJZ-XTTS	1759	4	2025-02-09	https://github.com/MushroomFleet/DJZ-XTTS	Drift Johnson's XTTS nodes
+ltx2.5-msr	1675	33	2026-09-21	https://github.com/liconstudio/ComfyUI-LTX2.5-MSR	Multi-reference image and optional AVref audio conditioning nodes for LTX-2.5 in ComfyUI.
+comfyui-fl-fishspeech	1663	10	2026-04-25	https://github.com/filliptm/ComfyUI-FL-FishSpeech	FL FishSpeech - AI Text-to-Speech & Voice Cloning for ComfyUI. High-quality 44.1kHz speech synthesis with zero-shot voic
+comfyui-llamacpp-plus	1658	2	2026-06-07	https://github.com/pointave/comfyui-llamacpp-plus	Access llama.cpp server and openai tts server, plus ease-of-life functionality
+ComfyUI-HeartMuLa	1616	11		https://github.com/BobRandomNumber/ComfyUI-HeartMuLa	HeartMuLa audio generation and lyric transcription
+comfyui-fl-yue2	1557	170	2026-09-11	https://github.com/filliptm/ComfyUI-FL-YuE2	YuE2 music generation, piano roll editing, and joint AR/NAR LoRA training for ComfyUI
+whisper-simple	1488	0	2025-08-19	https://cnb.cool/qingqiua/ai/ComfyUI-Whisper-Simple	语音识别，添加字幕
+scene_gen	1484	4	2025-11-28	https://github.com/lazniak/scene_gen	Transform your music into professional music videos with AI automation. This powerful node uses Gemini AI for intelligen
+ComfyUI-Usgromana	1470	32	2026-06-16	https://github.com/DayMan84/ComfyUI-Usgromana	The next-generation security, governance, permissions, and multi‑user login control system for ComfyUI. Extension implem
+comfyui-mittimi-load-preset	1458	1	2024-08-25	https://github.com/mittimi/ComfyUI_mittimiLoadPreset	The system selects and loads preset.
+comfyui_remote_media_io	1436	2	2025-09-04	https://github.com/shellishack/comfyui_remote_media_io	Load media (image/video/audio) from remote URL, and save results to remote storage.
+kokorotts-zh	1427	2	2025-05-02	https://github.com/ruanjianlun/ComfyUI-KokoroTTS-Zh	Kokoro TTS's Chinese comfyui node, 100 speakers
+kyutaitts	1397	5	2025-07-09	https://github.com/BobRandomNumber/ComfyUI-KyutaiTTS	
+comfyui-orpheus	1358	1	2025-03-29	https://github.com/AustinMroz/ComfyUI-Orpheus	Nodes for using Orpheus-TTS in ComfyUI
+minimax-h3-seedance-music3-prompt-enhancer-t8	1306	313	2026-09-22	https://github.com/T8mars/comfyui-minimax-h3-prompt-enhancer-T8	Enhance MiniMax H3 and Seedance 2.0 video prompts, Music 3 and YuE2 music text, and Qwen Image 2.1 image prompts with cl
+ComfyUI-Simple-LlamaCPP-Client	1280	4	2026-06-21	https://github.com/ai-joe-git/ComfyUI-Simple-LlamaCPP-Client	A ComfyUI custom node for llama.cpp router mode with support for chat, vision, audio, video, streaming, JSON mode, model
+caption_to_audio	1279	1	2025-08-24	https://github.com/adithis197/ComfyUI-Caption_to_audio	Generates audio from music prompt using MusicGen
+civitai-comfy-nodes	1273	49	2026-07-06	https://github.com/civitai/civitai-comfy-nodes	ComfyUI custom nodes for the Civitai Orchestration API — run Civitai recipes (image/video/audio generation, training, an
+HunyuanVideo_Foley	1253	17	2026-02-18	https://github.com/BobRandomNumber/ComfyUI-HunyuanVideo_Foley	Generate high-fidelity, synchronized foley audio for any video directly within ComfyUI, powered by Tencent's HunyuanVide
+ComfyUI-KittenTTS	1211	0	2025-08-07	https://github.com/1038lab/KittenTTS	ComfyUI-KittenTTS is a custom node for ComfyUI that integrates KittenTTS, a lightweight open-source TTS model with just 
+batch_whisper_extension	1166	0	2025-11-18	https://github.com/Markus-Pasanen/batch_whisper_extension	A lightweight ComfyUI extension node that runs OpenAI Whisper to transcribe up to 3 audio inputs, merges and sorts times
+Duck_Nodes	1147	4	2025-08-14	https://github.com/duckmartians/Duck_Nodes	Load data from Google Sheets, Google Docs, Excel, Word and TXT... Built-in login system for ComfyUI.
+dia-mw	1128	11	2025-05-29	https://github.com/billwuhao/ComfyUI_Dia	Dia TTS model capable of generating ultra-realistic dialogue in one pass. ComfyUI node.
+forgeai-heartmula	1080	1	2026-02-24	https://github.com/PavonicAI/ForgeAI-HeartMuLa	ComfyUI custom nodes for HeartMuLa AI music generation - optimized for 16 GB GPUs
+minimax-director	1001	51	2026-09-13	https://github.com/imbutus/ComfyUI-MiniMaxDirector	Direct MiniMax H3 on a timeline instead of cramming everything into one prompt box. Lay shots, camera moves and audio cu
+zhaoke1006-heartmula-comfyui	977	12	2026-01-21	https://github.com/DocWorkBox/HeartMuLa_ComfyUI	ComfyUI Custom Node for HeartMuLa AI Music Generation and Transcript Text (Low VRAM optimized)
+comfyui-qwen3-tts-triton	957	4	2026-04-21	https://github.com/newgrit1004/ComfyUI-Qwen3-TTS-Triton	ComfyUI node wrapping qwen3-tts-triton for 7-mode Qwen3-TTS inference (Triton kernel fusion + TurboQuant KV cache)
+egregora-audio-super-resolution	945	60	2026-02-03	https://github.com/lucasgattas/ComfyUI-Egregora-Audio-Super-Resolution	✨High‑quality music audio enhancement for ComfyUI: FlashSR Super‑Resolution + Fat Llama spectral enhancement (GPU & CPU)
+ComfyUI-RT-HeartMuLa	933	11	2026-01-24	https://github.com/monnky/ComfyUI-RT-HeartMuLa	RT HeartMuLa is a powerful suite of multilingual AI music generation nodes for ComfyUI that enables the creation of prof
+ComfyUI-MiniMaxH3-ChainDirector	876	21	2026-08-25	https://github.com/luxu1999/ComfyUI-MiniMaxH3-ChainDirector	MiniMax H3 Chain Director (CN/EN): auto split long video into r2v+i2v segments with first-frame locking, stitch video+au
+Qwen3-TTS-Audio	826	3	2026-01-23	https://github.com/starsFriday/ComfyUI-Qwen3-TTS	Sound-related nodes for the Qwen3-TTS project
+simple-video-effects	802	1	2026-05-19	https://github.com/scofano/ComfyUI-Simple-video-effects	25 lightweight ComfyUI nodes for video effects and utilities: zoom, camera movement, shake, close-up, overlays, transiti
+sopranotts	802	2	2025-12-30	https://github.com/jo-nike/ComfyUI-SopranoTTS	ComfyUI custom nodes for Soprano TTS, a fast, lightweight text-to-speech model.
+comfyui-kaola-moss-tts	765	3	2026-02-20	https://github.com/kana112233/ComfyUI-kaola-moss-tts	ComfyUI node for MOSS-TTSD (Text to Spoken Dialogue generation)
+comfyui-kaola-soulx-singer	749	2	2026-02-17	https://github.com/kana112233/ComfyUI-kaola-soulX-Singer	ComfyUI nodes for SoulX-Singer, a high-quality singing voice synthesis system.
+symbiotica	727	2	2026-08-19	https://github.com/symbiotica-ai/comfyui-nodes	All-in-one creative pack for ComfyUI: agent-based LLMs (Claude, Gemini, GPT, Grok), Wavespeed image and video generation
+comfyui-path-sanitizer	720	0	2025-12-26	https://github.com/logicalor/comfyui_path_sanitizer	A ComfyUI custom node that sanitizes strings for use as filesystem paths
+comfyui-gu_nodepack	701	2	2026-07-28	https://github.com/alexguryev/ComfyUI-GU_Nodepack	Several utility nodes for ComfyUI: LoRA management, image annotation, project organization, sampling utilities, system i
+multimodal-captiontovideogen	694	1	2025-08-24	https://github.com/adithis197/ComfyUI-multimodal-CaptionToVideoGen	Converts image description to music prompt
+ComfyUI_doubao_seed	685	19	2025-11-06	https://github.com/xuchenxu168/ComfyUI_doubao_seed	ComfyUI is a collection of custom nodes focused on the Doubao ecosystem of the Volcano Engine, providing comprehensive A
+h3-reference-library	671	3	2026-08-19	https://github.com/nikaskeba/ComfyUI-H3-Reference-Library	Reusable tagged image and audio references for MiniMax H3 video workflows in ComfyUI.  Add as many references you want a
+comfyui-elevenlabs-pro	671	1	2026-05-30	https://github.com/IxMxAMAR/ComfyUI-ElevenLabs-Pro	Full-featured ElevenLabs integration for ComfyUI - TTS, STS, SFX, Music, Voice Cloning, STT, Dialogue + audio utilities
+Comfyui-Lyrics	659	2	2025-12-26	https://github.com/ahkimkoo/Comfyui-Lyrics	A ComfyUI custom node for generating dynamic scrolling lyrics videos with smooth animations. Supports audio-to-text tran
+comfyui-feihou-easy-h3	649	50	2026-09-11	https://github.com/FX-FeiHou/ComfyUI-FeiHou-Easy-H3	MiniMax H3 generation for ComfyUI with an embedded 9-image, 3-video, and 3-audio reference gallery.
+Higgs_v3-TTS-ComfyUI	622	74	2026-06-20	https://github.com/Saganaki22/Higgs_v3-TTS-ComfyUI	ComfyUI custom nodes for Higgs Audio v3 TTS with native inference, voice cloning, multi-speaker dialogue, longform chunk
+muse-ltx-timeline	620	8	2026-07-04	https://github.com/muse-collective-26/muse-ltx-timeline	Standalone LTX 2.3 AV director with infinite chunking, visual timeline editor, lipsync, layered audio, and per-segment p
+comfyui-image-oasis	616	24	2026-09-06	https://github.com/NikoDemon80/ComfyUI-Image-Oasis	Oasis Suite for ComfyUI: Image Oasis (all-in-one image gen), Video Oasis Viewer (preview/encode/scene bar/clip/movie), L
+comfyui-kaola-heartmula	604	0	2026-02-12	https://github.com/kana112233/ComfyUI-kaola-heartMuLa	ComfyUI nodes for HeartMuLa - Music generation and lyrics transcription pipeline
+pollinations-byop	603	4	2026-03-26	https://github.com/ChunkyPanda29/ComfyUI-Pollinations-BYOP	Premium Quad-Modal suite (Image, Video, Text, Audio) for Pollinations.ai. Includes native Settings menu integration, BYO
+augment-ComfyUI	597	2	2026-03-14	https://github.com/augment-lib/augment-ComfyUI	Design-focused node suite for ComfyUI. Convert raster to vector with a built-in PNG to SVG pipeline — bring true vectori
+ComfyUI-AudioSuiteAdvanced	586	30	2026-08-10	https://github.com/whmc76/ComfyUI-AudioSuiteAdvanced	用于处理长文本文件并生成语音的ComfyUI插件，支持音频分离、文本分割、音频拼接等功能
+comfyui-promptdrafter	581	2	2026-03-20	https://github.com/Carasibana/ComfyUI-PromptDrafter	A custom node pack for ComfyUI that provides an intuitive prompt drafting, saving, loading and management system with wi
+ollama-image-list	580	2	2026-08-15	https://github.com/craftingmod/ComfyUI-Ollama-ImageList	Analyze ComfyUI image, audio, and video lists with Ollama, llama.cpp GGUF, or native generative CLIP backends
+ComfyUI-MOSS-TTS-1.5	569	2	2026-07-26	https://github.com/eehrich/ComfyUI-MOSS-TTS-1.5	ComfyUI custom nodes for OpenMOSS MOSS-TTS v1.5 — both the 1.7B Local-Transformer (48 kHz) and the 8B full model (24 kHz
+voxcpm_sm	542	30	2025-12-14	https://github.com/smthemex/ComfyUI_VoxCPM_SM	VoxCPM锛歍okenizer-Free TTS for Context-Aware Speech Generation and True-to-Life Voice Cloning锛寉ou can use this node,easy 
+comfyui-nifty-nodes	539	9	2026-06-27	https://github.com/Stibo/comfyui-nifty-nodes	ComfyUI node pack with a custom Bundle system, smart media loaders, multi-LoRA loader, logic/switch nodes, image tools a
+comfyui-minimax-h3-audio	538	0	2026-08-12	https://github.com/t22m003/ComfyUI-MiniMaxH3Audio	MiniMax H3 text-to-music / audio-only pipeline via shrunk video canvas
+comfyui-fl-voxtral-tts	531	12	2026-04-25	https://github.com/filliptm/ComfyUI-FL-VoxtralTTS	ComfyUI nodes for Mistral Voxtral-4B TTS with direct PyTorch inference. Supports 20 preset voices across 9 languages on 
+ComfyUI-TTS2Whisper	529	2	2026-04-03	https://github.com/teddy1565/ComfyUI-TTS2Whisper	
+comfyui-longcat-avatar	504	35	2026-08-08	https://github.com/rookiestar28/ComfyUI-LongCat-Avatar	ComfyUI custom nodes for LongCat Video Avatar 1.5 audio-driven human video generation.
+comfyui_voicebridge	495	11	2026-06-18	https://github.com/YanTianlong-01/comfyui_voicebridge	Convert spoken audio to translated speech in any language via ASR + LLM + TTS pipeline
+comfyui-mvnt	466	4	2026-05-09	https://github.com/mvnt-app/ComfyUI-MVNT	Music in, choreography out — generate full-body dance motion from audio using MVNT AI inside ComfyUI
+SongBloom_ComfyUI	464	15		https://github.com/xuchenxu168/SongBloom_ComfyUI	SongBloom is a music generation plugin for ComfyUI that integrates the entire process of lyrics standardization, model l
+impact-bigdetector-bbox-segs	462	1	2026-07-24	https://github.com/Devourer56/ComfyUI-Impact-BIGdetector-BBOX-SEGS	A ComfyUI node implementing cascade object detection system (bbox/segm) using YOLO models with multi-stage processing. (
+muse-minimax-h3-unified-loader	456	6	2026-09-05	https://github.com/muse-collective-26/Muse-MiniMax-H3-Unified-Loader	One hardware-aware loader for the whole MiniMax H3 Director model stack — model, CLIP, VAEs, LoRAs, and attention patche
+comfyui-kaola-vibevoice-asr	431	9	2026-02-06	https://github.com/kana112233/ComfyUI-kaola-VibeVoice-ASR	ComfyUI custom nodes for VibeVoice ASR (Automatic Speech Recognition) with support for auto-labeling music/lyrics and hi
+comfyui-gallery-loader	413	5	2026-06-08	https://github.com/laurigates/comfyui-gallery-loader	Touch-friendly gallery picker for ComfyUI image and path widgets. Adds an inline card-grid LoadImage node, a modal picke
+comfyui-h3-motion-context-auto-chain-addon	405	42	2026-09-01	https://github.com/Ltamann/ComfyUI-H3-Motion-Context-Auto-Chain-addon	Endless MiniMax H3 video lip-sync generation with automatic video continuation for ComfyUI, featuring audio chunking, la
+auto-audio-player	388	1	2026-04-22	https://github.com/nullara/Auto-Audio-Player	An auto audio player node for ComyUI. Offers a looping toggle, autoplay toggle, scrubbing, volume control, pause and pla
+lethris-dia2	387	1	2025-12-09	https://github.com/lord-lethris/ComfyUI-lethris-dia2	ComfyUI custom nodes for the Dia2 TTS model — generate speech, timestamps, and captions directly inside ComfyUI.
+comfyui-breeze-tts-2	382	88	2026-09-11	https://github.com/saganaki22/ComfyUI-Breeze-TTS-2	Breeze TTS 2 nodes for ComfyUI: voice clone, voice design, and voice direction with INT8 ConvRot support.
+gpt5_image_text	373	1	2026-01-03	https://github.com/comrender/ComfyUI-gpt5_image_text	A ComfyUI custom node for vision + text analysis using latest GPT-5.2, GPT-4  and O1 models  with direct OpenAI API key 
+polyhedron-lora-stack	366	2	2026-08-08	https://github.com/PolyhedronAI/ComfyUI-PolyhedronLoRAStack	The Polyhedron Suite for ComfyUI. Group-aware LoRA management: stack 10-25 LoRAs with per-group merge modes (SEQ/CONCAT/
+ComfyUI-Zero-2-Json	353	1	2026-03-14	https://github.com/MushroomFleet/ComfyUI-Zero2JSON	Flux2Json system entirely re-written for infinite procedural word custom word pools in zero bytes.
+djz-enh-system	346	2	2026-03-14	https://github.com/MushroomFleet/DJZ-ENH-system	markdown file selector for credentials and system prompts on demand
+comfyui-kaola-moss-ttsd	340	3	2026-02-20	https://github.com/kana112233/ComfyUI-kaola-moss-ttsd	ComfyUI node for MOSS-TTSD (Text to Spoken Dialogue generation)
+yue2-t8	333	61	2026-09-10	https://github.com/T8mars/Comfyui-YuE2-T8	Local YuE2 generation, MuLaCover rearrangement, notation, transcription, training, and voice workflows for ComfyUI
+Moss_TTS-ComfyUI	314	30	2026-06-28	https://github.com/Saganaki22/Moss_TTS-ComfyUI	ComfyUI custom nodes for OpenMOSS MOSS-TTS Local Transformer v1.5 with model catalog downloads, Whisper prefix transcrip
+comfyUI-egregora-armd	313	0	2026-07-27	https://github.com/lucasgattas/ComfyUI-Egregora-ARMD	🌐 ARMD (Adaptive Regional Mixture of Diffusers) is a region-based diffusion system for ComfyUI, designed for semantic up
+rh_rvc	307	0	2026-06-03	https://github.com/RH-RunningHub/ComfyUI_RH_RVC	ComfyUI custom nodes for Retrieval-based Voice Conversion (RVC), including model loading, ZIP upload, voice conversion, 
+kumiho-comfyui	296	0	2026-01-03	https://github.com/kumihoclouds/kumiho-comfyui	Kumiho ComfyUI custom nodes - Connect ComfyUI workflows with Kumiho Cloud asset management system
+ComfyUI-FL-MiniMaxMusic3	294	6	2026-08-23	https://github.com/filliptm/ComfyUI-FL-MiniMaxMusic3	MiniMax Music 3 inference, MOSS dataset preprocessing, and LoRA training for ComfyUI
+amd-sysmon	284	0	2026-08-09	https://github.com/torx-bot/amd-sysmon	System monitor for the ComfyUI menu bar: CPU, RAM, swap, AMD GPU load, VRAM and temperatures, read from sysfs without NV
+Dots-TTS-ComfyUI	279	40	2026-06-11	https://github.com/Saganaki22/Dots-TTS-ComfyUI	ComfyUI custom nodes for rednote-hilab dots.tts with model loading, generation, voice cloning, Whisper transcription, pr
+ComfyUI-Stem-Mixer	277	3	2026-06-04	https://github.com/tritant/ComfyUI_Stem_Mixer	Multitrack stem mixer node. Load stems directly into the node, add multi effects per track, mix with faders/mute/solo, p
+muse-director-v10-final	266	1	2026-08-05	https://github.com/muse-collective-26/muse-director-v10-final	Timeline-driven LTX 2.3 AV Director with built-in character identity referencing — chunked long-form generation, per-seg
+CRT-HeartMuLa	265	8		https://github.com/PGCRT/CRT-HeartMuLa	A ComfyUI custom node for AI music generation using HeartMuLa models.
+comfyui-unblend	258	1	2026-06-16	https://github.com/LatentDesireAI/ComfyUI-Unblend	Character separation for anime art in ComfyUI: detection, instance masks, exclusive regions, prompt routing and pose ext
+index-tts-2.5	243	5	2026-09-03	https://github.com/mailzwj/ComfyUI-IndexTTS-2.5	IndexTTS-2.5 的 ComfyUI 自定义节点
+ComfyUI-H3-Multishot-Advance	236	6	2026-08-18	https://github.com/KursatAs/ComfyUI-H3-Multishot-Advance	Advanced multi-shot chaining for MiniMax-H3 audio+video with resumable cache, continuity controls, and unified model loa
+comfyui-rh-minimax-h3	229	1	2026-08-28	https://github.com/RH-RunningHub/ComfyUI-RH-MiniMax-H3	RunningHub MiniMax-H3 audio-video custom nodes for ComfyUI (direct, in-process)
+indextts25-t8	228	56	2026-09-08	https://github.com/T8mars/comfyui-indextts25-t8	ComfyUI V3 nodes for the official IndexTTS 2.5 model, by T8star-Aix
+comfyui-dialoguetts	227	0	2026-05-16	https://github.com/kantan-kanto/ComfyUI-DialogueTTS	Speaker-tagged dialogue TTS nodes for ComfyUI. Currently provides an IrodoriTTS-v2 backend for generating two-character 
+archviz-preset-system	226	3	2026-06-12	https://github.com/ArrowsVisuals/archviz-preset-system	Model-aware preset library for high-end architectural visualization. One preset stack, compiled to the native dialect of
+comfyui-melodramabox	221	0	2026-07-20	https://github.com/doggeddalle/ComfyUI-MelodramaBox	Native ComfyUI nodes for resemble-ai/DramaBox — expressive, prompt-driven TTS with zero-shot voice cloning (LTX-2.3 audi
+ComfyUI-foundation-1	217	111	2026-03-22	https://github.com/Saganaki22/ComfyUI-Foundation-1	ComfyUI custom nodes for Foundation-1 | structured text-to-sample generation for music production
+minimax-h3-nodes	216	1	2026-08-30	https://github.com/TensorVizion/Minimax-H3-Video-Music-Nodes	MiniMax H3 utility nodes for ComfyUI — text-to-video, image-to-video, video post-processing (upscale/interpolate/export)
+AllergicAudio	215	1	2026-04-11	https://github.com/usrname0/ComfyUI-AllergicAudio	Audio analysis nodes for ComfyUI. Detects BPM and musical key from audio files.
+ComfyUI-HttpRequestNodes	213	1	2026-06-23	https://github.com/ahkimkoo/ComfyUI-HttpRequestNodes	Extended HTTP request nodes for ComfyUI — supports image, audio, video binary data, form-data upload, and raw binary I/O
+comfyui-rvc-webui	206	0	2026-06-09	https://github.com/Wang-Huachen/ComfyUI-RVC-WebUI	RVC (Retrieval-based Voice Conversion) nodes for ComfyUI (AI voice changing via external RVC portable environment)
+kinburg-nodes	200	1	2026-08-16	https://github.com/Kinburg/Kinburg-Nodes	Kinburg's ComfyUI nodes. An end-to-end music-video pipeline: write and sing a song with Siren (AceStep, per-section voic
+comfyui-video-warptrans	199	0	2026-03-10	https://github.com/GuardSkill/ComfyUI-video-warptrans	Beat-synced flashback video generator with optical flow morphing — warp between original/edited image pairs in sync with
+comfyui-supertonic3tts	196	2	2026-06-29	https://github.com/Anonymzx/ComfyUI-Supertonic3TTS	ComfyUI custom nodes integrating Supertonic-3 — a lightning-fast, on-device, multilingual Text-to-Speech system running 
+songscribe	192	19	2026-09-15	https://github.com/TheLocalLab/ComfyUI-SongScribe	Style prompts from a 73-preset library, plus caption, lyrics and duration extracted from audio. Targets MiniMax Music 3 
+pinch-dubbing	189	3	2026-03-17	https://github.com/pinch-eng/comfyui-pinch-voice-translation	Dub and translate audio/video using Pinch AI
+ComfyUI_YingMusic-SVC	188	1	2025-12-24	https://github.com/ahkimkoo/ComfyUI_YingMusic-SVC.git	
+comfyui_llmsetrole	187	1	2026-06-28	https://github.com/bradsec/ComfyUI_LLMSetRole	Pick an LLM role (system prompt) from a dropdown and output it as a STRING for an LLM node's system_prompt. Use the role
+seedance	184	32	2026-08-21	https://github.com/T8mars/ComfyUI_Seedance	ComfyUI nodes for Seedance 2.0/2.5, FLUX 3 Video, FlashVSR, VOSR2, HappyHorse, Wan, Kling, Hailuo, MiniMax, Vidu, Zhenzh
+Comfyui-indextts25-xzg	175	10	2026-08-21	https://github.com/xiaozhuguang/Comfyui-indextts25-xzg.git	IndexTTS2: A Breakthrough in Emotionally Expressive and Duration-Controlled Auto-Regressive Zero-Shot Text-to-Speech
+comfyui-personapalette	174	1	2026-05-31	https://github.com/kantan-kanto/ComfyUI-PersonaPalette	Create new character voices from existing audio by adjusting persona axes such as Youth, Brightness, Energy, Softness, a
+cache-monitor	173	14	2026-08-19	https://github.com/envy-ai/comfyui-cache-monitor	Adds a RAM cache monitoring and management sidebar. Shows you which models are in VRAM and System ram, gives you an opti
+ComfyUI-Audio-Srt-Aligner	170	1	2026-05-25	https://github.com/ahkimkoo/ComfyUI-Audio-Srt-Aligner	Word-level audio-text alignment with multiple engines: LIS token matching, stable-ts cross-attention, and Qwen3 forced a
+ComfyUI-MuScriptor	170	8	2026-07-23	https://github.com/martyyz-ai/ComfyUI-MuScriptor	Translates Audio Music to MIDI
+comfyui-omnivoice-triton	152	5	2026-04-26	https://github.com/newgrit1004/ComfyUI-Omnivoice-Triton	ComfyUI node wrapping omnivoice-triton for Triton-fused OmniVoice TTS
+comfyui-bart-nodes	146	0	2026-07-29	https://github.com/bartenevve/comfyui-bart-nodes	Random/sequential pickers (local directory, booru tag search, 52prompts.com text prompts) plus a YuE2-3B music generatio
+comfyui-jk-heartmula	141	0	2026-06-07	https://github.com/Crono141/ComfyUI-JK-HeartMuLa	HeartMuLa music generation + lyrics transcription with MuQ-MuLan reference-audio style transfer (fork of ComfyUI-HeartMu
+vision-prompt-assistant	129	1	2026-08-20	https://github.com/elgalardi/ComfyUI-VisionPromptAssistant	Compact MiniMax H3 and Music 3 directors with OpenRouter, Ollama, API and local LLM providers.
+orion4d-secret_agent	126	1	2026-05-02	https://github.com/orion4d/Orion4D-secret_agent	Orion4D_SecretAgent is a comprehensive toolkit for ComfyUI dedicated to steganography, encryption, data encoding, and in
+comfyui-advanced-pocket-tts	121	0	2026-05-08	https://github.com/scofano/ComfyUI-Pocket-TTS-V2	Advanced CPU-based Text-to-Speech nodes for ComfyUI with full parameter control. Forked from ai-joe-git/ComfyUI-Pocket-T
+comfyui-breeze-tts-T8	119	18	2026-09-18	https://github.com/T8mars/Comfyui-breeze-tts	Composable Breeze TTS 2 voice design, cloning, direction, and desktop voice-bundle nodes for ComfyUI
+comfyui-y277an-gemini	117	0	2026-07-03	https://github.com/y277an/ComfyUI-y277an-Gemini	ComfyUI nodes for Google Gemini: image generation & editing (Nano Banana), Veo video, text/prompt generation, and TTS sp
+muse-voice-swap	112	2	2026-07-06	https://github.com/muse-collective-26/MuseVoiceSwap	Swap the speaking voice in a mixed audio clip (dialogue + ambient sound) while keeping the background intact — Demucs se
+media-feed	107	1	2026-09-06	https://github.com/pajama114/ComfyUI-Media-Feed	A lightweight in-session feed for newly generated ComfyUI images, videos, and audio.
+DJZ-ZeroEdit-nodes	106	0	2026-03-14	https://github.com/MushroomFleet/ComfyUI-ZeroEDIT-nodes	zerobytes procedural EDIT system for instruction based image generation with custom word pools
+comfyui-fast-whisper	104	0		https://github.com/ai-joe-git/ComfyUI-faster-whisper	ComfyUI node for fast-whisper transcription
+comfyui-whisper-large-v3-repack	102	1	2026-07-31	https://github.com/endman100/ComfyUI-WhisperLargeV3-Repack	Commercial-friendly Whisper Large V3 transcription nodes for ComfyUI.
+comfyui-kitten-tts	95	10	2026-02-19	https://github.com/Saganaki22/ComfyUI-KittenTTS	ComfyUI custom node for KittenTTS - Ultra-lightweight text-to-speech (CUDA / CPU)
+apg	95	0	2026-08-05	https://gitlab.com/metal3d/APG	ACE-Step 1.5 XL Adaptive Prompt Guidance (APG) for ComfyUI — replaces vanilla CFG to prevent saturation and artifacts on
+comfyui-simple-batch	90	1	2026-08-25	https://github.com/lordekeen/comfyui-simple-batch	Batch-process every image, audio, or video file in a folder tree through an existing single-item ComfyUI workflow (📥 Bat
+comfyui-minimax-h3-inpaint-tools	90	7	2026-09-02	https://github.com/panghea/ComfyUI-MiniMax-H3-Inpaint-Tools	Rewrite part of a finished MiniMax H3 clip - a rectangle, a time span, or the audio alone - by masking the latent instea
+qwen3-tts-fast	89	5	2026-09-04	https://github.com/YildirimMC/ComfyUI-Qwen3-TTS-Fast	The fastest Qwen3-TTS for ComfyUI — the only node pack running CUDA graph capture, for 5-8x faster generation with no qu
+comfyui-hand-tie-clips	87	8	2026-08-30	https://github.com/dntpi/ComfyUI-Hand-Tie-Clips	Native MiniMax H3 Ref2VA chain: persistent references, previous-segment clip+audio pin, one queue.
+ComfyUI-XPU-CacheClean	87	1	2026-08-04	https://github.com/hqh330/ComfyUI-XPU-CacheClean	XPU/CUDA VRAM cache clean nodes (soft/hard) for ComfyUI, inspired by Qwen3TTS-XPU cache_clean. Fixes VRAM_Purge's dead t
+comfyui-daz-tools	86	3	2026-09-11	https://github.com/denyazzolin/comfyui-daz-tools	A collection of utility nodes: Workflow Managers for WAN2.2, LTX2.3, LTX2.5 and MiniMax H3 - all in-one -movie- setups t
+workflowx-configurator	77	10	2026-08-24	https://github.com/haroonaslam/WorkflowX-Configurator	WorkflowX bundles ComfyUI configuration profile nodes with XFlows workflow management, XPrompts prompt libraries, XNodes
+comfyui-load-image-path	74	0	2026-09-09	https://github.com/dreevelle/ComfyUI-LoadImagePath	Load images from a pasted filesystem path in ComfyUI. The loader is a structural clone of the built-in Load Image node, 
+difforum	74	7	2026-06-18	https://github.com/chillithebillis/Difforum	Modern Deforum-style animation toolkit for ComfyUI: math-driven keyframe schedules, audio reactivity, depth-aware camera
+top-tts	73	0	2026-08-11	https://github.com/whmc76/ComfyUI-Top-TTS	Local IndexTTS 2.5 voice cloning, multilingual speech synthesis, and emotion control for ComfyUI.
+comfyui-raon-opentts	71	12	2026-08-19	https://github.com/Saganaki22/ComfyUI-Raon-OpenTTS	ComfyUI nodes for KRAFTON Raon-OpenTTS (F5-TTS-style CFM/DiT) with INT8 ConvRot quantization support via comfy-kitchen
+comfyui-ctfshell-test	68	0	2026-06-04	https://github.com/ctfshelltest/comfyui-ctfshell-test	system info node
+Zonos2_TTS-ComfyUI	64	12	2026-06-14	https://github.com/Saganaki22/Zonos2_TTS-ComfyUI	Native ComfyUI nodes for Zyphra ZONOS2 text-to-speech and voice cloning with AIMDO memory tracking
+comfyui-higgs-audio-v3-tts	55	1	2026-07-31	https://github.com/endman100/ComfyUI-HiggsAudioV3TTS	ComfyUI local-loader custom node for bosonai/higgs-audio-v3-tts-4b
+comfyui-workspacekit	53	3	2026-08-08	https://github.com/ZiYao00/ComfyUI-WorkspaceKit	ComfyUI WorkspaceKit (WK): a modular workspace, sidebar, and panel system for organizing workflows, nodes, favorites, te
+muse-run-stats	49	0	2026-09-05	https://github.com/muse-collective-26/Muse-Run-Stats	A frontend stopwatch for the whole ComfyUI workflow that also tracks average GPU temperature, GPU utilization, VRAM, and
+yue2-comfyui	46	42		https://github.com/pytraveler/YuE2-ComfyUI	ComfyUI nodes for YuE2-3B: a style description and lyrics become a readable score and then a complete 48 kHz stereo song
+comfyui-meta-sam-audio	43	6	2026-09-06	https://github.com/ethanfel/ComfyUI-SAM-Audio	Native ComfyUI nodes for local Meta SAM-Audio sound separation
+comfyui-minimax-h3-raven-streaming	43	6	2026-08-20	https://github.com/YanzuoLu/ComfyUI-MiniMax-H3-RAVEN-Streaming	Streaming text-to-video-and-audio (T2VA) nodes for MiniMax H3: a RAVEN model loader and a chunk-major RAVEN streaming sa
+index-tts-2-5	41	1	2026-08-21	https://github.com/joyfoxai/ComfyUI-Index-TTS-25	ComfyUI audio nodes for IndexTTS 2 and IndexTTS 2.5 with voice cloning and five emotion-control modes.
+MisoTTS-ComfyUI	39	7	2026-06-03	https://github.com/saganaki22/MisoTTS-ComfyUI	ComfyUI custom nodes for Miso TTS 8B, a Sesame-style CSM text-to-speech model with Mimi audio codes.
+comfyui-preview-webm	39	0	2026-08-10	https://github.com/dreevelle/ComfyUI-PreviewWebM	Scrubable inline WebM video preview for ComfyUI image batches, with optional audio. Encodes VP9 into the temp directory 
+comfyui-novaaudioplayer	35	0	2026-09-05	https://github.com/NovaFemme/ComfyUI-NovaAudioPlayer	Twenty-five nodes for making music with ACE-Step: generation parameters with presets and validation, corrective masterin
+moss-tts	35	2	2026-09-03	https://github.com/CloudRipple/MOSS-TTS-ComfyUI	ComfyUI custom nodes for OpenMOSS MOSS-TTS v1.5 — three variants: Local-Transformer (Qwen3-4B backbone, 48 kHz stereo), 
+darkhub-video-to-base64	34	1	2026-04-24	https://github.com/Cyber05CC/darkHUB-Video-to-Base64	ComfyUI custom node for converting IMAGE batches into copyable PNG or MP4 Base64 strings, with optional MP4 audio muxing
+comfyui-dots.tts	34	2		https://github.com/wanaigc/comfyui-dots.tts	This ComfyUI plugin is built upon dots.tts, a 2B-parameter fully continuous end-to-end autoregressive (AR) text-to-speec
+dots-tts-t8	33	5	2026-09-01	https://github.com/T8mars/comfyui-dots-tts-T8	ComfyUI V3 nodes for official dots.tts checkpoints by T8star-Aix
+yinchao-music	28	17	2026-08-18	https://github.com/yinhcao/ComfyUI-YinChao	YinChao Music provides ComfyUI V3 nodes for lyric generation, prompt-to-song generation, reference-based generation, and
+FireRedTTS3-ComfyUI	26	23	2026-08-18	https://github.com/Saganaki22/FireRedTTS3-ComfyUI	ComfyUI custom nodes for FireRedTTS3: zero-shot voice cloning (24 languages + 21 Chinese dialects), voice design, and sp
+comfyui-scenema-audio	25	11	2026-08-05	https://github.com/ScenemaAI/ComfyUI-ScenemaAudio	Expressive text-to-speech with zero-shot voice cloning. Ships with preset voices covering accents, ages, and emotions. R
+one-node-minimax-h3	23	329		https://github.com/LeonQ8/ComfyUI-ALLinONE-MinimaxH3	All-in-one MiniMax H3 video generation for ComfyUI: T2V, I2V, R2V, audio drive, custom keyframes, video extension and Mo
+comfyui-rh-davinci-magihuman	20	0	2026-08-19	https://github.com/RH-RunningHub/ComfyUI-RH-daVinci-MagiHuman	ComfyUI nodes for daVinci-MagiHuman talking-head audio-video generation with INT8 VRAM modes.
+sopro-tts	20	1	2026-08-31	https://github.com/vjumpkung/comfyui-sopro-tts	ComfyUI V3 custom nodes for [SoPro](https://github.com/samuel-vitorino/sopro), a lightweight multilingual text-to-speech
+WavTTS-ComfyUI	20	8	2026-06-04	https://github.com/Saganaki22/WavTTS-ComfyUI	ComfyUI custom nodes for WavTTS zero-shot text-to-speech with real ComfyUI memory tracking
+zonos2-tts-comfyui-emotion	19	0	2026-08-20	https://github.com/shiwano/zonos2-tts-comfyui-emotion	Native ComfyUI nodes for Zyphra ZONOS2 text-to-speech and voice cloning with AIMDO memory tracking and emotion condition
+comfyui-budgetpixel	19	4	2026-09-09	https://github.com/budgetpixel-ai/comfyui-budgetpixel	Official BudgetPixel nodes for ComfyUI — generate images, video, music and sound effects with 60+ hosted models (FLUX, S
+vewdtab	15	1	2026-08-17	https://github.com/spiritform/vewdtab	Side panel companion to Vewd. A persistent right-side tab for reviewing, hearting, and exporting generated media — auto-
+comfyui-ecohash	14	0	2026-08-13	https://github.com/ecohash-ai/ComfyUI-EcoHash	Official EcoHash nodes for ComfyUI: image generation & editing, LLM prompt tools, vision captioning, TTS and STT powered
+comfyui-fireredaudio-t8	13	23		https://github.com/T8mars/comfyui-fireredaudio-T8	ComfyUI V3 nodes for FireRedAudio using an isolated Transformers 5.8 worker
+comfyui-ltx2-mlx	10	0		https://github.com/vrgamegirl19/comfyui-ltx2-mlx	ComfyUI nodes for running Lightricks LTX-2.3 video generation natively on Apple Silicon via MLX (ltx-2-mlx), including t
+comfyui-minimax-music-production-toolkit	9	58		https://github.com/jplenio/ComfyUI-MiniMax-Music-Production-Toolkit	ComfyUI music production with YuE2 audio cover versions, SheetSage2 score-aware prompts, YuE2 and MiniMax Music 3 song g
+comfyui-h3studio	9	31		https://github.com/shootthesound/ComfyUI-H3Studio	A video editor for MiniMax H3 inside a single ComfyUI node. Keyframes with independent strength dials (guide the motion 
+voice_tag_editor	9	0	2026-08-04	https://github.com/mailzwj/ComfyUI-Voice-Tag-Editor	TTS非语言标签快捷编辑器节点
+mimo-tts	8	2	2026-08-10	https://github.com/TimekeeperXY/ComfyUI-MiMo-TTS	ComfyUI nodes for MiMo-V2.5-TTS preset voices, voice design, and voice cloning.
+ComfyUI-ControlFoley	7	6		https://github.com/YJX-Research/comfyui-controlfoley-official	Official ComfyUI custom nodes and full-task workflows for ControlFoley, supporting controllable SFX generation, video-to
+dreamx-creator-t8	7	5	2026-09-12	https://github.com/T8mars/Comfyui-DreamX-Creator-T8	Native ComfyUI V3 nodes for DreamX-Creator joint audio-video generation and causal 2x refinement.
+quokkailab-audio-conditioning	6	0	2026-09-17	https://github.com/sducly/quokkai-lab-ltx25-lipsync-fix	Validated RC2 audio conditioning for LTX-2.5 lip-sync, with separate clean output audio.
+alice-lab-audio-tools	6	2		https://github.com/alice-lab-dev/ComfyUI-ALICE-Lab-Audio-Tools	ComfyUI custom nodes for selecting media ranges, editing and comparing audio, and previewing audio and video.
+cinespatial	5	0	2026-08-24	https://github.com/Vighneshjs/ComfyUI-CineSpatial	Headless ComfyUI nodes using a fixed loopback cinematic-audio runner service
+comfyui-tj_node_studio_one	5	32		https://github.com/designloves2/ComfyUI-TJ_NODE_STUDIO_ONE	TJ Node ONE Studio — all-in-one generation nodes for Flux2 Klein, Z-Image, Krea2, Qwen, SDXL, Anima, MiniMax H3 video, a
+yue2	5	17		https://github.com/nvmax/ComfyUI-YuE2	Professional neural music generation suite for ComfyUI powered by YuE2 and LLM Studio
+sonder-editor	4	3		https://github.com/SonderSaid/ComfyUI-Sonder-Editor	Timeline video editor for ComfyUI in a single node. Arrange video, images, and audio on tracks, set first and last frame
+comfyui-zenkit	3	0	2026-09-05	https://github.com/Nynxz/ZenKit	ZenKit — a UX framework for ComfyUI: panels, a theme token system, and a cross-plugin event bus, exposed as window.ZenKi
+comfyui-msst-webui	3	0		https://github.com/Wang-Huachen/ComfyUI-MSST-WebUI	MSST WebUI audio source separation nodes for ComfyUI (vocal/instrumental split, multi-stem, denoise, dereverb, karaoke)
+comfyui-mochorong	3	0	2026-09-13	https://github.com/mochorongo/Mochorong	Utility nodes for ComfyUI — audio gates, selectors, conditional routing, and type conversion.
+comfyui-bluemagpie-tts	3	1		https://github.com/endman100/ComfyUI-BlueMagpie-TTS	ComfyUI nodes for OpenFormosa BlueMagpie-TTS
+comfyui-shima_wf	2	2		https://github.com/KDB-USJP/shima_wf	Shima - ComfyUI Workflow Creation and Sharing System
+music2video	2	1		https://github.com/lazniak/comfyui-music2video	Turn a track into a finished music video inside ComfyUI. Whisper large-v3 transcribes the lyrics with word-level timing,
+richards-video-kits	2	0		https://github.com/Richard-Wang-fs/ComfyUI-RichardsVideoKits	ComfyUI video segment saving, Wan Animate 2 loops, and final assembly with source audio
+eagle-bridge	1	0	2026-09-22	https://github.com/jambread-git/ComfyUI-EagleBridge	Save ComfyUI images, audio, and video directly to Eagle with metadata and previews.
+promptmasterld	1	1		https://github.com/Lora-Daddy/PromptMasterLD	A shot writer and pipeline pack for ComfyUI, built around MiniMax H3 video. Runs a local LLM through LM Studio to turn a
+comfyui-zura-nodes	1	0		https://github.com/ZURAVFX/ComfyUI_zura_nodes	Four ComfyUI nodes for video loading, performer masking, Wan 2.2 Animate rendering in looped chunks with audio, and turb
+ComfyUI-Geeky-Kokoro-TTS	0	55		https://github.com/GeekyGhost/ComfyUI-Geeky-Kokoro-TTS	A powerful and feature-rich custom node collection for ComfyUI that integrates the Kokoro TTS (Text-to-Speech) system wi
+ComfyUI-LMCQ	0	109		https://github.com/sebord/ComfyUI-LMCQ	ComfyUI small node toolkit, this toolkit is mainly to update some practical small nodes, to make a contribution to the c
+ComfyUI-Universal-Prompt-Selector	0	0		https://github.com/Rakeshcool/ComfyUI-Universal-Prompt-Selector	Reusable system prompts as first-class ComfyUI assets: a persistent prompt library with Edit/New/Delete on the node, a s
+comfyui-arkennemasis	0	9		https://github.com/Hishamahmer/comfyui-arkennemasis	One pack, many AI use cases: OpenAI GPT-5 text/vision and gpt-image-2 through Replicate, the same image model through yo
+ComfyUI-Jurdns-Groq-Node	0	2		https://github.com/jurdnisglobby/ComfyUI-Jurdns-Groq-Node	This node utilizes the Groq.com API to enhance prompts. (Place API key and main system prompt in the groq_config.json)
+comfyui-shima	0	0		https://github.com/KDB-USJP/Shima	A premium UI/UX ecosystem and foundational styling framework for ComfyUI workflows.
+comfyui_openai_node	0	1		https://github.com/nagolinc/comfyui_openai_node	This provides a single node openai > Open AI query node that takes a system prompt and user message and sends them to ch
+ComfyUI-LLaVA-Captioner	0	143		https://github.com/ceruleandeep/ComfyUI-LLaVA-Captioner	A ComfyUI extension for chatting with your images. Runs on your own system, no external services used, no filter. Uses t
+comfyui-systemlevel	0	4		https://github.com/davidgressett/comfyui-systemlevel	This custom node allows you to load data from one or more CSV files, then feed that data into subsequent nodes in a Comf
+prompt_collapse	0	5		https://github.com/kraglik/prompt_collapse	A prompt generation system that manages relationships between prompt components to maintain logical consistency. Integra
+srl-nodes	0	12		https://github.com/seanlynch/srl-nodes	Nodes: SRL Conditional Interrupt, SRL Format String, SRL Eval, SRL Filter Image List. This is a collection of nodes I fi
+ComfyUI-WhisperX	0	64		https://github.com/AIFSH/ComfyUI-WhisperX	a comfyui cuatom node for audio subtitling based on [a/whisperX](https://github.com/m-bain/whisperX.git) and [a/translat
+ComfyUI-Schedulizer	0	11		https://github.com/DoctorDiffusion/ComfyUI-Schedulizer	Nodes:Whisper Node, Prompt Schedule Converter. Convert song lyrics into a useable prompt travel schedule within comfyUI.
+ComfyUI-Whisper	0	269		https://github.com/yuvraj108c/ComfyUI-Whisper	Transcribe audio and add subtitles to videos using Whisper in ComfyUI
+ComfyUI_SignalProcessing	0	22		https://github.com/c0ffymachyne/ComfyUI_SignalProcessing	Audio processing nodes for comfyui.
+ComfyUI-DeepExtract	0	48		https://github.com/abdozmantar/ComfyUI-DeepExtract	DeepExtract is a powerful and efficient tool designed to separate vocals and sounds from audio files, providing an enhan
+DJZ-Pedalboard	0	3		https://github.com/MushroomFleet/DJZ-Pedalboard	This project provides a collection of custom nodes designed for enhanced audio effects in ComfyUI. With an intuitive ped
+msch-lyric-sync	0	0		https://github.com/mariobilly/msch-lyric-sync	Align pasted lyrics to audio and render bilingual captions or animated lyric mosaics with editable color palettes.
+ComfyUI-AudioReactor	0	9		https://github.com/tocubed/ComfyUI-AudioReactor	Nodes: Shadertoy, Load Audio (from Path), Audio Frame Transform (Shadertoy), Audio Frame Transform (Beats)
+ComfyUI-AudioScheduler	0	113		https://github.com/a1lazydog/ComfyUI-AudioScheduler	Load mp3 files and use the audio nodes to power animations and prompt scheduling. Use with FizzNodes.
+comfyui_nemotron_asr	0	1		https://github.com/Rakeshcool/comfyui_nemotron_asr	Transcribe audio with a local Nemotron ASR (NeMo-Speech.cpp) server: batch, file, realtime WebSocket streaming, and a li
+comfyui-sound-lab	0	144		https://github.com/shadowcz007/comfyui-sound-lab	Nodes:Music Gen, Audio Play, Stable Audio
+msch-typort	0	0		https://github.com/mariobilly/msch-typort	Layered animated typography studio with Arabic text, keyframes, audio reactions and transparent or composite exports.
+ComfyUI-MediaMixer	0	39		https://github.com/DoctorDiffusion/ComfyUI-MediaMixer	A node suite for downloading audio and video from youtube as we all sevral useful video utilits such as a final frame se
+ComfyUI-basic-pitch	0	3		https://github.com/DoctorDiffusion/ComfyUI-basic-pitch	Audio to midi functionality within ComfyUI
+ComfyUI-DeepFuze	0	461		https://github.com/SamKhoze/ComfyUI-DeepFuze	DeepFuze is a state-of-the-art deep learning tool that seamlessly integrates with ComfyUI to revolutionize facial transf
+comfyui_universal_media_loader	0	13		https://github.com/Fictiverse/ComfyUI_UniversalMediaLoader	An universal media loader for ComfyUI (Size, Image, Audio, Video)
+ComfyUI-FishSpeech	0	53		https://github.com/AIFSH/ComfyUI-FishSpeech	a custom comfyui node for [a/fish-speech](https://github.com/fishaudio/fish-speech.git)
+ComfyUI-FapMixPlus	0	1		https://github.com/akspa0/ComfyUI-FapMixPlus	This is an audio processing script that applies soft limiting, optional loudness normalization, and optional slicing for
+comfyui-audio-quality-check	0	0	2026-09-20	https://github.com/Khip01/ComfyUI-AudioQualityCheck	ComfyUI custom nodes for automated audio quality evaluation and correction (LUFS, True Peak, Noise Floor, LRA, Dropout)
+ComfyUI-IP_LAP	0	35		https://github.com/AIFSH/ComfyUI-IP_LAP	Nodes:IP_LAP Node, Video Loader, PreView Video, Combine Audio Video. the comfyui custom node of [a/IP_LAP](https://githu
+ComfyUI-TranscriptionTools	0	35		https://github.com/royceschultz/ComfyUI-TranscriptionTools	Transcribe audio and video files in ComfyUI.
+comfyui-ai-act-50	0	0		https://github.com/Mikerhinos/ComfyUI_AI_Act_50	A custom node to add metadata to images, videos and audios, to be conform to the new article 50 of EU AI Act law.
+comfyUI_DaVinciResolve	0	48		https://github.com/barckley75/comfyUI_DaVinciResolve	Nodes:TextToSpeech, phy_3_conditioning, SaveAudioToDaVinci, SaveImageToDaVinci. NOTE:In order to use DaVinci node you mu
+ComfyUI-Gemini_Flash_2.0_Exp	0	335		https://github.com/ShmuelRonen/ComfyUI-Gemini_Flash_2.0_Exp	A ComfyUI custom node that integrates Google's Gemini Flash 2.0 Experimental model, enabling multimodal analysis of text
+comfyui-songlrc	0	2		https://github.com/TheAwaken1/ComfyUI-SongLRC	Timed .lrc lyrics for generated songs, saved beside the audio, with a player that highlights each line as it is sung.
+ComfyUI-MARS5-TTS	0	28		https://github.com/AIFSH/ComfyUI-MARS5-TTS	a comfyui custom node for [a/MARS5-TTS](https://github.com/Camb-ai/MARS5-TTS)
+F5-TTS-ComfyUI	0	40		https://github.com/AIFSH/F5-TTS-ComfyUI	a custom node for [a/F5-TTS](https://github.com/SWivid/F5-TTS)
+FireRedTTS-ComfyUI	0	13		https://github.com/AIFSH/FireRedTTS-ComfyUI	a custom node for [a/FireRedTTS](https://github.com/FireRedTeam/FireRedTTS)
+IndexTTS2-PauseControl	0	4		https://github.com/lynx-gt/IndexTTS2-PauseControl	IndexTTS2 精确停顿控制（[pause:N]）ComfyUI 节点：停顿延长/缩短/插入，平均偏差 13ms，支持批量生成与试听验收。Precise pause control for IndexTTS2 — TTS ComfyUI
+MaskGCT-ComfyUI	0	62		https://github.com/AIFSH/MaskGCT-ComfyUI	a custom node for [a/MaskGCT](https://github.com/open-mmlab/Amphion/blob/main/models/tts/maskgct/README.md) to Zero-Shot
+ComfyUI-XTTS	0	70		https://github.com/AIFSH/ComfyUI-XTTS	a custom comfyui node for [a/coqui-ai/TTS](https://github.com/coqui-ai/TTS.git)'s xtts module! support 17 languages voic
+ComfyUI-Mana-Nodes	0	248		https://github.com/ForeignGods/ComfyUI-Mana-Nodes	Font Animation, Speech Recognition, Caption Generator, TTS
+ComfyUI-PiperTTS	0	31		https://github.com/yuvraj108c/ComfyUI-PiperTTS	Convert Text-to-Speech inside ComfyUI using [a/Piper](https://github.com/rhasspy/piper)
+ComfyUI-ZonosTTS	0	27		https://github.com/BahaC/ComfyUI-ZonosTTS	A ComfyUI custom node that brings Zonos Text-to-Speech capabilities to your workflows, featuring high-quality speech syn
+benjiyaya_ComfyUI-KokoroTTS	0	70		https://github.com/benjiyaya/ComfyUI-KokoroTTS	A Text To Speech node using Kokoro TTS in ComfyUI.
+ComfyUI-TTS	0	32		https://github.com/daniel-lewis-ab/ComfyUI-TTS	Text To Speech (TTS) for ComfyUI
+jhj0517_ComfyUI-jhj-Kokoro-Onnx	0	6		https://github.com/jhj0517/ComfyUI-jhj-Kokoro-Onnx	kokoro-onnx (opensource TTS model) wrapper for ComfyUI.
+ComfyUI-GPT_SoVITS	0	254		https://github.com/AIFSH/ComfyUI-GPT_SoVITS	a comfyui custom node for [a/GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS)! you can voice cloning and tts in comfy
+ComfyUI-speech-dataset-toolkit	0	23		https://github.com/kale4eat/ComfyUI-speech-dataset-toolkit	Basic audio tools using torchaudio for ComfyUI. It is assumed to assist in the speech dataset creation for ASR, TTS, etc
+GSTTS-ComfyUI	0	45		https://github.com/AIFSH/GSTTS-ComfyUI	a comfyui custom node for [a/GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS)
+ComfyUI_Demucs	0	12		https://github.com/smthemex/ComfyUI_Demucs	Using Demucs in comfyUI, make Music Source Separation
+VocalSeparation-ComfyUI	0	27		https://github.com/AIFSH/VocalSeparation-ComfyUI	a custom node for separation vocals from music based on [a/ZFTurbo/Music-Source-Separation-Training](https://github.com/
+comfyUI_FrequencySeparation_RGB-HSV	0	45		https://github.com/risunobushi/comfyUI_FrequencySeparation_RGB-HSV	A collection of simple nodes for Frequency Separation / Frequency Recombine with RGB and HSV methods
+prompt_injection	0	99		https://github.com/DataCTE/prompt_injection	This custom node for ComfyUI allows you to inject specific prompts at specific blocks of the Stable Diffusion UNet, prov
+comfyui-h3-planner	0	3		https://github.com/AIJigyasa/ComfyUI-H3-Planner	Plan, render and stitch long MiniMax H3 videos in ComfyUI. A Story Planner writes a whole advert or short film from one 
+MBM-Music-Visualizer	0	30		https://github.com/Sorcerio/MBM-Music-Visualizer	An image generation based music visualizer integrated into comfyanonymous/ComfyUI as custom nodes.
+ComfyUI_YuE	0	193		https://github.com/smthemex/ComfyUI_YuE	[a/YuE](https://github.com/multimodal-art-projection/YuE) is a groundbreaking series of open-source foundation models de
+msch-a2v	0	0		https://github.com/mariobilly/msch-a2v	Beat-synced prompt sequencing, shot planning, MiniMax H3 sampling, assembly and pixel upscaling for music videos.
+yue2-native	0	2		https://github.com/endman100/ComfyUI-YuE2	Composable ComfyUI V3 nodes for YuE2 music generation
+ComfyUI-UVR5	0	123		https://github.com/AIFSH/ComfyUI-UVR5	the custom code for [a/UVR5](https://github.com/Anjok07/ultimatevocalremovergui) to separate vocals and background music
+ComfyUI-RVC	0	37		https://github.com/AIFSH/ComfyUI-RVC	a comfyui custom node for [a/Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voic

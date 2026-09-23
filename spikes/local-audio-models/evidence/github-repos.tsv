@@ -1,0 +1,77 @@
+ace-step/ACE-Step	4858	2026-02-15	2025-04-28	Apache-2.0	ACE-Step: A Step Towards Music Generation Foundation Model
+ace-step/ACE-Step-1.5	12856	2026-09-03	2025-09-04	MIT	The most powerful local music generation model that outperforms almost all commercial alternatives, supporting Mac, AMD, Intel, and CUDA dev
+multimodal-art-projection/YuE	10178	2026-09-23	2025-01-23	Apache-2.0	YuE2: frontier music generation with symbolic planning, zero-shot covers, and agentic music editing.
+ASLP-lab/DiffRhythm	2348	2025-11-27	2025-02-23	Apache-2.0	Di♪♪Rhythm: Blazingly Fast and Embarrassingly Simple End-to-End Full-Length Song Generation with Latent Diffusion
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}Cypress-Yang/SongBloom	NOT_FOUND
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}tencent-ailab/SongGeneration	NOT_FOUND
+QwenAudio/FunMusic	21	2025-05-20	2024-10-29	Apache-2.0	A fundamental toolkit designed for music, song, and audio generation
+Stability-AI/stable-audio-tools	3867	2026-09-18	2023-05-23	MIT	Generative models for conditional audio generation
+facebookresearch/audiocraft	23648	2026-03-03	2023-06-08	MIT	Audiocraft is a library for audio processing and generation with deep learning. It features the state-of-the-art EnCodec audio compressor / 
+hkchengrex/MMAudio	2266	2026-02-23	2024-12-07	MIT	[CVPR 2025] MMAudio: Taming Multimodal Joint Training for High-Quality Video-to-Audio Synthesis
+openvpi/DiffSinger	3205	2026-09-20	2022-08-03	Apache-2.0	An advanced singing voice synthesis system with high fidelity, expressiveness, controllability and flexibility based on DiffSinger: Singing 
+QwenAudio/CosyVoice	23748	2026-05-25	2024-07-03	Apache-2.0	Multi-lingual large voice generation model, providing inference, training and deployment full-stack ability.
+resemble-ai/chatterbox	26530	2026-07-21	2025-04-23	MIT	SoTA open-source TTS
+SWivid/F5-TTS	15277	2026-09-21	2024-10-08	MIT	Official code for "F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching"
+fishaudio/fish-speech	32813	2026-09-16	2023-10-10	NOASSERTION	SOTA Open Source TTS
+hexgrad/kokoro	8964	2025-08-06	2025-01-10	Apache-2.0	https://hf.co/hexgrad/Kokoro-82M
+Zyphra/Zonos	7236	2025-03-05	2025-02-07	Apache-2.0	Zonos-v0.1 is a leading open-weight text-to-speech model trained on more than 200k hours of varied multilingual speech, delivering expressiv
+nari-labs/dia	19398	2025-11-19	2025-04-19	Apache-2.0	A TTS model capable of generating ultra-realistic dialogue in one pass.
+QwenLM/Qwen3-Omni	4027	2026-04-23	2025-09-21	Apache-2.0	Qwen3-omni is a natively end-to-end, omni-modal LLM developed by the Qwen team at Alibaba Cloud, capable of understanding text, audio, image
+QwenLM/Qwen2-Audio	2102	2025-04-21	2024-06-24	none	The official repo of Qwen2-Audio chat & pretrained large audio language model proposed by Alibaba Cloud.
+openai/whisper	109516	2026-08-31	2022-09-16	MIT	Robust Speech Recognition via Large-Scale Weak Supervision
+SYSTRAN/faster-whisper	25536	2025-11-19	2023-02-11	MIT	Faster Whisper transcription with CTranslate2
+m-bain/whisperX	24208	2026-08-30	2022-12-09	BSD-2-Clause	WhisperX:  Automatic Speech Recognition with Word-level Timestamps (& Diarization)
+ggml-org/whisper.cpp	53887	2026-09-23	2022-09-25	MIT	Port of OpenAI's Whisper model in C/C++
+Blaizzy/mlx-audio	7936	2026-09-23	2024-11-27	MIT	A text-to-speech (TTS), speech-to-text (STT) and speech-to-speech (STS) library built on Apple's MLX framework, providing efficient speech a
+seungheondoh/lp-music-caps	347	2024-04-08	2023-07-10	none	LP-MusicCaps: LLM-Based Pseudo Music Captioning [ISMIR23]
+LAION-AI/CLAP	2281	2025-05-15	2022-03-06	CC0-1.0	Contrastive Language-Audio Pretraining
+shansongliu/MU-LLaMA	307	2025-08-18	2023-07-03	GPL-3.0	MU-LLaMA: Music Understanding Large Language Model
+CPJKU/madmom	1714	2026-03-20	2015-09-08	NOASSERTION	Python audio and music signal processing library
+CPJKU/beat_this	397	2026-05-28	2024-04-18	MIT	Accurate and general beat tracker
+mir-aidj/all-in-one	850	2024-05-09	2023-07-26	MIT	All-In-One Music Structure Analyzer
+MTG/essentia	3739	2026-09-21	2013-06-03	AGPL-3.0	C++ library for audio and music analysis, description and synthesis, including Python bindings
+facebookresearch/demucs	10363	2024-04-24	2019-10-25	MIT	Code for the paper Hybrid Spectrogram and Waveform Source Separation
+adefossez/demucs	3246	2026-08-31	2023-11-16	MIT	Code for the paper Hybrid Spectrogram and Waveform Source Separation
+lucidrains/BS-RoFormer	954	2026-06-14	2023-09-09	MIT	Implementation of Band Split Roformer, SOTA Attention network for music source separation out of ByteDance AI Labs
+ZFTurbo/Music-Source-Separation-Training	1555	2026-09-09	2023-11-06	MIT	Repository for training models for music source separation.
+nomadkaraoke/python-audio-separator	1379	2026-08-27	2023-06-30	MIT	Easy to use stem (e.g. instrumental/vocals) separation from CLI or as a python package, using a variety of amazing pre-trained models (prima
+Anjok07/ultimatevocalremovergui	26336	2025-03-13	2020-07-20	MIT	 GUI for a Vocal Remover that uses Deep Neural Networks.
+RVC-Project/Retrieval-based-Voice-Conversion-WebUI	38488	2026-08-04	2023-03-27	MIT	Easily train a good VC model with voice data <= 10 mins!
+Plachtaa/seed-vc	3892	2025-04-20	2024-09-03	GPL-3.0	zero-shot voice conversion & singing voice conversion, with real-time support
+haoheliu/versatile_audio_super_resolution	1967	2025-08-27	2023-09-06	MIT	Versatile audio super resolution (any -> 48kHz) with AudioSR.
+sergree/matchering	2644	2026-07-08	2018-09-28	GPL-3.0	🎚️ Open Source Audio Matching and Mastering
+spotify/basic-pitch	5618	2025-11-13	2022-05-03	Apache-2.0	A lightweight yet powerful audio-to-MIDI converter with pitch bend detection
+magenta/mt3	1755	2026-09-15	2021-11-03	Apache-2.0	MT3: Multi-Task Multitrack Music Transcription
+facebookresearch/encodec	4058	2024-01-04	2022-10-20	MIT	State-of-the-art deep learning based audio codec supporting both mono 24 kHz audio and stereo 48 kHz audio.
+descriptinc/descript-audio-codec	1863	2026-07-16	2023-06-12	MIT	State-of-the-art audio codec with 90x compression factor. Supports 44.1kHz, 24kHz, and 16kHz mono/stereo audio.
+hubertsiuzdak/snac	776	2024-11-19	2024-02-20	MIT	Multi-Scale Neural Audio Codec (SNAC) compresses audio into discrete codes at a low bitrate
+Comfy-Org/ComfyUI	134707	2026-09-23	2023-01-17	GPL-3.0	The most powerful and modular diffusion model GUI, api and backend with a graph/nodes interface.
+billwuhao/ComfyUI_ACE-Step	251	2025-05-28	2025-05-07	Apache-2.0	ACE-Step: A Step Towards Music Generation Foundation Model
+kijai/ComfyUI-MMAudio	575	2026-02-01	2024-12-10	MIT	
+diodiogod/TTS-Audio-Suite	1212	2026-09-19	2025-08-06	NOASSERTION	A ComfyUI custom node integration for local multi-engine multi-language Text-to-Speech and Voice Conversion. Supports: RVC, Echo-TTS, Qwen3-
+christian-byrne/audio-separation-nodes-comfyui	621	2026-08-17	2024-07-03	MIT	Separate stems (vocals, bass, drums, other) from audio. Recombine, tempo match, slice/crop audio
+yuvraj108c/ComfyUI-Whisper	269	2026-06-07	2024-01-24	NOASSERTION	Transcribe audio and add subtitles to videos using Whisper in ComfyUI
+ASLP-lab/DiffRhythm2	174	2025-11-09	2025-10-28	Apache-2.0	Di♪♪Rhythm 2: Efficient And High Fidelity Song Generation Via Block Flow Matching
+stepfun-ai/Step-Audio2	1520	2026-03-16	2025-07-15	Apache-2.0	Step-Audio 2 is an end-to-end multi-modal large language model designed for industry-strength audio understanding and speech conversation.
+stepfun-ai/Step-Audio-EditX	978	2026-04-09	2025-10-29	Apache-2.0	A powerful 3B-parameter, LLM-based Reinforcement Learning audio edit model excels at editing emotion, speaking style, and paralinguistics, a
+OpenBMB/VoxCPM	37918	2026-09-02	2025-09-16	Apache-2.0	VoxCPM2: Tokenizer-Free TTS for Multilingual Speech Generation, Creative Voice Design, and True-to-Life Cloning
+microsoft/VibeVoice	54470	2026-09-03	2025-08-25	MIT	Open-Source Frontier Voice AI
+index-tts/index-tts	24156	2026-08-18	2025-02-06	NOASSERTION	An Industrial-Level Controllable and Efficient Zero-Shot Text-To-Speech System
+boson-ai/higgs-audio	8358	2026-06-05	2025-07-20	Apache-2.0	Text-audio foundation model from Boson AI
+kyutai-labs/delayed-streams-modeling	3030	2026-01-26	2025-06-16	Apache-2.0	Kyutai's Speech-To-Text and Text-To-Speech models based on the Delayed Streams Modeling framework.
+Tencent-Hunyuan/HunyuanVideo-Foley	1056	2025-09-28	2025-08-15	NOASSERTION	HunyuanVideo-Foley: Multimodal Diffusion with Representation Alignment for High-Fidelity Foley Audio Generation.
+bytedance/MegaTTS3	6100	2026-06-15	2025-03-20	Apache-2.0	
+HeartMuLa/heartlib	3820	2026-09-17	2026-01-15	Apache-2.0	HeartMuLa Official Repo: The Most Powerful Open-Source Music Generation Model of 2026
+NVIDIA/audio-flamingo	1194	2025-12-15	2024-05-20	none	PyTorch implementation of Audio Flamingo: Series of Advanced Audio Understanding Language Models
+Rikorose/DeepFilterNet	4745	2024-10-17	2021-10-10	NOASSERTION	Noise supression using deep filtering
+resemble-ai/resemble-enhance	2432	2024-12-03	2023-11-15	MIT	AI powered speech denoising and enhancement
+QwenLM/Qwen3-TTS	13510	2026-03-17	2026-01-21	Apache-2.0	Qwen3-TTS is an open-source series of TTS models developed by the Qwen team at Alibaba Cloud, supporting stable, expressive, and streaming s
+QwenLM/Qwen3-ASR	3592	2026-06-26	2026-01-28	Apache-2.0	Qwen3-ASR is an open-source series of ASR models developed by the Qwen team at Alibaba Cloud, supporting stable multilingual speech/music/so
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}nvidia/parakeet	NOT_FOUND
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}Stability-AI/stable-audio-open-small	NOT_FOUND
+openvpi/SOME	706	2026-03-07	2023-09-11	MIT	SOME: Singing-Oriented MIDI Extractor.
+Music-and-Culture-Technology-Lab/omnizart	1980	2026-05-31	2020-08-26	MIT	Omniscient Mozart, being able to transcribe everything in the music, including vocal, drum, chord, beat, instruments, and more.
+xavriley/ADTOF	0	2025-09-15	2024-12-18	NOASSERTION	Additional material for the paper ADTOF: A large dataset of non-synthetic music for automatic drum transcription
+ace-step/ACE-Step-1.5	12856	2026-09-03	2025-09-04	MIT	The most powerful local music generation model that outperforms almost all commercial alternatives, supporting Mac, AMD, Intel, and CUDA dev
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}fal-ai/MiniMax	NOT_FOUND
+Lightricks/LTX-2	9511	2026-08-26	2026-01-03	NOASSERTION	Official Python inference and LoRA trainer package for the LTX-2 audio–video generative model.
