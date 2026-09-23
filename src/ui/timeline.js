@@ -202,6 +202,7 @@ export class Timeline {
     arr.placements.splice(this.selected + 1, 0, { track: p.track, clip: right.id, at: t });
     this.peaks.clear();
     this.app.bus.emit('arrangement:changed', {});
+    this.app.bus.emit('clip:selected', { index: this.selected });
     this.dirty = true;
     return true;
   }
@@ -226,6 +227,7 @@ export class Timeline {
     this.store.checkpoint();
     this.arrangement.placements.splice(this.selected, 1); // clip record stays; it's a reference
     this.selected = null;
+    this.app.bus.emit('clip:selected', { index: null });
     this.app.bus.emit('arrangement:changed', {});
     this.dirty = true;
   }
@@ -259,14 +261,14 @@ export class Timeline {
     }
     const h = this.hit(x, y);
     if (!h) {
-      this.selected = null;
+      if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
       if (x >= GUTTER_W) this.app.transport.songPos = Math.max(0, this.sec(x)); // seek
       this.dirty = true;
       return;
     }
     this.canvas.setPointerCapture(e.pointerId);
     this.store.checkpoint();
-    this.selected = h.index;
+    if (this.selected !== h.index) { this.selected = h.index; this.app.bus.emit('clip:selected', { index: h.index }); }
     // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
     const edge = (h.edge === 'right' && e.altKey) ? 'stretch' : h.edge;
     this.drag = { ...h, edge, startX: x, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out, st0: h.clip.stretch ?? 1 };

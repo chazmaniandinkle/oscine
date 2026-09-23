@@ -5,6 +5,7 @@
 
 import { el, Knob, Select } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
+import { ClipInspector } from './clipinspector.js';
 
 export class Inspector {
   constructor(host, app) {
@@ -13,9 +14,13 @@ export class Inspector {
     this.host = host;
     host.classList.add('inspector');
     this.controls = new Map(); // paramKey -> widget
+    // Timeline clip selection takes the panel over; it renders into the
+    // same host and we defer to it whenever a clip is selected.
+    this.clipInspector = new ClipInspector(host, app);
 
     const { bus } = app;
     bus.on('ui:selection', () => this.render());
+    bus.on('clip:selected', () => this.render());
     bus.on('preset:applied', ({ trackId }) => {
       if (trackId === this.store.ui.selectedTrackId) this.render();
     });
@@ -38,9 +43,14 @@ export class Inspector {
     host.textContent = '';
     this.controls.clear();
 
+    // A selected timeline clip owns the panel.
+    if (this.clipInspector.render()) return;
+
     const track = store.getTrack(store.ui.selectedTrackId);
     if (!track) {
-      host.appendChild(el('div', 'empty-hint', 'Select a track to edit its sound.'));
+      host.appendChild(el('div', 'empty-hint', this.app.timeline?.active
+        ? 'Click a clip on the timeline to edit it.'
+        : 'Select a track to edit its sound.'));
       return;
     }
     const def = getInstrumentDef(track.instrument.type);
