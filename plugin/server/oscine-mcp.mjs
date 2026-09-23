@@ -289,6 +289,58 @@ const MIME = {
   '.flac': 'audio/flac',
 };
 
+// -- transcription (whisper via the sidecar) ---------------------------------
+// Local whisper CLI + ffmpeg. Paths are overridable by env so another node
+// can point at its own install. Cache key = sha256(file) + span + model.
+const WHISPER = process.env.OSCINE_WHISPER || `${process.env.HOME}/.local/bin/whisper`;
+const whisperModels = () => process.env.OSCINE_WHISPER_MODELS || `${PROJECT_ROOT}/tmp/whisper-models`; // PROJECT_ROOT is declared later in the file
+const FFMPEG = process.env.OSCINE_FFMPEG || 'ffmpeg';
+const JUNK_WORDS = new Set(['thank you for watching!', 'thanks for watching!', 'you', 'thank you.']);
+
+function run(cmd, args, opts = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+    let out = '', err = '';
+    child.stdout.on('data', d => { out += d; });
+    child.stderr.on('data', d => { err += d; });
+    child.on('error', reject);
+    child.on('close', code => code === 0 ? resolvePromise(out) : reject(new Error(`${cmd} exited ${code}: ${err.slice(-800)}`)));
+  });
+}
+
+async function transcribeFile(full, { from = null, to = null, model = 'small', force = false } = {}) {
+  const buf = await readFile(full);
+  const sha = createHash('sha256').update(buf).digest('hex');
+  const span = (from != null || to != null) ? `_${(from ?? 0).toFixed(2)}-${to != null ? to.toFixed(2) : 'end'}` : '';
+  const cacheDir = join(dirname(full), 'stems', 'words');
+  const cacheFile = join(cacheDir, `${sha}${span}.${model}.json`);
+  let raw = null;
+  if (!force) { try { raw = JSON.parse(await readFile(cacheFile, 'utf8')); } catch {} }
+  if (!raw) {
+    const tmpDir = join(cacheDir, `.tmp-${process.pid}-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    const wav16 = join(tmpDir, 'a.wav');
+    const ff = ['-y', '-v', 'error', '-i', full];
+    if (from != null) ff.push('-ss', String(from));
+    if (to != null) ff.push('-to', String(to));
+    ff.push('-ac', '1', '-ar', '16000', wav16);
+    await run(FFMPEG, ff);
+    await run(WHISPER, [wav16, '--model', model, '--language', 'en', '--model_dir', whisperModels(),
+      '--output_format', 'json', '--output_dir', tmpDir, '--word_timestamps', 'True', '--fp16', 'False']);
+    raw = JSON.parse(await readFile(join(tmpDir, 'a.json'), 'utf8'));
+    await writeFile(cacheFile, JSON.stringify(raw), 'utf8');
+    try { const { rm } = await import('node:fs/promises'); await rm(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+  const off = from ?? 0;
+  const words = [];
+  for (const seg of raw.segments ?? []) for (const w of seg.words ?? []) {
+    const t = String(w.word ?? '').trim();
+    if (!t || JUNK_WORDS.has(t.toLowerCase())) continue;
+    words.push({ s: Math.round((w.start + off) * 1000) / 1000, e: Math.round((w.end + off) * 1000) / 1000, t });
+  }
+  return words;
+}
+
 async function serveStatic(req, res) {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (urlPath === '/health') {
@@ -324,6 +376,27 @@ async function serveStatic(req, res) {
     found.sort((a, b) => b.mtime - a.mtime);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ root: PROJECT_ROOT, projects: found }));
+    return;
+  }
+  // POST /transcribe  { file: '<rel path under PROJECT_ROOT>', from?, to?, model? }
+  // Runs ffmpeg (mono 16 kHz, optional span) -> whisper (word timestamps) and
+  // returns [{s,e,t}] in SOURCE seconds (span offset added back). Cached per
+  // (sha256 of file, from, to, model) under <project dir>/stems/words/ so a
+  // repeat is free. Errors are text with a 4xx/5xx; the app shows them.
+  if (urlPath === '/transcribe' && req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    let args;
+    try { args = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
+    let full;
+    try { full = resolveAssetPath(args.file); } catch (err) { res.writeHead(400); res.end(err.message); return; }
+    try {
+      const words = await transcribeFile(full, args);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, words, count: words.length }));
+    } catch (err) {
+      res.writeHead(500); res.end(String(err?.message || err));
+    }
     return;
   }
   if (urlPath.startsWith('/project-doc/')) {
@@ -537,6 +610,17 @@ export function resolveProjectPath(relPath, projectRoot = PROJECT_ROOT) {
   if (full !== projectRoot && !full.startsWith(projectRoot + '/')) {
     throw new Error(`'path' escapes the project root (${projectRoot}).`);
   }
+  return full;
+}
+
+// Same traversal guard for READ-ONLY access to audio assets (transcription).
+// Only audio extensions; never used for writes.
+const ASSET_EXTS = new Set(['.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac', '.aiff', '.aif']);
+export function resolveAssetPath(relPath, projectRoot = PROJECT_ROOT) {
+  if (typeof relPath !== 'string' || !relPath.trim()) throw new Error("'file' is required (relative to the project root).");
+  if (!ASSET_EXTS.has(extname(relPath).toLowerCase())) throw new Error(`'file' must be an audio file (${[...ASSET_EXTS].join(' ')}).`);
+  const full = resolve(projectRoot, relPath);
+  if (!full.startsWith(projectRoot + '/')) throw new Error(`'file' escapes the project root (${projectRoot}).`);
   return full;
 }
 

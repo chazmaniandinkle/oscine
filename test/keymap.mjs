@@ -33,10 +33,32 @@ km.use('ableton');
 check('ableton: split is Mod+E', km.action(ev('KeyE', { meta: true }), ['timeline']) === 'clip.split');
 check('ableton: plain S no longer splits', km.action(ev('KeyS'), ['timeline']) !== 'clip.split');
 check('ableton inherits undo from oscine', km.action(ev('KeyZ', { meta: true })) === 'edit.undo');
-check('ableton: slip is Mod-drag', km.gesture('timeline.clipSlip', ev('x', { meta: true })) && !km.gesture('timeline.clipSlip', ev('x', { shift: true })));
+// Corpus correction: Ableton slip is Ctrl+Shift(Win)/Shift+Option(Mac), i.e.
+// Mod+Shift, not bare Mod. [ableton_arrangement_view_full.txt line 80]
+check('ableton: slip is Mod+Shift-drag', km.gesture('timeline.clipSlip', ev('x', { meta: true, shift: true })) && !km.gesture('timeline.clipSlip', ev('x', { meta: true })));
 check('scheme persisted', JSON.parse(mem['oscine.keymap']).scheme === 'ableton');
 
+km.use('logic');
+// Corpus correction: Logic's grid-override modifier is Control, not Mod.
+// [logic_move_regions.txt line 5]
+check('logic: noSnap is Ctrl-drag', km.gesture('timeline.noSnap', ev('x', { ctrl: true })) && !km.gesture('timeline.noSnap', ev('x', { meta: true })));
+// Corpus correction: Logic has no corpus-backed drag-modifier for slip (it's
+// a key command on the nudge value); scheme no longer overrides it, so it
+// must inherit oscine's own Shift default. [logic_move_regions.txt]
+check('logic: clipSlip inherits oscine default (Shift)', km.gesture('timeline.clipSlip', ev('x', { shift: true })) && !km.gesture('timeline.clipSlip', ev('x', { alt: true, meta: true })));
+
+km.use('reaper');
+// Corpus correction: REAPER's grid-override modifier is Shift.
+// [reaper_userguide.txt line 6921]
+check('reaper: noSnap is Shift-drag', km.gesture('timeline.noSnap', ev('x', { shift: true })) && !km.gesture('timeline.noSnap', ev('x', { meta: true })));
+// Corpus correction: REAPER clipStretch is plain Alt, not Alt+Shift (Shift
+// there means ignore-snap, a separate modifier). [reaper_userguide.txt line 7373]
+check('reaper: clipStretch is Alt-drag (not Alt+Shift)', km.gesture('timeline.clipStretch', ev('x', { alt: true })) && !km.gesture('timeline.clipStretch', ev('x', { alt: true, shift: true })));
+
 km.use('oscine');
+check('switching back to oscine restores default clipSlip (Shift)', km.gesture('timeline.clipSlip', ev('x', { shift: true })) && !km.gesture('timeline.clipSlip', ev('x', { meta: true, shift: true })));
+check('switching back to oscine restores default noSnap (Mod)', km.gesture('timeline.noSnap', ev('x', { meta: true })) && !km.gesture('timeline.noSnap', ev('x', { ctrl: true })) && !km.gesture('timeline.noSnap', ev('x', { shift: true })));
+check('switching back to oscine restores default clipStretch (Alt)', km.gesture('timeline.clipStretch', ev('x', { alt: true })));
 km.bind('clip.split', 'KeyK');
 check('override: K splits', km.action(ev('KeyK'), ['timeline']) === 'clip.split');
 check('override: S no longer splits', km.action(ev('KeyS'), ['timeline']) !== 'clip.split');

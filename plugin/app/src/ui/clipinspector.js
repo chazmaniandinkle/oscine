@@ -5,10 +5,18 @@
 // place, exactly like a timeline drag does, then emits the same events so
 // the timeline repaints and the transport picks it up on next play.
 
-import { el, NumberDrag, Btn, Knob, Select } from './widgets.js';
+import { el, NumberDrag, Btn, Knob, Select, openMenu } from './widgets.js';
 import { wordsFor } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
 import { getEffectDef } from '../engine/effects/index.js';
+import { toSRT, toVTT, toJSON, parseTimedText, wordsForClipLocal, mergeClipWords } from '../core/timedtext.js';
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
 import { analyzeSpan, compareSpans, describe, describeDelta, summarizeTracks } from '../engine/ear.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
@@ -37,6 +45,73 @@ export class AssetInspector {
     const refs = arr.placements.map((p, i) => ({ p, i, clip: this.store.project.clips[p.clip] }))
       .filter(r => r.clip?.sourceOf === asset.id);
     return { asset, refs };
+  }
+
+  // Transcript tool row, shared by the asset inspector (clip = null: whole
+  // source) and the clip inspector (clip: only the clip's [in,out] span;
+  // export/import are clip-local). Regenerate calls the sidecar's whisper.
+  transcriptTools(asset, clip) {
+    const { store, app } = this;
+    const row = el('div', 'clip-actions transcript-tools');
+    const proj = store.project;
+    const rel = () => {
+      // Sidecar path for this asset's file, relative to the project root.
+      const v = asset.variants?.default ?? Object.values(asset.variants || {})[0];
+      const base = (proj.baseUrl || '').replace(/^\/project\//, '');
+      return v ? `${base}assets/${v.sha256}.${v.ext || 'wav'}` : null;
+    };
+    const setWords = (words) => {
+      store.checkpoint();
+      asset.words = words;
+      app.bus.emit('arrangement:changed', {});
+      app.inspector?.render();
+    };
+    const status = el('span', 'clip-hint transcript-status', '');
+
+    const gen = Btn(clip ? 'Transcribe span' : 'Transcribe', async () => {
+      const file = rel(); if (!file) { status.textContent = 'no file for this source'; return; }
+      gen.disabled = true; status.textContent = 'whisper running…';
+      try {
+        const body = { file, force: !!(asset.words?.length) };
+        if (clip) { body.from = clip.in; body.to = clip.out; }
+        const res = await fetch('/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error(await res.text());
+        const { words } = await res.json();
+        setWords(clip ? mergeClipWords(asset.words, clip, words.map(w => ({ s: w.s - clip.in, e: w.e - clip.in, t: w.t }))) : words);
+        status.textContent = `${words.length} words`;
+      } catch (err) { status.textContent = 'failed: ' + String(err.message || err).slice(0, 160); }
+      gen.disabled = false;
+    }, 'mini');
+    gen.title = clip ? 'Run whisper on just this clip\u2019s source span and merge the words in' : 'Run whisper (local) on this source; replaces its words';
+
+    const exp = Btn('Export…', () => {
+      const words = clip ? wordsForClipLocal(asset.words || [], clip) : (asset.words || []);
+      if (!words.length) { status.textContent = 'nothing to export'; return; }
+      const name = (clip ? (clip.name || clip.id) : (asset.name || asset.id)).replace(/[^\w.-]+/g, '_');
+      openMenu(exp, [
+        { label: 'SRT (one cue per word)', onPick: () => download(`${name}.srt`, toSRT(words), 'text/plain') },
+        { label: 'WebVTT', onPick: () => download(`${name}.vtt`, toVTT(words), 'text/vtt') },
+        { label: 'JSON [{s,e,t}]', onPick: () => download(`${name}.words.json`, toJSON(words), 'application/json') },
+      ]);
+    }, 'mini');
+    exp.title = clip ? 'Export this clip\u2019s words in clip-local time' : 'Export this source\u2019s words in source time';
+
+    const imp = Btn('Import…', () => {
+      const input = el('input'); input.type = 'file'; input.accept = '.srt,.vtt,.json,text/plain,application/json';
+      input.addEventListener('change', async () => {
+        const f = input.files?.[0]; if (!f) return;
+        try {
+          const words = parseTimedText(await f.text());
+          setWords(clip ? mergeClipWords(asset.words, clip, words) : words);
+          status.textContent = `${words.length} words imported${words.some(w => w.approx) ? ' (phrase cues split evenly)' : ''}`;
+        } catch (err) { status.textContent = 'import failed: ' + String(err.message || err).slice(0, 160); }
+      });
+      input.click();
+    }, 'mini');
+    imp.title = clip ? 'Import SRT / VTT / JSON as this clip\u2019s words (clip-local time)' : 'Import SRT / VTT / JSON / whisper JSON as this source\u2019s words';
+
+    row.append(gen, exp, imp, status);
+    return row;
   }
 
   // Source second -> song second via the first placement covering it, or null.
@@ -109,9 +184,12 @@ export class AssetInspector {
     const words = asset.words || [];
     const g2 = el('div', 'insp-group');
     g2.appendChild(el('div', 'insp-group-title', words.length ? `Transcript · ${words.length} words` : 'Transcript'));
+    // Transcript tools: regenerate (whisper via the sidecar), export
+    // (SRT / VTT / JSON), import (any of those, or whisper JSON).
+    g2.appendChild(this.transcriptTools(asset, null));
     if (!words.length) {
       g2.appendChild(el('div', 'clip-hint', asset.kind === 'audio'
-        ? 'No word timings on this source. Run scripts/words_into_project.py to add a whisper transcript.'
+        ? 'No word timings on this source yet — Transcribe runs whisper locally, or Import a timed-text file.'
         : 'No transcript.'));
     } else {
       const flow = el('div', 'asset-words');
@@ -649,8 +727,16 @@ export class ClipInspector {
     // Words inside this clip's window (from the source's transcript), in
     // song time. Click = seek. This is the seek-by-lyric the words exist for.
     const words = wordsFor(store.project, clip);
+    {
+      section(words.length ? `Words · ${words.length}` : 'Words');
+      const g4 = host.lastChild; // the group (section() returns its grid)
+      g4.removeChild(g4.lastChild); // drop the empty grid; words flow instead
+      const srcAsset = store.project.assets[clip.sourceOf];
+      if (srcAsset) g4.appendChild(this.app.inspector?.assetInspector?.transcriptTools(srcAsset, clip) ?? el('span'));
+      if (!words.length) g4.appendChild(el('div', 'clip-hint', 'No words in this span — Transcribe span runs whisper on just this clip.'));
+    }
     if (words.length) {
-      const g4 = section(`Words · ${words.length}`);
+      const g4 = host.lastChild;
       const flow = el('div', 'asset-words');
       const st = (clip.stretch ?? 1) / (clip.rate ?? 1);
       let lastEnd = 0;
