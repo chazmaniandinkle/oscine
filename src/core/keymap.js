@@ -100,23 +100,49 @@ export const SCHEMES = {
     },
   },
   // Conventions borrowed from other DAWs. Only the bindings that differ.
+  // Corrections below cross-checked against .cog/mem/semantic/research/daw/
+  // corpus/ux/*.txt per daw-ux-conventions.md section 5 (2026-09 UX audit).
   ableton: {
     label: 'Ableton Live',
     extends: 'oscine',
-    keys: { 'clip.split': 'Mod+KeyE', 'transport.stop': 'Space', 'transport.toStart': 'Home' },
-    gestures: { 'timeline.clipSlip': 'Mod', 'timeline.clipStretch': 'Shift' },
+    keys: { 'clip.split': 'Mod+KeyE', 'transport.stop': 'Space', 'transport.toStart': 'Home' }, // [ableton_arrangement_view_full.txt]
+    gestures: {
+      'timeline.clipSlip': 'Mod+Shift', // corrected from 'Mod': "hold Ctrl+Shift (Win) / Shift+Option (Mac)" [ableton_arrangement_view_full.txt line 80]
+      // clipStretch 'Shift' is UNCONFIRMED: corpus documents Warp-marker-based
+      // time-stretch, not a Shift-drag edge gesture, for Ableton [ableton_arrangement_view_full.txt]
+      'timeline.clipStretch': 'Shift',
+    },
   },
   logic: {
     label: 'Logic Pro',
     extends: 'oscine',
-    keys: { 'clip.split': 'Mod+KeyT', 'transport.toStart': 'Enter', 'transport.stop': 'Digit0' },
-    gestures: { 'timeline.clipSlip': 'Mod+Alt', 'timeline.clipStretch': 'Alt' },
+    // clip.split, transport.toStart, transport.stop: no default keystroke is
+    // documented for these in the corpus (Split is menu/Scissors-tool only;
+    // no Logic transport-shortcuts page was harvested).
+    // not in Logic: inherits [logic_split_regions.txt]
+    keys: {},
+    gestures: {
+      // clipSlip: Logic's "slip" is the key command Control-Option-Arrow
+      // acting on the nudge value, not a body-drag modifier; no corpus-backed
+      // drag-modifier value exists, so this now inherits oscine's default.
+      // not in Logic: inherits [logic_move_regions.txt]
+      // clipStretch 'Alt' is UNCONFIRMED: closest corpus hit is Option-Shift
+      // for batch "resize to same length", a different operation; Logic's
+      // real pitch-preserving stretch is the separate Flex tool, not a
+      // held-modifier edge-drag [logic_resize_regions.txt, logic_flex_tool_time_stretching.txt]
+      'timeline.clipStretch': 'Alt',
+      'timeline.noSnap': 'Ctrl', // "override the grid by holding down Control while dragging" [logic_move_regions.txt line 5]
+    },
   },
   reaper: {
     label: 'REAPER',
     extends: 'oscine',
-    keys: { 'clip.split': 'KeyS', 'transport.toStart': 'KeyW', 'transport.stop': 'Space' },
-    gestures: { 'timeline.clipSlip': 'Alt', 'timeline.clipStretch': 'Alt+Shift' },
+    keys: { 'clip.split': 'KeyS', 'transport.toStart': 'KeyW', 'transport.stop': 'Space' }, // [reaper_userguide.txt]
+    gestures: {
+      'timeline.clipSlip': 'Alt', // "Move item contents (within item): Alt drag" [reaper_userguide.txt line 6933]
+      'timeline.clipStretch': 'Alt', // corrected from 'Alt+Shift': corpus only attests plain Alt for "Stretch area contents"; Shift there means ignore-snap, a separate modifier, not part of the stretch chord [reaper_userguide.txt line 7373]
+      'timeline.noSnap': 'Shift', // "Move item/items, ignore snap and time selection: Shift drag" [reaper_userguide.txt line 6921]
+    },
   },
 };
 

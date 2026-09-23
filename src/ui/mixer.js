@@ -56,6 +56,14 @@ export class Mixer {
     for (const type of ['track:added', 'track:removed', 'track:changed', 'project:replaced', 'ui:selection', 'lane:selected']) {
       bus.on(type, () => this.render());
     }
+    // Lane order / count changed in the timeline (reorder drag, + lane,
+    // remove lane): rebuild the strips so they match the gutter.
+    bus.on('arrangement:changed', () => {
+      const arr = this.store.project.arrangement; if (!arr?.placements?.length) return;
+      const want = (arr.lanes ?? []).map(l => l.id).join(',');
+      const have = [...this.body.querySelectorAll('.lane-strip')].map(s => s.dataset.strip).join(',');
+      if (want !== have) this.render();
+    });
     // Lane gutter edits (gain/M/S in the timeline) reflect here without a rebuild.
     bus.on('lanes:changed', () => {
       if (!this.store.project.arrangement?.placements?.length) return;

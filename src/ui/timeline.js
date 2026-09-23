@@ -501,8 +501,11 @@ export class Timeline {
         this.drag = { edge: 'gain', lane: rec, startY: y, g0: rec.gainDb ?? 0 };
         return;
       }
-      // Name area: select the lane.
-      this.selectLane(lane.id);
+      // Name area: click selects the lane; a vertical drag REORDERS it.
+      // (The dB bar below is the gain drag; the two zones don't overlap.)
+      this.canvas.setPointerCapture(e.pointerId);
+      this.laneRecord(lane.id); // ensure lanes[] is materialised so order can be stored
+      this.drag = { edge: 'reorder', laneId: lane.id, from: li, startY: y, to: li, armed: false };
       return;
     }
     // Below the last lane in the gutter: "+ lane".
@@ -675,7 +678,7 @@ export class Timeline {
         const overBtn = li < this.lanes().length && ly >= 8 && ly <= 26 && [BTN.a, BTN.m, BTN.s].some(b => x >= b[0] && x <= b[0] + b[1]);
         const overGain = li < this.lanes().length && ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12;
         const overAdd = li === this.lanes().length && ly <= 28;
-        this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd || li < this.lanes().length) ? 'pointer' : 'default';
+        this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd) ? 'pointer' : li < this.lanes().length ? 'grab' : 'default';
         return;
       }
       // Playhead line / range edges through the lanes: resize cursors.
@@ -701,6 +704,17 @@ export class Timeline {
     }
     if (d.edge === 'auto') {
       movePoint(d.env, d.idx, this.snapTime(this.sec(x), { e }), d.vOf(y));
+      this.dirty = true;
+      return;
+    }
+    if (d.edge === 'reorder') {
+      if (!d.armed && Math.abs(y - d.startY) < 4) return; // still a click
+      d.armed = true;
+      this._reorderY = y;
+      // Drop slot = the row boundary nearest the pointer.
+      const ls = this.lanes(); let best = 0, bestD = Infinity;
+      for (let i = 0; i <= ls.length; i++) { const by = this.laneY(i); const dd = Math.abs(y - by); if (dd < bestD) { bestD = dd; best = i; } }
+      d.to = best;
       this.dirty = true;
       return;
     }
@@ -777,6 +791,22 @@ export class Timeline {
     }
     if (d.edge === 'scrub') {
       if (d.wasPlaying) this.app.transport.play();
+      this.dirty = true;
+      return;
+    }
+    if (d.edge === 'reorder') {
+      if (!d.armed) { this.selectLane(d.laneId); this.dirty = true; return; } // it was a click
+      // Move lanes[from] to slot `to` (slot indexes count boundaries, so a
+      // drop below the source shifts by one after removal).
+      let to = d.to > d.from ? d.to - 1 : d.to;
+      if (to !== d.from) {
+        this.store.checkpoint();
+        const ls = this.arrangement.lanes;
+        const [rec] = ls.splice(d.from, 1);
+        ls.splice(to, 0, rec);
+        this.app.bus.emit('lanes:changed', {});
+        this.app.bus.emit('arrangement:changed', {});
+      }
       this.dirty = true;
       return;
     }
@@ -1018,6 +1048,20 @@ export class Timeline {
     if (this.drag && this.snapHit != null) {
       const x = this.x(this.snapHit);
       if (x >= GUTTER_W && x <= w) { g.fillStyle = '#ffffff'; g.globalAlpha = 0.8; g.fillRect(x, RULER_H, 1, h - RULER_H); g.globalAlpha = 1; }
+    }
+    // lane reorder: the dragged lane's name follows the pointer as a tag,
+    // and a bright line marks the drop slot.
+    if (this.drag?.edge === 'reorder' && this.drag.armed) {
+      const d = this.drag, ls = this.lanes(), lane = ls[d.from];
+      const sy = Math.max(RULER_H, Math.min(h, this.laneY(d.to)));
+      g.fillStyle = accent; g.fillRect(0, sy - 1, w, 2);
+      const label = lane?.name || d.laneId;
+      g.font = 'bold 11px system-ui, sans-serif'; const tw = g.measureText(label).width + 12;
+      g.fillStyle = cssVar('--bg-2', '#171b26'); g.fillRect(6, this._reorderY - 10, tw, 20);
+      g.strokeStyle = accent; g.strokeRect(6.5, this._reorderY - 9.5, tw - 1, 19);
+      g.fillStyle = cssVar('--text', '#dbe1f0'); g.textBaseline = 'middle'; g.fillText(label, 12, this._reorderY);
+      // dim the source row
+      g.fillStyle = 'rgba(11,13,18,0.5)'; g.fillRect(0, this.laneY(d.from), w, this.laneH(lane));
     }
     // playhead: line through the lanes, a triangle handle on the ruler, and
     // the time next to it so you don't have to read the ruler ticks.
