@@ -4,7 +4,6 @@
 import { el, Knob, Fader, Meter, Select, openMenu } from './widgets.js';
 import { DELAY_DIVISIONS } from '../engine/effects/delay.js';
 import { listEffectDefs, getEffectDef } from '../engine/effects/index.js';
-import { createInsert } from '../core/schema.js';
 
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)} dB`;
 
@@ -130,25 +129,32 @@ export class Mixer {
   // Insert chain UI shared by lane and master strips: one row per effect
   // (name, bypass, remove; click name -> inspector edits its params) and an
   // "+ insert" menu from the registry. Edits are one undo step each.
-  buildInserts(owner, ownerLabel) {
+  // `ownerId` is the lane id or 'master'; every edit is a store action on it
+  // (insertAdd/Set/Move/Remove), which emits inserts:changed itself.
+  buildInserts(ownerId, ownerLabel) {
     const { store, app } = this;
-    const commit = () => { app.bus.emit('inserts:changed', { owner: ownerLabel }); app.bus.emit('arrangement:changed', {}); };
+    const ownerOf = () => {
+      const arr = store.project.arrangement;
+      return ownerId === 'master' ? (arr?.master ?? { inserts: [] }) : (arr?.lanes?.find(l => l.id === ownerId) ?? { inserts: [] });
+    };
+    const select = index => app.bus.emit('insert:selected', index == null ? { owner: null } : { owner: ownerOf(), ownerId, ownerLabel, index });
     const box = el('div', 'inserts');
     const paint = () => {
       box.textContent = '';
+      const owner = ownerOf();
       (owner.inserts ?? []).forEach((ins, i) => {
         const row = el('div', 'insert-row' + (ins.bypass ? ' byp' : ''));
         let def = null; try { def = getEffectDef(ins.type); } catch {}
         const name = el('button', 'insert-name', def?.label ?? ins.type);
         name.type = 'button'; name.title = 'Edit parameters';
-        name.addEventListener('click', () => app.bus.emit('insert:selected', { owner, ownerLabel, index: i }));
+        name.addEventListener('click', () => select(i));
         const byp = el('button', 'btn mini insert-byp' + (ins.bypass ? ' on-warn' : ''), '⏻');
         byp.type = 'button'; byp.title = ins.bypass ? 'Bypassed — click to enable' : 'Enabled — click to bypass';
-        byp.addEventListener('click', () => { store.checkpoint(); ins.bypass = !ins.bypass; commit(); paint(); });
+        byp.addEventListener('click', () => { store.insertSet(ownerId, i, { bypass: !ins.bypass }); paint(); });
         const up = el('button', 'btn mini', '↑'); up.type = 'button'; up.title = 'Move earlier'; up.disabled = i === 0;
-        up.addEventListener('click', () => { store.checkpoint(); const a = owner.inserts; [a[i - 1], a[i]] = [a[i], a[i - 1]]; commit(); paint(); });
+        up.addEventListener('click', () => { store.insertMove(ownerId, i, i - 1); paint(); });
         const rm = el('button', 'btn mini insert-rm', '×'); rm.type = 'button'; rm.title = 'Remove';
-        rm.addEventListener('click', () => { store.checkpoint(); owner.inserts.splice(i, 1); commit(); paint(); app.bus.emit('insert:selected', { owner: null }); });
+        rm.addEventListener('click', () => { store.insertRemove(ownerId, i); paint(); select(null); });
         row.append(name, byp, up, rm);
         box.appendChild(row);
       });
@@ -159,7 +165,7 @@ export class Mixer {
         const items = [];
         for (const [g, defs] of Object.entries(groups)) {
           items.push({ label: g.toUpperCase(), disabled: true });
-          for (const d of defs) items.push({ label: '  ' + d.label, onPick: () => { store.checkpoint(); owner.inserts = owner.inserts ?? []; owner.inserts.push(createInsert(d.type, {})); commit(); paint(); app.bus.emit('insert:selected', { owner, ownerLabel, index: owner.inserts.length - 1 }); } });
+          for (const d of defs) items.push({ label: '  ' + d.label, onPick: () => { const { insert } = store.insertAdd(ownerId, d.type, {}); paint(); select(insert.index); } });
         }
         openMenu(add, items);
       });
@@ -180,26 +186,36 @@ export class Mixer {
     name.addEventListener('click', () => app.timeline?.selectLane(lane.id));
     strip.appendChild(name);
 
-    const commitLanes = () => { app.bus.emit('lanes:changed', {}); app.timeline && (app.timeline.dirty = true); };
+    // Discrete edits are store actions; knob/fader drags preview through
+    // store.gesturePreview and commit ONE undo step on release.
+    const redraw = () => { app.timeline && (app.timeline.dirty = true); };
+    let ops = null;
+    const preview = (next, events) => { try { store.gesturePreview(next, events); ops = next; } catch {} redraw(); };
+    const commitGesture = (events) => {
+      if (!store.inGesture) { ops = null; return; }
+      try { store.gestureCommit(ops ?? [], events); } catch (err) { console.warn('[mixer] gesture rejected:', err.message); }
+      ops = null; redraw();
+    };
     const knobRow = el('div', 'strip-knobs');
     const pan = Knob({
       label: 'Pan', min: -1, max: 1, value: lane.pan ?? 0, default: 0, small: true, color: lane.color,
       format: v => Math.abs(v) < 0.01 ? 'C' : (v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`),
-      onInput: v => { lane.pan = v; app.bus.emit('inserts:changed', {}); },
-      onCommit: () => { store.checkpoint(); app.bus.emit('arrangement:changed', {}); },
+      onInput: v => preview([['setLane', lane.id, { pan: v }]], ['inserts:changed']),
+      onCommit: () => commitGesture(['lanes:changed', 'inserts:changed', 'arrangement:changed']),
     });
     this.widgets.set(`${lane.id}:pan`, pan);
     knobRow.appendChild(pan.root);
     strip.appendChild(knobRow);
 
-    strip.appendChild(this.buildInserts(lane, lane.name || lane.id));
+    strip.appendChild(this.buildInserts(lane.id, lane.name || lane.id));
 
     const fadeWrap = el('div', 'strip-fade');
     // Fader in dB: 0..1 maps -60..+12 with unity at ~0.83.
     const toF = db => Math.max(0, Math.min(1, (db + 60) / 72)), toDb = f => f * 72 - 60;
     const fader = Fader({
       value: toF(lane.gainDb ?? 0), default: toF(0),
-      onInput: v => { lane.gainDb = Math.round(toDb(v) * 10) / 10; commitLanes(); dbLbl.textContent = fmtDb(lane.gainDb); },
+      onInput: v => { const db = Math.round(toDb(v) * 10) / 10; preview([['setLane', lane.id, { gainDb: db }]], ['lanes:changed']); dbLbl.textContent = fmtDb(db); },
+      onCommit: () => commitGesture(['lanes:changed', 'arrangement:changed']),
     });
     this.faders.set(lane.id, fader);
     const meter = Meter();
@@ -212,9 +228,10 @@ export class Mixer {
 
     const ms = el('div', 'strip-ms');
     const m = el('button', 'btn mini ms-m' + (lane.mute ? ' on-warn' : ''), 'M');
-    m.addEventListener('click', () => { store.checkpoint(); lane.mute = !lane.mute; m.classList.toggle('on-warn', lane.mute); commitLanes(); });
+    const laneNow = () => store.project.arrangement?.lanes?.find(l => l.id === lane.id) ?? lane;
+    m.addEventListener('click', () => { const on = !laneNow().mute; store.laneSet(lane.id, { mute: on }); m.classList.toggle('on-warn', on); redraw(); });
     const s = el('button', 'btn mini ms-s' + (lane.solo ? ' on-accent' : ''), 'S');
-    s.addEventListener('click', () => { store.checkpoint(); lane.solo = !lane.solo; s.classList.toggle('on-accent', lane.solo); commitLanes(); });
+    s.addEventListener('click', () => { const on = !laneNow().solo; store.laneSet(lane.id, { solo: on }); s.classList.toggle('on-accent', on); redraw(); });
     ms.append(m, s);
     strip.appendChild(ms);
     return strip;
@@ -222,11 +239,9 @@ export class Mixer {
 
   buildArrMaster() {
     const { store, app } = this;
-    const arr = store.project.arrangement;
-    arr.master = arr.master ?? { inserts: [] };
     const strip = el('div', 'strip lane-strip arr-master');
     strip.appendChild(el('div', 'strip-name', 'Master'));
-    strip.appendChild(this.buildInserts(arr.master, 'Master'));
+    strip.appendChild(this.buildInserts('master', 'Master'));
     const fadeWrap = el('div', 'strip-fade');
     const dbOut = el('div', 'strip-db', '');
     const showDb = (v) => { const g = v * 1.2; dbOut.textContent = g > 0 ? `${(20 * Math.log10(g)).toFixed(1)} dB` : '−∞ dB'; };

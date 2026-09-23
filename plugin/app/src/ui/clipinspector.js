@@ -354,23 +354,35 @@ export class RangeInspector {
 export class InsertInspector {
   constructor(host, app) {
     this.app = app; this.store = app.store; this.host = host;
-    this.sel = null; // { owner, ownerLabel, index }
+    this.sel = null; // { ownerId ('master' or lane id), ownerLabel, index }
     app.bus.on('insert:selected', (s) => { this.sel = s?.owner ? s : null; app.inspector?.render(); });
     app.bus.on('project:replaced', () => { this.sel = null; });
   }
   get selection() {
     const s = this.sel; if (!s || !this.app.timeline?.active) return null;
-    const ins = s.owner.inserts?.[s.index]; if (!ins) return null;
+    // Resolve the owner fresh each time: undo and gestures replace the
+    // arrangement objects, so a held reference would go stale.
+    const arr = this.store.project.arrangement;
+    const owner = s.ownerId === 'master' ? arr?.master : arr?.lanes?.find(l => l.id === s.ownerId);
+    const ins = owner?.inserts?.[s.index]; if (!ins) return null;
     let def = null; try { def = getEffectDef(ins.type); } catch { return null; }
     return { ...s, ins, def };
   }
   render() {
     const sel = this.selection; if (!sel) return false;
     const { host, store, app } = this;
-    const { ins, def, ownerLabel } = sel;
+    const { ins, def, ownerLabel, ownerId, index } = sel;
     host.textContent = '';
-    const live = () => { app.bus.emit('inserts:changed', {}); };
-    const commit = () => { app.bus.emit('arrangement:changed', {}); };
+    // Discrete edits: one store action each. Knob drags: preview through
+    // store.gesturePreview, ONE undo step on release.
+    const set = (fields) => store.insertSet(ownerId, index, fields);
+    let ops = null;
+    const preview = (next) => { try { store.gesturePreview(next, ['inserts:changed']); ops = next; } catch {} };
+    const commitGesture = () => {
+      if (!store.inGesture) { ops = null; return; }
+      try { store.gestureCommit(ops ?? [], ['inserts:changed', 'arrangement:changed']); } catch (err) { console.warn('[insert] rejected:', err.message); }
+      ops = null;
+    };
 
     const head = el('div', 'panel-head');
     head.appendChild(el('div', 'panel-title', def.label));
@@ -380,13 +392,13 @@ export class InsertInspector {
     host.appendChild(meta);
 
     const top = el('div', 'clip-actions');
-    const byp = Btn(ins.bypass ? 'Bypassed' : 'Enabled', () => { store.checkpoint(); ins.bypass = !ins.bypass; live(); commit(); this.render(); app.mixer?.render(); }, ins.bypass ? 'on-warn' : 'on-accent');
+    const byp = Btn(ins.bypass ? 'Bypassed' : 'Enabled', () => { set({ bypass: !ins.bypass }); this.render(); app.mixer?.render(); }, ins.bypass ? 'on-warn' : 'on-accent');
     top.appendChild(byp);
     if (def.presets && Object.keys(def.presets).length) {
       const sel2 = Select({
         options: [{ value: '', label: 'Preset…' }, ...Object.keys(def.presets).map(k => ({ value: k, label: k }))],
         value: '',
-        onChange: v => { if (!v) return; store.checkpoint(); ins.params = { ...ins.params, ...def.presets[v] }; live(); commit(); this.render(); },
+        onChange: v => { if (!v) return; set({ params: def.presets[v] }); this.render(); },
       });
       top.appendChild(sel2.root);
     }
@@ -395,7 +407,6 @@ export class InsertInspector {
     // Params grouped by p.group.
     const groups = {};
     for (const p of def.params) (groups[p.group || 'params'] ||= []).push(p);
-    let armed = false;
     for (const [g, ps] of Object.entries(groups)) {
       const box = el('div', 'insp-group'); box.appendChild(el('div', 'insp-group-title', g));
       const row = el('div', 'insp-grid');
@@ -403,12 +414,12 @@ export class InsertInspector {
         const cur = ins.params?.[p.key] ?? p.default;
         if (p.type === 'select') {
           const w = Select({ label: p.label, options: (p.options || []).map(o => typeof o === 'object' ? o : { value: o, label: String(o) }), value: cur,
-            onChange: v => { store.checkpoint(); ins.params = { ...ins.params, [p.key]: isNaN(+v) || typeof p.default === 'string' ? v : +v }; live(); commit(); } });
+            onChange: v => set({ params: { [p.key]: isNaN(+v) || typeof p.default === 'string' ? v : +v } }) });
           const cell = el('div', 'insp-select'); cell.appendChild(w.root); row.appendChild(cell);
         } else {
           const w = Knob({ label: p.label, min: p.min, max: p.max, value: cur, default: p.default, unit: p.unit, curve: p.curve, step: p.step, small: true,
-            onInput: v => { if (!armed) { store.checkpoint(); armed = true; } ins.params = { ...ins.params, [p.key]: v }; live(); },
-            onCommit: () => { armed = false; commit(); } });
+            onInput: v => preview([['setInsert', ownerId, index, { params: { [p.key]: v } }]]),
+            onCommit: () => commitGesture() });
           row.appendChild(w.root);
         }
       }
