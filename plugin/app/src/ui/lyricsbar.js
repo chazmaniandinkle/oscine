@@ -96,9 +96,12 @@ export class LyricsBar {
     if (i >= 0) {
       const w = this.words[i];
       w.el.classList.add('current');
-      // keep it in view
-      const sl = this.strip, r = w.el.offsetLeft, vw = sl.clientWidth;
-      if (r < sl.scrollLeft + 40 || r > sl.scrollLeft + vw - 80) sl.scrollLeft = Math.max(0, r - vw * 0.3);
+      // keep it in view. Position is measured relative to the STRIP (offsetLeft
+      // is relative to the offsetParent, which counted the lane picker +
+      // padding and overshot every scroll by ~that width).
+      const sl = this.strip, vw = sl.clientWidth;
+      const r = w.el.getBoundingClientRect().left - sl.getBoundingClientRect().left + sl.scrollLeft;
+      if (r < sl.scrollLeft + 40 || r + w.el.offsetWidth > sl.scrollLeft + vw - 80) sl.scrollLeft = Math.max(0, r - vw * 0.3);
     }
   }
 }

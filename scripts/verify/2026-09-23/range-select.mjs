@@ -88,6 +88,23 @@ await ev(() => { window.oscine.app.timeline.range = null; });
 // Lyrics bar: no visible scrollbar.
 const sb = await ev(() => { const st = document.querySelector('.lyrics-strip'); if (!st) return null; const cs = getComputedStyle(st); return { sw: cs.scrollbarWidth, hBar: st.offsetHeight - st.clientHeight }; });
 check('lyrics strip: no scrollbar', sb && sb.sw === 'none' && sb.hBar === 0, JSON.stringify(sb));
+// Lyrics auto-scroll: step the playhead through every 7th word; the lit word
+// must be fully inside the strip's visible box each time (it used to be
+// scrolled past, off the left edge, by the picker's width).
+const lyr = await ev(async () => {
+  const { app } = window.oscine, lb = app.lyrics, st = lb.strip;
+  st.style.scrollBehavior = 'auto'; // measure final positions, not the animation
+  const bad = []; let n = 0;
+  for (let i = 0; i < lb.words.length; i += 7) {
+    lb.onFrame({ sec: lb.words[i].s + 0.01 });
+    const w = lb.words[lb.current]; if (!w) continue; n++;
+    const a = w.el.getBoundingClientRect(), b = st.getBoundingClientRect();
+    if (a.left < b.left - 1 || a.right > b.right + 1) bad.push({ i, word: w.word, l: Math.round(a.left - b.left), r: Math.round(b.right - a.right) });
+  }
+  st.style.scrollBehavior = '';
+  return { n, bad: bad.slice(0, 5), nbad: bad.length, words: lb.words.length };
+});
+check(`lyrics auto-scroll keeps the lit word visible (${lyr.n} samples of ${lyr.words} words)`, lyr.n > 5 && lyr.nbad === 0, JSON.stringify(lyr.bad));
 check('no page errors', errs.length === 0, errs.join(' | '));
 console.log(`\n${passed} passed, ${failed} failed`);
 await browser.close();
