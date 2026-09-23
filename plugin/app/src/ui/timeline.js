@@ -394,26 +394,53 @@ export class Timeline {
     // instead. If playing, stop, scrub, and resume from the release point.
     if (y < RULER_H && x >= GUTTER_W) {
       this.canvas.setPointerCapture(e.pointerId);
+      const px = this.x(this.app.transport.songPos);
+      // Range edges on the ruler are grab handles: drag either to resize --
+      // unless the playhead is there, in which case the playhead wins.
+      if (this.range && !keymap.gesture('timeline.rangeSelect', e) && Math.abs(x - px) > EDGE_PX) {
+        const xa = this.x(this.range.a), xb = this.x(this.range.b);
+        if (Math.abs(x - xa) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.b }; return; }
+        if (Math.abs(x - xb) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.a }; return; }
+      }
       if (keymap.gesture('timeline.rangeSelect', e)) {
-        // ⇧-click extends from the playhead (or the existing range's far
-        // edge) to here; ⇧-drag from here sets a fresh range. Both feel the
-        // same: the anchor is wherever you were, the drag end is the cursor.
+        this.prevRange = this.range; // what a no-drag ⇧-click extends from
+        // ⇧-press anchors HERE. If it turns into a drag, the range is
+        // press→cursor. If it's released without moving (a ⇧-click), onUp
+        // reinterprets it as "extend from the playhead / nearest range edge
+        // to here" so click-then-⇧-click works without a drag.
         const t = Math.max(0, this.sec(x));
-        const anchor = this.range
-          ? (Math.abs(t - this.range.a) > Math.abs(t - this.range.b) ? this.range.a : this.range.b)
-          : this.app.transport.songPos;
-        this.range = { a: Math.min(anchor, t), b: Math.max(anchor, t) };
-        this.drag = { edge: 'range', anchor };
+        this.range = { a: t, b: t };
+        this.drag = { edge: 'range', anchor: t, pressT: t, moved: false };
         this.dirty = true;
         return;
       }
-      if (this.range) { this.range = null; this.dirty = true; }
+      // Plain ruler press: scrub. The range stays (Esc clears it) so you can
+      // audition inside a selection without losing it.
       const wasPlaying = this.app.transport.playing;
       if (wasPlaying) this.app.transport.stop();
       this.app.transport.songPos = Math.max(0, this.sec(x));
       this.drag = { edge: 'scrub', wasPlaying };
       this.dirty = true;
       return;
+    }
+    // The playhead line itself (through the lanes) is grabbable too, and so
+    // are the range's edges down through the lanes -- same drags as the ruler.
+    // Playhead wins over range edges: it usually sits ON one right after a
+    // range is set, and grabbing it must always scrub.
+    if (x >= GUTTER_W && y >= RULER_H) {
+      const px = this.x(this.app.transport.songPos);
+      if (Math.abs(x - px) <= 4 && !keymap.gesture('timeline.rangeSelect', e)) {
+        this.canvas.setPointerCapture(e.pointerId);
+        const wasPlaying = this.app.transport.playing;
+        if (wasPlaying) this.app.transport.stop();
+        this.drag = { edge: 'scrub', wasPlaying };
+        return;
+      }
+      if (this.range) {
+        const xa = this.x(this.range.a), xb = this.x(this.range.b);
+        if (Math.abs(x - xa) <= 4) { this.canvas.setPointerCapture(e.pointerId); this.drag = { edge: 'range', anchor: this.range.b }; return; }
+        if (Math.abs(x - xb) <= 4) { this.canvas.setPointerCapture(e.pointerId); this.drag = { edge: 'range', anchor: this.range.a }; return; }
+      }
     }
     // Gutter: M / S buttons, the gain readout (vertical drag), or the lane
     // name (select the lane -> inspector shows its properties).
@@ -595,12 +622,18 @@ export class Timeline {
         this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd || li < this.lanes().length) ? 'pointer' : 'default';
         return;
       }
+      // Playhead line / range edges through the lanes: resize cursors.
+      if (x >= GUTTER_W && y >= RULER_H) {
+        const near = (t) => Math.abs(x - this.x(t)) <= 4;
+        if ((this.range && (near(this.range.a) || near(this.range.b))) || near(this.app.transport.songPos)) { this.canvas.style.cursor = 'ew-resize'; return; }
+      }
       this.canvas.style.cursor = (y < RULER_H && x >= GUTTER_W) ? 'ew-resize' : !h ? 'default' : h.edge === 'body' ? (keymap.gesture('timeline.clipSlip', e) ? 'move' : 'grab') : (h.edge === 'right' && keymap.gesture('timeline.clipStretch', e)) ? 'col-resize' : 'ew-resize';
       return;
     }
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
     if (d.edge === 'range') {
       const t = this.snapTime(Math.max(0, this.sec(x)), { e });
+      if (Math.abs(t - d.pressT) > 0.5 / this.pxPerSec) d.moved = true;
       this.range = { a: Math.min(d.anchor, t), b: Math.max(d.anchor, t) };
       this.dirty = true;
       return;
@@ -659,15 +692,25 @@ export class Timeline {
 
   onUp(e) {
     if (!this.drag) return;
+    // Honour the release position (a fast flick can release past the last
+    // move event).
+    if (this.drag.edge === 'range' || this.drag.edge === 'scrub') this.onMove(e);
     try { this.canvas.releasePointerCapture(e.pointerId); } catch {}
     const d = this.drag;
     this.drag = null;
     this.snapHit = null;
     if (d.edge === 'range') {
-      // A ⇧-click (no drag) keeps the anchor→click range; only collapse if
-      // the anchor and click coincide.
-      if (this.range && this.range.b - this.range.a < 0.02) this.range = null;
-      else this.app.transport.songPos = this.range.a;
+      if (d.pressT != null && !d.moved) {
+        // ⇧-click without a drag: extend from the previous range's far edge
+        // (if the click was outside it) or from the playhead to the click.
+        const t = d.pressT, prev = this.prevRange;
+        const anchor = prev
+          ? (Math.abs(t - prev.a) > Math.abs(t - prev.b) ? prev.a : prev.b)
+          : this.app.transport.songPos;
+        this.range = Math.abs(anchor - t) < 0.02 ? null : { a: Math.min(anchor, t), b: Math.max(anchor, t) };
+      } else if (this.range && this.range.b - this.range.a < 0.02) this.range = null;
+      if (this.range) this.app.transport.songPos = this.range.a;
+      this.prevRange = this.range;
       this.dirty = true;
       return;
     }

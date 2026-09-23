@@ -468,8 +468,19 @@ export class ClipInspector {
     const color = lane?.color || '#7aa2ff';
 
     const head = el('div', 'panel-head');
-    const title = el('div', 'panel-title', clip.name || clip.id);
+    const title = el('input', 'song-name lane-name');
+    title.value = clip.name || clip.id;
+    title.placeholder = clip.id;
+    title.spellcheck = false;
     title.style.color = color;
+    title.title = 'Clip name — edit and press Enter';
+    title.addEventListener('change', () => {
+      store.checkpoint();
+      const v = title.value.trim();
+      if (v && v !== clip.id) clip.name = v; else delete clip.name;
+      this.app.timeline.dirty = true;
+      this.app.bus.emit('arrangement:changed', {});
+    });
     head.appendChild(title);
     host.appendChild(head);
 
