@@ -16,6 +16,7 @@ const RULER_H = 22;
 const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
+const SNAP_PX = 8;
 const LANE_COLORS = { bed: '#7aa2ff', vocal: '#5ce0a8', carl: '#ff8a4c' };
 // Gutter hit zones (x from left), shared by paint + hit-test.
 const BTN = { m: [GUTTER_W - 60, 22], s: [GUTTER_W - 34, 22] }; // [x, w]
@@ -206,6 +207,47 @@ export class Timeline {
   }
   x(sec) { return GUTTER_W + (sec * this.pxPerSec) - this.scrollX; }
   sec(x) { return (x - GUTTER_W + this.scrollX) / this.pxPerSec; }
+
+  // -- snap -------------------------------------------------------------------
+  // Sticky by default: a candidate time within SNAP_PX of a target pulls to
+  // it. Targets: other placements' edges (any lane), playhead, range edges,
+  // and the grid (beats at project bpm when snapGrid='beat', or whole
+  // seconds). `exclude` is the placement index being dragged. Held
+  // timeline.noSnap gesture or snap off => identity.
+  get snapOn() { return this.store.ui.snap !== 0 && this.store.ui.snapOn !== false; }
+  snapTargets(exclude = null) {
+    const t = [];
+    const arr = this.arrangement; if (!arr) return t;
+    arr.placements.forEach((p, i) => {
+      if (i === exclude) return;
+      const c = this.project.clips[p.clip]; if (!c) return;
+      t.push(p.at, p.at + placedDur(c));
+    });
+    t.push(this.app.transport.songPos);
+    if (this.range) t.push(this.range.a, this.range.b);
+    return t;
+  }
+  snapTime(sec, { exclude = null, e = null, extraLen = 0 } = {}) {
+    if (!this.snapOn || (e && keymap.gesture('timeline.noSnap', e))) return sec;
+    const tol = SNAP_PX / this.pxPerSec;
+    let best = sec, bestD = tol;
+    // Object targets: snap the dragged clip's START or END to them.
+    for (const tgt of this.snapTargets(exclude)) {
+      for (const cand of [tgt, tgt - extraLen]) {
+        const d = Math.abs(cand - sec);
+        if (d < bestD) { bestD = d; best = cand; }
+      }
+    }
+    // Grid: beats at bpm (snap value in beats from store.ui.snap), else seconds.
+    const div = this.store.ui.snap; // beats; 0 = off
+    if (div > 0) {
+      const beat = 60 / (this.project.bpm || 120) * div;
+      const g = Math.round(sec / beat) * beat;
+      if (Math.abs(g - sec) < bestD) { bestD = Math.abs(g - sec); best = g; }
+    }
+    this.snapHit = bestD < tol ? best : null;
+    return Math.max(0, best);
+  }
   laneY(i) { return RULER_H + i * LANE_H; }
 
   // Lane under a canvas point (any x), for drops from the asset bin.
@@ -214,6 +256,38 @@ export class Timeline {
     const i = Math.floor((py - RULER_H) / LANE_H);
     const lane = this.lanes()[i];
     return lane ? { lane, index: i } : null;
+  }
+
+  // Overlaps on a lane: [{lane, a, b, lower, upper}] where lower/upper are
+  // placement indices (earlier-start / later-start). Derived every call;
+  // cheap at these sizes. An overlap is selectable like a clip.
+  overlaps(laneId = null) {
+    const out = [], arr = this.arrangement; if (!arr) return out;
+    for (const lane of this.lanes()) {
+      if (laneId && lane.id !== laneId) continue;
+      const ps = [];
+      arr.placements.forEach((p, i) => { if (p.track !== lane.id) return; const c = this.project.clips[p.clip]; if (c) ps.push({ i, at: p.at, end: p.at + placedDur(c) }); });
+      ps.sort((x, y) => x.at - y.at);
+      for (let k = 1; k < ps.length; k++) {
+        const a = Math.max(ps[k].at, ps[k - 1].at), b = Math.min(ps[k].end, ps[k - 1].end);
+        if (b > a + 1e-6) out.push({ lane: lane.id, a, b, lower: ps[k - 1].i, upper: ps[k].i });
+      }
+    }
+    return out;
+  }
+  overlapAt(px, py) {
+    const lh = this.laneAt(px, py); if (!lh || px < GUTTER_W) return null;
+    const t = this.sec(px);
+    return this.overlaps(lh.lane.id).find(o => t >= o.a && t <= o.b) ?? null;
+  }
+  selectOverlap(o) {
+    this.clearAssetSel();
+    if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
+    if (this.selected != null) { this.selected = null; this.app.bus.emit('clip:selected', { index: null }); }
+    this.multi = [];
+    this.selectedOverlap = o;
+    this.app.bus.emit('overlap:selected', { overlap: o });
+    this.dirty = true;
   }
 
   hit(px, py) {
@@ -321,9 +395,15 @@ export class Timeline {
     if (y < RULER_H && x >= GUTTER_W) {
       this.canvas.setPointerCapture(e.pointerId);
       if (keymap.gesture('timeline.rangeSelect', e)) {
-        const a = Math.max(0, this.sec(x));
-        this.range = { a, b: a };
-        this.drag = { edge: 'range', anchor: a };
+        // ⇧-click extends from the playhead (or the existing range's far
+        // edge) to here; ⇧-drag from here sets a fresh range. Both feel the
+        // same: the anchor is wherever you were, the drag end is the cursor.
+        const t = Math.max(0, this.sec(x));
+        const anchor = this.range
+          ? (Math.abs(t - this.range.a) > Math.abs(t - this.range.b) ? this.range.a : this.range.b)
+          : this.app.transport.songPos;
+        this.range = { a: Math.min(anchor, t), b: Math.max(anchor, t) };
+        this.drag = { edge: 'range', anchor };
         this.dirty = true;
         return;
       }
@@ -367,6 +447,14 @@ export class Timeline {
       return;
     }
     const h = this.hit(x, y);
+    // An overlap region is its own target: clicking inside the shared span
+    // of two clips selects the *overlap* (crossfade editing), not either clip.
+    // Drag from an overlap does nothing; grab a clip outside the span to move it.
+    if (!this.range) {
+      const o = this.overlapAt(x, y);
+      if (o && h && h.inside) { this.selectOverlap(o); return; }
+    }
+    if (this.selectedOverlap) { this.selectedOverlap = null; this.app.bus.emit('overlap:selected', { overlap: null }); }
     // With a range set, clicking inside it on a lane selects that lane's
     // slice (every clip overlapping the range) -- even if the click lands on
     // a clip body. Drag from here is a no-op; edit the range via S / ⌫.
@@ -512,13 +600,13 @@ export class Timeline {
     }
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
     if (d.edge === 'range') {
-      const t = Math.max(0, this.sec(x));
+      const t = this.snapTime(Math.max(0, this.sec(x)), { e });
       this.range = { a: Math.min(d.anchor, t), b: Math.max(d.anchor, t) };
       this.dirty = true;
       return;
     }
     if (d.edge === 'scrub') {
-      this.app.transport.songPos = Math.max(0, this.sec(x));
+      this.app.transport.songPos = this.snapTime(Math.max(0, this.sec(x)), { e });
       this.dirty = true;
       return;
     }
@@ -537,12 +625,14 @@ export class Timeline {
       this.store.checkpoint(); d.armed = true;
     }
     if (d.edge === 'body') {
-      d.placement.at = Math.max(0, d.at0 + ds);
+      const len = placedDur(d.clip);
+      d.placement.at = this.snapTime(Math.max(0, d.at0 + ds), { exclude: d.index, e, extraLen: len });
     } else if (d.edge === 'slip') {
-      // Move the source window under a fixed placement: in/out shift together,
-      // clamped to the asset. Drag right = later audio under the same slot.
+      // Move the source window under a fixed placement: in/out shift
+      // together, clamped to the asset. Drag RIGHT = the waveform moves right
+      // with your hand, i.e. earlier audio slides into the window (in decreases).
       const len = d.out0 - d.in0, st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
-      const nin = Math.max(0, Math.min(maxOut - len, d.in0 + ds / st));
+      const nin = Math.max(0, Math.min(maxOut - len, d.in0 - ds / st));
       d.clip.in = nin; d.clip.out = nin + len;
       this.peaks.clear();
     } else if (d.edge === 'stretch') {
@@ -552,12 +642,17 @@ export class Timeline {
       if (Math.abs(d.clip.stretch - 1) < 0.005) delete d.clip.stretch;
       this.peaks.clear();
     } else if (d.edge === 'left') {
-      // Trim in-point; keep the right edge fixed in song time.
-      const nin = Math.min(Math.max(0, d.in0 + ds), d.out0 - 0.05);
+      // Trim in-point; keep the right edge fixed in song time. Snap the
+      // new left edge in song time, then map back to source.
+      const st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
+      const wantAt = this.snapTime(d.at0 + ds, { exclude: d.index, e });
+      const nin = Math.min(Math.max(0, d.in0 + (wantAt - d.at0) / st), d.out0 - 0.05);
       d.clip.in = nin;
-      d.placement.at = d.at0 + (nin - d.in0);
+      d.placement.at = d.at0 + (nin - d.in0) * st;
     } else {
-      d.clip.out = Math.max(d.in0 + 0.05, Math.min(maxOut, d.out0 + ds));
+      const st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
+      const wantEnd = this.snapTime(d.at0 + (d.out0 - d.in0) * st + ds, { exclude: d.index, e });
+      d.clip.out = Math.max(d.in0 + 0.05, Math.min(maxOut, d.in0 + (wantEnd - d.at0) / st));
     }
     this.dirty = true;
   }
@@ -567,8 +662,11 @@ export class Timeline {
     try { this.canvas.releasePointerCapture(e.pointerId); } catch {}
     const d = this.drag;
     this.drag = null;
+    this.snapHit = null;
     if (d.edge === 'range') {
-      if (this.range && this.range.b - this.range.a < 0.02) this.range = null; // a click, not a drag
+      // A ⇧-click (no drag) keeps the anchor→click range; only collapse if
+      // the anchor and click coincide.
+      if (this.range && this.range.b - this.range.a < 0.02) this.range = null;
       else this.app.transport.songPos = this.range.a;
       this.dirty = true;
       return;
@@ -719,24 +817,35 @@ export class Timeline {
       });
       g.restore();
       // Overlaps: where two placements on one lane cover the same time, hatch
-      // the shared span so it's visible (the later one wins on playback and
-      // occludes the earlier in paint; the hatch is the only tell).
+      // the shared span so it's visible. It's also a selectable region (the
+      // crossfade); the selected one gets a solid outline.
       g.save(); g.beginPath(); g.rect(GUTTER_W, RULER_H, w - GUTTER_W, h - RULER_H); g.clip();
-      for (let li = 0; li < lanes.length; li++) {
-        const ps = arr.placements.filter(p => p.track === lanes[li].id).map(p => { const c = this.project.clips[p.clip]; return c ? [p.at, p.at + placedDur(c)] : null; }).filter(Boolean).sort((a, b) => a[0] - b[0]);
-        for (let i = 1; i < ps.length; i++) {
-          const a = Math.max(ps[i][0], ps[i - 1][0]), b = Math.min(ps[i][1], ps[i - 1][1]);
-          if (b <= a) continue;
-          const x0 = this.x(a), x1 = this.x(b), y = this.laneY(li) + 4, ch = LANE_H - 9;
-          g.fillStyle = 'rgba(227,58,65,0.18)'; g.fillRect(x0, y, x1 - x0, ch);
-          g.strokeStyle = 'rgba(227,58,65,0.7)'; g.lineWidth = 1; g.beginPath();
-          for (let hx = x0 - ch; hx < x1; hx += 6) { g.moveTo(hx, y + ch); g.lineTo(hx + ch, y); }
-          g.stroke();
+      for (const o of this.overlaps()) {
+        const li = lanes.findIndex(l => l.id === o.lane); if (li < 0) continue;
+        const x0 = this.x(o.a), x1 = this.x(o.b), y = this.laneY(li) + 4, ch = LANE_H - 9;
+        const sel = this.selectedOverlap && this.selectedOverlap.lane === o.lane && Math.abs(this.selectedOverlap.a - o.a) < 1e-6;
+        g.fillStyle = sel ? 'rgba(255,255,255,0.16)' : 'rgba(227,58,65,0.18)'; g.fillRect(x0, y, x1 - x0, ch);
+        g.strokeStyle = sel ? 'rgba(255,255,255,0.9)' : 'rgba(227,58,65,0.7)'; g.lineWidth = 1; g.beginPath();
+        for (let hx = x0 - ch; hx < x1; hx += 6) { g.moveTo(hx, y + ch); g.lineTo(hx + ch, y); }
+        g.stroke();
+        if (sel) { g.lineWidth = 2; g.strokeRect(x0 + 1, y + 1, x1 - x0 - 2, ch - 2); }
+        // crossfade curves: fadeOut of lower, fadeIn of upper, drawn over the span
+        const lo = this.project.clips[arr.placements[o.lower]?.clip], up = this.project.clips[arr.placements[o.upper]?.clip];
+        if (lo && up) {
+          g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1;
+          const fo = Math.min(o.b - o.a, lo.fadeOut || 0), fi = Math.min(o.b - o.a, up.fadeIn || 0);
+          if (fo > 0) { g.beginPath(); g.moveTo(this.x(o.b - fo), y + 2); g.lineTo(this.x(o.b), y + ch - 2); g.stroke(); }
+          if (fi > 0) { g.beginPath(); g.moveTo(this.x(o.a), y + ch - 2); g.lineTo(this.x(o.a + fi), y + 2); g.stroke(); }
         }
       }
       g.restore();
     }
 
+    // snap guide: a bright vertical line at the target we're stuck to
+    if (this.drag && this.snapHit != null) {
+      const x = this.x(this.snapHit);
+      if (x >= GUTTER_W && x <= w) { g.fillStyle = '#ffffff'; g.globalAlpha = 0.8; g.fillRect(x, RULER_H, 1, h - RULER_H); g.globalAlpha = 1; }
+    }
     // playhead: line through the lanes, a triangle handle on the ruler, and
     // the time next to it so you don't have to read the ruler ticks.
     if (playheadSec != null) {

@@ -141,6 +141,70 @@ export class AssetInspector {
   }
 }
 
+// Overlap (crossfade) inspector: the shared span of two clips on one lane.
+// Edits the lower clip's fadeOut and the upper clip's fadeIn, plus a
+// one-click "equal-power crossfade across the whole overlap".
+export class OverlapInspector {
+  constructor(host, app) {
+    this.app = app; this.store = app.store; this.host = host;
+    app.bus.on('overlap:selected', () => this.render());
+    app.bus.on('arrangement:changed', () => { if (this.app.timeline?.selectedOverlap) this.render(); });
+  }
+  get selection() {
+    const tl = this.app.timeline, o = tl?.selectedOverlap;
+    if (!o || !tl.active) return null;
+    const arr = this.store.project.arrangement;
+    const lower = arr.placements[o.lower], upper = arr.placements[o.upper];
+    const lo = lower && this.store.project.clips[lower.clip], up = upper && this.store.project.clips[upper.clip];
+    if (!lo || !up) return null;
+    return { o, lower, upper, lo, up, len: o.b - o.a };
+  }
+  render() {
+    const { host, store } = this;
+    const sel = this.selection;
+    if (!sel) return false;
+    host.textContent = '';
+    const { o, lo, up, len } = sel;
+    const tl = this.app.timeline;
+    const commit = () => { this.app.bus.emit('arrangement:changed', {}); tl.peaks.clear(); tl.dirty = true; };
+
+    const head = el('div', 'panel-head');
+    head.appendChild(el('div', 'panel-title', 'Overlap'));
+    host.appendChild(head);
+    const meta = el('div', 'clip-meta');
+    meta.appendChild(el('div', 'clip-meta-row', `${fmtTime(o.a)} – ${fmtTime(o.b)}  (${len.toFixed(2)} s)`));
+    meta.appendChild(el('div', 'clip-meta-row', `under  ${lo.name || lo.id}`));
+    meta.appendChild(el('div', 'clip-meta-row', `over   ${up.name || up.id}`));
+    host.appendChild(meta);
+
+    const g = el('div', 'insp-group'); g.appendChild(el('div', 'insp-group-title', 'Crossfade'));
+    const grid = el('div', 'clip-grid'); g.appendChild(grid); host.appendChild(g);
+    let armed = false;
+    const field = (label, clip, key, title) => {
+      const row = el('div', 'clip-row'); row.appendChild(el('span', 'clip-label', label));
+      const w = NumberDrag({
+        value: clip[key] || 0, min: 0, max: len, step: 0.01, format: v => Number(v).toFixed(2), suffix: ' s', title,
+        onInput: v => { if (!armed) { store.checkpoint(); armed = true; } clip[key] = Math.min(len, Math.max(0, v)); tl.dirty = true; },
+        onCommit: () => { armed = false; commit(); },
+      });
+      w.root.classList.add('clip-value'); row.appendChild(w.root); grid.appendChild(row);
+    };
+    field('fade out (under)', lo, 'fadeOut', 'The earlier clip fades out over this many seconds before the overlap ends');
+    field('fade in (over)', up, 'fadeIn', 'The later clip fades in over this many seconds from the overlap start');
+
+    const actions = el('div', 'clip-actions');
+    actions.appendChild(Btn('Crossfade whole overlap', () => { store.checkpoint(); lo.fadeOut = len; up.fadeIn = len; commit(); this.render(); }));
+    actions.appendChild(Btn('No fades', () => { store.checkpoint(); delete lo.fadeOut; delete up.fadeIn; lo.fadeOut = 0; up.fadeIn = 0; commit(); this.render(); }));
+    host.appendChild(actions);
+    const resolve = el('div', 'clip-actions');
+    resolve.appendChild(Btn('Trim under to overlap start', () => { store.checkpoint(); const st = (lo.stretch ?? 1) / (lo.rate ?? 1); lo.out = lo.in + (o.a - sel.lower.at) / st; tl.selectedOverlap = null; commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
+    resolve.appendChild(Btn('Trim over to overlap end', () => { store.checkpoint(); const st = (up.stretch ?? 1) / (up.rate ?? 1); const cut = up.in + (o.b - sel.upper.at) / st; up.in = cut; sel.upper.at = o.b; tl.selectedOverlap = null; commit(); this.app.bus.emit('overlap:selected', { overlap: null }); }));
+    host.appendChild(resolve);
+    host.appendChild(el('div', 'clip-hint', 'Both clips play through the overlap; fades shape the blend. Trim buttons remove the overlap instead.'));
+    return true;
+  }
+}
+
 // Lane (track) inspector: name, level, mute/solo, color, and the clips on it.
 // Edits arrangement.lanes[] in place and emits lanes:changed so the running
 // ClipPlayer ramps immediately.

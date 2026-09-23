@@ -81,6 +81,20 @@ export class App {
     });
     snapSel.root.classList.add('snap-ctl');
     editorBar.appendChild(snapSel.root);
+    // Snap on/off: the same flag `snap.toggle` (N) flips; the grid select
+    // above picks the division. Off = free drag; hold timeline.noSnap
+    // (⌘ by default) to bypass momentarily while on.
+    const snapBtn = el('button', 'btn mini snap-btn', 'Snap');
+    snapBtn.type = 'button';
+    const paintSnap = () => {
+      const on = store.ui.snapOn !== false;
+      snapBtn.classList.toggle('on-accent', on);
+      snapBtn.title = `Snap ${on ? 'on' : 'off'} (${keymap.label('snap.toggle')}) · hold ${keymap.gestures['timeline.noSnap']} while dragging to bypass`;
+    };
+    snapBtn.addEventListener('click', () => { store.ui.snapOn = store.ui.snapOn === false; paintSnap(); this.timeline.dirty = true; });
+    bus.on('ui:snap', paintSnap);
+    paintSnap();
+    editorBar.appendChild(snapBtn);
 
     // Components. The left panel is either the instrument track list (pattern
     // projects) or the asset bin (arrangement projects); routeSidebar picks.
@@ -231,6 +245,7 @@ export class App {
       'clip.gainUp':         () => this.timeline.nudgeSelected(1, 'gainDb'),
       'clip.gainDown':       () => this.timeline.nudgeSelected(-1, 'gainDb'),
       'range.clear':         () => { if (!this.timeline.range) return false; this.timeline.range = null; this.timeline.multi = []; this.timeline.dirty = true; },
+      'snap.toggle':         () => { this.store.ui.snapOn = this.store.ui.snapOn === false; this.timeline.dirty = true; this.bus.emit('ui:snap', {}); },
       'slot.1': () => this.store.requestSlot(0, this.transport.playing),
       'slot.2': () => this.store.requestSlot(1, this.transport.playing),
       'slot.3': () => this.store.requestSlot(2, this.transport.playing),

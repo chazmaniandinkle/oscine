@@ -5,7 +5,7 @@
 
 import { el, Knob, Select } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
-import { ClipInspector, LaneInspector, AssetInspector } from './clipinspector.js';
+import { ClipInspector, LaneInspector, AssetInspector, OverlapInspector } from './clipinspector.js';
 
 export class Inspector {
   constructor(host, app) {
@@ -19,12 +19,14 @@ export class Inspector {
     this.clipInspector = new ClipInspector(host, app);
     this.laneInspector = new LaneInspector(host, app);
     this.assetInspector = new AssetInspector(host, app);
+    this.overlapInspector = new OverlapInspector(host, app);
 
     const { bus } = app;
     bus.on('ui:selection', () => this.render());
     bus.on('clip:selected', () => this.render());
     bus.on('lane:selected', () => this.render());
     bus.on('asset:selected', () => this.render());
+    bus.on('overlap:selected', () => this.render());
     bus.on('preset:applied', ({ trackId }) => {
       if (trackId === this.store.ui.selectedTrackId) this.render();
     });
@@ -49,6 +51,7 @@ export class Inspector {
 
     // A selected timeline clip, lane, or source owns the panel.
     if (this.clipInspector.render()) return;
+    if (this.overlapInspector.render()) return;
     if (this.laneInspector.render()) return;
     if (this.assetInspector.render()) return;
 
