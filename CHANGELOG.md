@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Selection and the playhead
+- A range edge wins over the playhead: a plain drag on either edge (ruler or lanes) moves that boundary alone. ⇧-drag moves the boundary and pulls the playhead along.
+- The playhead's triangle only ever moves the playhead; the range stays put.
+- Ranges snap properly: both ends land on the grid (the start used to be unsnapped, and the moving end stuck to its own last position). A picked grid quantizes; clip edges and the playhead still catch within 8 px. Hold ⌘ on top of ⇧ for an unsnapped range.
+- The inspector refreshes when a range is drawn.
+
+### Lyrics bar
+- No scrollbar; the wheel scrolls it sideways.
+- Auto-scroll keeps the sung word in view (it overshot by about 60 px, leaving the word off the left edge).
+
+### Help
+- Hovering the ruler, the playhead, a range edge or a clip shows what a drag there does, with the active scheme's modifiers. Toolbar snap, lyrics and clear-range tooltips explain the rules.
+- AGENTS.md has a "Driving the timeline headless" section; `scripts/verify/2026-09-23/range-select.mjs` (26 checks) is the template for the next UI test.
+
 ## 2.3.0 · 2026-09-23 · "Where it came from"
 Every edit in the UI now goes through the same store actions as Claude's (one undo per gesture; the "+ lane" row clicks again), and assets can link to the Suno song they came from.
 

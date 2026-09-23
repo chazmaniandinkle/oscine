@@ -74,9 +74,11 @@ unifying them (pattern clips on lanes) is the next schema version.
 | Drag a clip edge | Trim |
 | ⇧-drag a clip body | Slip: move the audio inside the clip, edges stay |
 | ⌥-drag the right edge | Time-stretch (pitch preserved) |
-| Hold ⌘ while dragging | Bypass snap (snap is on by default; N toggles) |
-| Drag the ruler or the playhead | Scrub |
-| ⇧-drag the ruler, or click then ⇧-click | Select a time range; drag its edges to resize |
+| Hold ⌘ while dragging | Bypass snap (snap is on by default; N toggles). Works on top of ⇧ for an unsnapped range |
+| Drag the ruler, the playhead's triangle, or its line | Scrub. The triangle only ever moves the playhead, never the range |
+| ⇧-drag the ruler, or click then ⇧-click | Select a time range. With a grid picked, both ends land on the grid; clip edges and the playhead still catch within 8 px |
+| Drag a range edge (ruler or lanes) | Move that boundary alone. The edge wins over the playhead line even when they coincide |
+| ⇧-drag a range edge | Move the boundary and pull the playhead along with it |
 | Click a lane inside a range | Select that lane's slice (for S, ⌫, or the analysis panel) |
 | Drag a lane's name in the gutter | Reorder lanes (the dB bar under it is the gain drag) |
 | Click the **A** button on a lane | Pick a parameter to automate: Gain, Pan, or any param of the lane's inserts (e.g. EQ · Low Shelf Gain). Each pick opens its own sub-lane under the lane; × in its gutter closes it. A dot on **A** means a closed parameter still has points |
@@ -112,7 +114,8 @@ through the sidecar (a clip transcribes only its own span), *Export…* writes
 SRT, WebVTT or word-level JSON, *Import…* reads any of those back (or whisper's
 JSON). Words appear in the lyrics bar under the timeline, which follows one
 lane at a time (pick it on the left of the bar, or select a lane). Click a word
-anywhere to jump there.
+anywhere to jump there. The bar keeps the sung word in view as you play and
+has no scrollbar; the mouse wheel scrolls it sideways.
 
 **The analysis panel.** Select a range, then click a lane inside it. The panel
 measures exactly the audio that lane plays there: pitch (median and range),

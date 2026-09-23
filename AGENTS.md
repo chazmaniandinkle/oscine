@@ -106,6 +106,42 @@ render with `render.js` in the page and measure (RMS in a window is usually
 enough). Undo after mutating tests, and never save the user's project from a
 test. Put the numbers in the commit message.
 
+### Driving the timeline headless (the fast path)
+
+Start from `scripts/verify/2026-09-23/range-select.mjs`: it loads *Borrowed
+Light*, zooms, and drives real mouse gestures with Playwright. Copy it; don't
+start from scratch. What cost time before:
+
+- **Sidecar**: `bash scripts/dev-sidecar.sh` (port 7351, root = the cog
+  workspace; `curl :7351/health`). After editing `src/`, run
+  `npm run sync-plugin`: the sidecar serves `plugin/app`, not `src`.
+- **Zoom first.** The fitted view is about 4 px/s, so a beat is ~2 px and
+  every drag lands on the wrong thing. Set `tl.pxPerSec = 40; tl.scrollX = 0;
+  tl.fitted = false; tl.dirty = true`, then compute
+  `x = canvasRect.left + tl.x(sec)`; `tl.x` already includes the 150 px gutter
+  and the scroll offset.
+- **Ruler rows** (y from the canvas top): 0–22 px is the tick row (playhead
+  triangle, cycle bar in the top 7 px), 22 px to `RULER_H` is the marker/section
+  strip, then the lanes (`tl.laneY(i)`). ⇧-click in the marker strip selects a
+  whole *section*, not a range; press at y ≈ 12 for ruler gestures.
+- **Grab priority on press** (`onDown`): marker strip → cycle bar → ruler
+  (triangle within 7 px of the playhead scrubs; then range edges; then ⇧ =
+  new range; else scrub) → lanes (range edges first, then the playhead line,
+  then gutter/automation/clips). Change it there and add a check to
+  `range-select.mjs`.
+- **Snap** is `timeline.snapTime`: magnetic to objects (clip edges, playhead,
+  a range's *fixed* edge) within `SNAP_PX`, otherwise quantized to
+  `store.ui.snap` beats. A range being dragged must never snap to its own live
+  edges.
+- **Modifiers come from `keymap`** and match exactly (⇧⌘ ≠ ⇧). Combos that must
+  stack (⌘ = no-snap on top of the ⇧ range) are scoped helpers in
+  `timeline.js` (`rangeGesture`, `noSnapHeld`), not a keymap-wide rule: a global
+  version broke REAPER's ⌥ stretch (`test/keymap.mjs` caught it).
+- **Measure DOM positions against the scroller**, not `offsetLeft` (it counts
+  from the offsetParent; that's what made the lyrics bar overshoot).
+- **Prove the test first.** Stash the fix, run the new check, and watch it fail
+  on the old code. Then pop and watch it pass. Put both numbers in the commit.
+
 ## Automation that enforces this
 
 - **CI** (`.github/workflows/ci.yml`) runs the syntax sweep, smoke suite

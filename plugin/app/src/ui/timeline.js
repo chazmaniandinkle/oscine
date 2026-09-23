@@ -858,6 +858,26 @@ export class Timeline {
     return true;
   }
 
+  // Hover help for the canvas. Words come from the keymap so another scheme's
+  // modifiers show correctly.
+  setTip(t) { if (this.canvas.title !== t) this.canvas.title = t; }
+  tipAt(x, y, h) {
+    if (x < GUTTER_W) return '';
+    const k = (g) => (keymap.gestures?.[g] || '').replace('Mod', '⌘').replace('Shift', '⇧').replace('Alt', '⌥').replace(/\+/g, '');
+    const R = k('timeline.rangeSelect'), NS = k('timeline.noSnap');
+    const px = this.x(this.app.transport.songPos), edge = this.rangeEdgeAt(x, y < RULER_H ? EDGE_PX : 4);
+    if (y < TICK_H && Math.abs(x - px) <= 7) return 'Playhead: drag to move it (the range stays put)';
+    if (y >= TICK_H && y < RULER_H) return 'Markers: M adds · double-click to add or rename · drag to move · click a section to jump · ' + R + '-click to select it';
+    if (edge) return `Range edge: drag to move it · ${R}-drag moves it and the playhead · ${NS} bypasses snap`;
+    if (y < RULER_H) return `Ruler: drag to scrub · ${R}-drag or click then ${R}-click selects a range · ${NS} bypasses snap`;
+    if (Math.abs(x - px) <= 4) return 'Playhead: drag to scrub';
+    if (h?.edge === 'body') return `Clip: drag to move · ${k('timeline.clipDuplicate')}-drag duplicates · ${k('timeline.clipSlip')}-drag slips the audio`;
+    if (h?.edge === 'right') return `Clip edge: drag to trim · ${k('timeline.clipStretch')}-drag time-stretches`;
+    if (h?.edge === 'left') return 'Clip edge: drag to trim';
+    if (this.range && this.sec(x) >= this.range.a && this.sec(x) <= this.range.b) return "Click: select this lane's slice of the range (S splits, ⌫ cuts)";
+    return '';
+  }
+
   onMove(e) {
     const { x, y } = this.pos(e);
     if (!this.drag) {
@@ -871,9 +891,12 @@ export class Timeline {
         const overGain = li < this.lanes().length && ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12;
         const overAdd = li === this.lanes().length && ly <= 28;
         this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd) ? 'pointer' : li < this.lanes().length ? 'grab' : 'default';
+        this.setTip(overGain ? 'Drag up/down: lane gain' : overAdd ? 'Add a lane' : li < this.lanes().length && !overBtn ? 'Click: select lane · drag up/down: reorder' : '');
         return;
       }
-      // Playhead line / range edges through the lanes: resize cursors.
+      // Playhead / range edges / ruler: cursor + a tooltip that says what a
+      // press here will do (matches the grab priority in onDown).
+      this.setTip(this.tipAt(x, y, h));
       if (x >= GUTTER_W && y >= RULER_H) {
         const near = (t) => Math.abs(x - this.x(t)) <= 4;
         if ((this.range && (near(this.range.a) || near(this.range.b))) || near(this.app.transport.songPos)) { this.canvas.style.cursor = 'ew-resize'; return; }

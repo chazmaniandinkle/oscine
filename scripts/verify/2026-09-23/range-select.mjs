@@ -151,6 +151,18 @@ const lyr = await ev(async () => {
 });
 check(`lyrics auto-scroll keeps the lit word visible (${lyr.n} samples of ${lyr.words} words)`, lyr.n > 5 && lyr.nbad === 0, JSON.stringify(lyr.bad));
 check('no page errors', errs.length === 0, errs.join(' | '));
+// Hover tooltips say what a press will do.
+const tipAt = async (x, y) => { await page.mouse.move(x, y); await page.waitForTimeout(30); return ev(() => window.oscine.app.timeline.canvas.title); };
+await setup();
+const tips = {
+  triangle: await tipAt(X(20 * B), geo.top + 8),
+  edge: await tipAt(X(28 * B), laneY),
+  ruler: await tipAt(X(40 * B), geo.top + 12),
+};
+check('tooltip: triangle says playhead only', /Playhead: drag to move it \(the range stays put\)/.test(tips.triangle), tips.triangle);
+check('tooltip: range edge explains plain vs ⇧-drag', /Range edge/.test(tips.edge) && /⇧-drag moves it and the playhead/.test(tips.edge), tips.edge);
+check('tooltip: ruler explains scrub + range + bypass', /scrub/.test(tips.ruler) && /⇧-drag/.test(tips.ruler) && /⌘ bypasses snap/.test(tips.ruler), tips.ruler);
+await ev(() => { window.oscine.app.timeline.range = null; });
 console.log(`\n${passed} passed, ${failed} failed`);
 await browser.close();
 process.exit(failed ? 1 : 0);

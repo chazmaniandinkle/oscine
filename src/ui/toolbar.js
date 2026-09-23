@@ -28,7 +28,7 @@ export class Toolbar {
     btn(edit, 'clip.split', 'Split', { needs: 'clip', title: 'Split at playhead (or at range edges)' });
     btn(edit, 'clip.delete', 'Remove', { needs: 'clip', title: 'Remove clip (or cut the range slice)' });
     btn(edit, 'range.rippleDelete', 'Ripple', { needs: 'range', title: 'Cut the range from every lane and close the gap' });
-    btn(edit, 'range.clear', 'Clear range', { needs: 'range' });
+    btn(edit, 'range.clear', 'Clear range', { needs: 'range', title: 'Clear the range (⇧-drag the ruler to make one; drag its edges to resize)' });
     edit.appendChild(el('span', 'tb-sep'));
     btn(edit, 'clip.pitchDown', '♭', { needs: 'clip', title: 'Pitch −1 semitone' });
     btn(edit, 'clip.pitchUp', '♯', { needs: 'clip', title: 'Pitch +1 semitone' });
@@ -37,14 +37,14 @@ export class Toolbar {
 
     // -- snap
     const snap = group('tb-snap');
-    this.snapBtn = btn(snap, 'snap.toggle', 'Snap', { title: 'Snap on/off' });
+    this.snapBtn = btn(snap, 'snap.toggle', 'Snap', { title: 'Snap on/off (hold ⌘ while dragging to bypass it once)' });
     this.snapSel = Select({
       options: [{ value: 0, label: 'Off' }, { value: 0.25, label: '1/16' }, { value: 0.5, label: '1/8' }, { value: 1, label: 'Beat' }, { value: 4, label: 'Bar' }],
       value: this.store.ui.snap,
       onChange: v => { this.store.ui.snap = Number(v); this.app.timeline.dirty = true; },
     });
     this.snapSel.root.classList.add('snap-ctl');
-    this.snapSel.root.title = 'Grid division for snap (clip edges / playhead / range edges always snap when on)';
+    this.snapSel.root.title = 'Grid for snap: with a grid picked, drags and ranges land on it; clip edges, the playhead and a range\'s fixed edge still catch within 8 px. Off = only those objects';
     snap.appendChild(this.snapSel.root);
 
     // -- view
@@ -53,7 +53,7 @@ export class Toolbar {
     btn(view, 'view.zoomIn', '+', { title: 'Zoom in' });
     btn(view, 'view.zoomOut', '−', { title: 'Zoom out' });
     this.followBtn = btn(view, 'view.follow', 'Follow', { title: 'Follow playhead during playback' });
-    this.lyricsBtn = btn(view, 'view.lyrics', 'Lyrics', { title: 'Show the lyrics bar' });
+    this.lyricsBtn = btn(view, 'view.lyrics', 'Lyrics', { title: 'Show the lyrics bar (follows one lane; click a word to jump; wheel scrolls it)' });
 
     // -- scheme (right)
     const right = group('tb-right');

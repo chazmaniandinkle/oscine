@@ -54,7 +54,7 @@ export const ACTIONS = {
 
 // Pointer gestures: which modifier turns a plain drag into which variant.
 export const GESTURES = {
-  'timeline.rangeSelect':  { label: 'Ruler drag → select range' },
+  'timeline.rangeSelect':  { label: 'Ruler drag → select range; on a range edge, drag the playhead along' },
   'timeline.clipSlip':     { label: 'Clip drag → slip content' },
   'timeline.clipStretch':  { label: 'Right-edge drag → time-stretch' },
   'timeline.clipDuplicate': { label: 'Clip drag → duplicate (copy follows the pointer)' },
