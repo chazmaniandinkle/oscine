@@ -614,13 +614,20 @@ export class Timeline {
     if (y < RULER_H && x >= GUTTER_W) {
       this.canvas.setPointerCapture(e.pointerId);
       const px = this.x(this.app.transport.songPos);
-      // Range edges on the ruler are grab handles: drag either to resize --
-      // unless the playhead is there, in which case the playhead wins.
-      if (this.range && !rangeGesture(e) && Math.abs(x - px) > EDGE_PX) {
-        const xa = this.x(this.range.a), xb = this.x(this.range.b);
-        if (Math.abs(x - xa) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.b }; return; }
-        if (Math.abs(x - xb) <= EDGE_PX) { this.drag = { edge: 'range', anchor: this.range.a }; return; }
+      // The playhead triangle (tick row) moves the playhead ONLY; the range
+      // stays put even when the playhead sits on its left edge.
+      if (y < TICK_H && Math.abs(x - px) <= 7) {
+        const wasPlaying = this.app.transport.playing;
+        if (wasPlaying) this.app.transport.stop();
+        this.drag = { edge: 'scrub', wasPlaying };
+        this.dirty = true;
+        return;
       }
+      // Range edges are grab handles and win over the playhead line: a plain
+      // drag moves the boundary alone; ⇧-drag moves the boundary AND pulls
+      // the playhead along with it.
+      const edgeHit = this.rangeEdgeAt(x, EDGE_PX);
+      if (edgeHit) { this.drag = { edge: 'range', anchor: edgeHit.anchor, follow: rangeGesture(e) }; if (this.drag.follow) this.app.transport.songPos = edgeHit.t; this.dirty = true; return; }
       if (rangeGesture(e)) {
         this.prevRange = this.range; // what a no-drag ⇧-click extends from
         // ⇧-press anchors HERE. If it turns into a drag, the range is
@@ -647,6 +654,15 @@ export class Timeline {
     // Playhead wins over range edges: it usually sits ON one right after a
     // range is set, and grabbing it must always scrub.
     if (x >= GUTTER_W && y >= RULER_H) {
+      // Down through the lanes: range edges first (same rules as the ruler),
+      // then the playhead line.
+      const edgeHit = this.rangeEdgeAt(x, 4);
+      if (edgeHit) {
+        this.canvas.setPointerCapture(e.pointerId);
+        this.drag = { edge: 'range', anchor: edgeHit.anchor, follow: rangeGesture(e) };
+        if (this.drag.follow) this.app.transport.songPos = edgeHit.t;
+        return;
+      }
       const px = this.x(this.app.transport.songPos);
       if (Math.abs(x - px) <= 4 && !rangeGesture(e)) {
         this.canvas.setPointerCapture(e.pointerId);
@@ -654,11 +670,6 @@ export class Timeline {
         if (wasPlaying) this.app.transport.stop();
         this.drag = { edge: 'scrub', wasPlaying };
         return;
-      }
-      if (this.range) {
-        const xa = this.x(this.range.a), xb = this.x(this.range.b);
-        if (Math.abs(x - xa) <= 4) { this.canvas.setPointerCapture(e.pointerId); this.drag = { edge: 'range', anchor: this.range.b }; return; }
-        if (Math.abs(x - xb) <= 4) { this.canvas.setPointerCapture(e.pointerId); this.drag = { edge: 'range', anchor: this.range.a }; return; }
       }
     }
     // Checked before the lane gutter, which returns early when no lane is hit.
@@ -777,6 +788,15 @@ export class Timeline {
     this.dirty = true;
   }
 
+  // Which range edge (if any) is under x: {t, anchor} = the grabbed edge's
+  // time and the OTHER edge, which stays fixed during the drag.
+  rangeEdgeAt(x, tol) {
+    if (!this.range) return null;
+    const da = Math.abs(x - this.x(this.range.a)), db = Math.abs(x - this.x(this.range.b));
+    if (Math.min(da, db) > tol) return null;
+    return da <= db ? { t: this.range.a, anchor: this.range.b } : { t: this.range.b, anchor: this.range.a };
+  }
+
   // Placement indices on a lane overlapping the current range.
   clipsInRange(laneId) {
     const r = this.range, arr = this.arrangement;
@@ -866,6 +886,7 @@ export class Timeline {
       const t = this.snapTime(Math.max(0, this.sec(x)), { e });
       if (d.pressX != null && Math.abs(x - d.pressX) > 3) d.moved = true;
       this.range = { a: Math.min(d.anchor, t), b: Math.max(d.anchor, t) };
+      if (d.follow) this.app.transport.songPos = t;
       this.dirty = true;
       return;
     }
@@ -1011,7 +1032,7 @@ export class Timeline {
           : this.app.transport.songPos;
         this.range = Math.abs(anchor - t) < 0.02 ? null : { a: Math.min(anchor, t), b: Math.max(anchor, t) };
       } else if (this.range && this.range.b - this.range.a < 0.02) this.range = null;
-      if (this.range) this.app.transport.songPos = this.range.a;
+      if (this.range && d.pressT != null) this.app.transport.songPos = this.range.a; // new range: park at its start
       this.prevRange = this.range;
       this.app.bus.emit('range:changed', {});
       this.dirty = true;

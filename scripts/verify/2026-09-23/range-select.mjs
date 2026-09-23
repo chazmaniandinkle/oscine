@@ -85,7 +85,52 @@ s = await shiftDrag(tA, tB, ['Shift', 'Meta']);
 check('⌘+⇧-drag is unsnapped', s.r && !onGrid(s.r.b) && Math.abs(s.r.b - tB) < 2 / geo.pps, JSON.stringify(s.r));
 
 await ev(() => { window.oscine.app.timeline.range = null; });
-// Lyrics bar: no visible scrollbar.
+// --- Edge vs playhead (2026-09-23 round 3) ---
+// Setup: range 20..28 beats, playhead parked ON its left edge (the usual state
+// right after making a range).
+const B = geo.beat;
+const setup = () => ev(([a, b]) => { const { app } = window.oscine; app.timeline.range = { a, b }; app.transport.songPos = a; app.timeline.dirty = true; }, [20 * B, 28 * B]);
+const st = () => ev(() => ({ r: window.oscine.app.timeline.range, ph: window.oscine.app.transport.songPos }));
+async function dragAt(y, from, to, mods = []) {
+  for (const m of mods) await page.keyboard.down(m);
+  await page.mouse.move(X(from), y); await page.mouse.down();
+  for (let k = 1; k <= 8; k++) await page.mouse.move(X(from) + (X(to) - X(from)) * k / 8, y);
+  await page.mouse.up();
+  for (const m of [...mods].reverse()) await page.keyboard.up(m);
+  await page.waitForTimeout(100);
+  return st();
+}
+const laneY = await ev(() => { const tl = window.oscine.app.timeline; return tl.canvas.getBoundingClientRect().top + tl.laneY(0) + 20; });
+await setup();
+// (a) ruler tick row, right edge (the left edge there is under the triangle):
+// plain drag moves the boundary, playhead stays
+s = await dragAt(geo.top + 12, 28 * B, 25 * B);
+check('ruler: plain drag on an edge moves the boundary', s.r && Math.round(s.r.b / B) === 25 && Math.round(s.r.a / B) === 20, JSON.stringify(s.r));
+check('ruler: plain edge drag leaves the playhead', Math.abs(s.ph - 20 * B) < 1e-6, `ph=${(s.ph / B).toFixed(2)} beats`);
+// (b) same through the lanes
+await setup();
+s = await dragAt(laneY, 20 * B, 17 * B);
+check('lanes: plain drag on left edge moves the boundary', s.r && Math.round(s.r.a / B) === 17, JSON.stringify(s.r));
+check('lanes: plain edge drag leaves the playhead', Math.abs(s.ph - 20 * B) < 1e-6, `ph=${(s.ph / B).toFixed(2)}`);
+// (c) ⇧-drag on the edge: boundary AND playhead move together
+await setup();
+s = await dragAt(laneY, 20 * B, 18 * B, ['Shift']);
+check('⇧-drag on edge moves the boundary', s.r && Math.round(s.r.a / B) === 18 && Math.round(s.r.b / B) === 28, JSON.stringify(s.r));
+check('⇧-drag on edge pulls the playhead with it', Math.abs(s.ph - s.r?.a) < 1e-6, `ph=${(s.ph / B).toFixed(2)} a=${(s.r?.a / B).toFixed(2)}`);
+// (d) the triangle (tick row) moves ONLY the playhead
+await setup();
+s = await dragAt(geo.top + 8, 20 * B, 24 * B);
+check('triangle drag moves the playhead', Math.abs(s.ph / B - 24) < 0.6, `ph=${(s.ph / B).toFixed(2)}`);
+check('triangle drag leaves the range alone', s.r && Math.abs(s.r.a - 20 * B) < 1e-6 && Math.abs(s.r.b - 28 * B) < 1e-6, JSON.stringify(s.r));
+// (e) right edge plain drag
+await setup();
+s = await dragAt(laneY, 28 * B, 31 * B);
+check('right edge plain drag', s.r && Math.round(s.r.b / B) === 31 && Math.round(s.r.a / B) === 20 && Math.abs(s.ph - 20 * B) < 1e-6, JSON.stringify(s));
+// (f) without a range, the playhead line in the lanes still scrubs
+await ev(() => { window.oscine.app.timeline.range = null; window.oscine.app.transport.songPos = 20 * 60 / (window.oscine.store.project.bpm || 120); });
+s = await dragAt(laneY, 20 * B, 23 * B);
+check('no range: playhead line drag scrubs', !s.r && Math.abs(s.ph / B - 23) < 0.6, JSON.stringify(s));
+await ev(() => { window.oscine.app.timeline.range = null; });
 const sb = await ev(() => { const st = document.querySelector('.lyrics-strip'); if (!st) return null; const cs = getComputedStyle(st); return { sw: cs.scrollbarWidth, hBar: st.offsetHeight - st.clientHeight }; });
 check('lyrics strip: no scrollbar', sb && sb.sw === 'none' && sb.hBar === 0, JSON.stringify(sb));
 // Lyrics auto-scroll: step the playhead through every 7th word; the lit word
