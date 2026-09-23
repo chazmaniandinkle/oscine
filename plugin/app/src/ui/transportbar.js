@@ -2,7 +2,7 @@
 
 import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast } from './widgets.js';
 import { SLOT_NAMES, BAR_CHOICES } from '../core/schema.js';
-import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink, listProjects, openProjectPath, saveProjectPath } from './fileops.js';
+import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink, listProjects, openProjectPath, saveProjectPath, revealProjectFolder } from './fileops.js';
 
 export class TransportBar {
   constructor(host, app) {
@@ -128,6 +128,7 @@ export class TransportBar {
       openMenu(fileBtn, [
         { label: 'Open project…', onPick: () => this.pickProject(fileBtn) },
         { label: 'Save project  (⌘S)', onPick: () => saveProjectPath(store, app.api) },
+        { label: 'Show in Finder  (⌘⇧R)', onPick: () => revealProjectFolder() },
         { label: 'Copy share link', onPick: () => copyShareLink(app.api) },
         { label: 'Export audio (.wav)', onPick: () => exportWav(app.api) },
         { label: 'Export song (.json)', onPick: () => exportProject(store) },

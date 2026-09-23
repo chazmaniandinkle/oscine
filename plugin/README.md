@@ -67,6 +67,7 @@ undo step), then save with `oscine_project_save_file`. Times are seconds.
 | `GET /project-doc/<path>` | a project document, with `baseUrl` set for its assets |
 | `PUT /project-doc/<path>` | save a project document (`.oscine.json` only; `baseUrl` stripped) |
 | `GET /project/<path>` | files under the project root, with byte ranges (audio streaming) |
+| `POST /reveal` | `{path}` → open that file's folder in Finder (or the OS file manager), file selected. Same-origin pages only. |
 | `POST /transcribe` | `{file, from?, to?, model?, force?}` → words `[{s,e,t}]` in source seconds |
 
 All paths are relative to `OSCINE_PROJECT_ROOT` and can't escape it.

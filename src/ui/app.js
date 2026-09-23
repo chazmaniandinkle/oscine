@@ -16,7 +16,7 @@ import { AssetBin } from './assetbin.js';
 import { Toolbar } from './toolbar.js';
 import { LyricsBar } from './lyricsbar.js';
 import { StatusBar } from './statusbar.js';
-import { saveProjectPath } from './fileops.js';
+import { saveProjectPath, revealProjectFolder } from './fileops.js';
 import { keymap } from '../core/keymap.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
@@ -240,6 +240,7 @@ export class App {
       'transport.toStart':   () => { this.transport.songPos = 0; this.timeline.dirty = true; },
       'transport.playRange': () => { const r = this.timeline.range; if (!r) return false; this.transport.stop(); this.transport.songPos = r.a; this.transport.play(); },
       'project.save':        () => saveProjectPath(this.store, this.api),
+      'project.reveal':      () => revealProjectFolder(),
       'edit.undo':           () => this.store.undo(),
       'edit.redo':           () => this.store.redo(),
       'clip.split':          () => this.timeline.splitSelectionAtRange(),

@@ -22,6 +22,7 @@ export const ACTIONS = {
   'transport.toStart':     { label: 'Go to start', scope: 'global' },
   'transport.playRange':   { label: 'Play from range start', scope: 'timeline' },
   'project.save':          { label: 'Save project', scope: 'global' },
+  'project.reveal':        { label: 'Show project in Finder', scope: 'global' },
   'edit.undo':             { label: 'Undo', scope: 'global' },
   'edit.redo':             { label: 'Redo', scope: 'global' },
   'clip.split':            { label: 'Split at playhead / range', scope: 'timeline' },
@@ -74,6 +75,7 @@ export const SCHEMES = {
       'transport.toStart': 'Home',
       'transport.playRange': 'Shift+Space',
       'project.save': 'Mod+KeyS',
+      'project.reveal': 'Mod+Shift+KeyR', // macOS 'Reveal in Finder' convention
       'edit.undo': 'Mod+KeyZ',
       'edit.redo': ['Mod+Shift+KeyZ', 'Mod+KeyY'],
       'clip.split': 'KeyS',

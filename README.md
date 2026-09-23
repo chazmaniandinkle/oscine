@@ -133,7 +133,9 @@ isn't in that DAW). The status bar shows position, range, selection, analysis
 progress, saved state and the sidecar link.
 
 **Files.** File > Open project lists projects under the sidecar's project
-root; ⌘S saves in place. Playback stops at the end of the song unless the
+root; ⌘S saves in place; File > Show in Finder (⌘⇧R) opens the project's
+folder with the file selected, so its renders, stems and assets are one
+click away. Playback stops at the end of the song unless the
 cycle is on.
 
 ### Keys (default scheme)
@@ -150,6 +152,7 @@ cycle is on.
 | F | Fit song to window | = − | Zoom in / out |
 | L | Follow playhead | ⇧L | Lyrics bar on/off |
 | ⌘Z ⌘⇧Z | Undo / redo | ⌘S | Save |
+| ⌘⇧R | Show the project in Finder | | |
 
 ## Using it: patterns
 

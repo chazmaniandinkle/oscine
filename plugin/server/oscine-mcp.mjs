@@ -399,6 +399,32 @@ async function serveStatic(req, res) {
     }
     return;
   }
+  // POST /reveal {path}  Open the folder holding a project (or any file under
+  // the project root) in the OS file manager: Finder on macOS (`open -R`
+  // selects the file), the default handler elsewhere. Local-only: the page
+  // must be same-origin with the sidecar, and the path can't escape the root.
+  if (urlPath === '/reveal' && req.method === 'POST') {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('reveal is only available from a page served by this sidecar'); return; }
+    let body = ''; for await (const chunk of req) body += chunk;
+    let args; try { args = JSON.parse(body || '{}'); } catch { res.writeHead(400); res.end('bad json'); return; }
+    const projectRoot = resolve(PROJECT_ROOT);
+    const target = resolve(projectRoot, String(args.path || '.'));
+    if (target !== projectRoot && !target.startsWith(projectRoot + '/')) { res.writeHead(400); res.end('path escapes the project root'); return; }
+    try { await stat(target); } catch { res.writeHead(404); res.end('not found: ' + args.path); return; }
+    const [cmd, argv] = process.platform === 'darwin' ? ['open', ['-R', target]]
+      : process.platform === 'win32' ? ['explorer', ['/select,', target]]
+      : ['xdg-open', [dirname(target)]];
+    try {
+      const { spawn } = await import('node:child_process');
+      spawn(cmd, argv, { detached: true, stdio: 'ignore' }).unref();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, revealed: target.slice(projectRoot.length + 1) || '.' }));
+    } catch (err) { res.writeHead(500); res.end(String(err?.message || err)); }
+    return;
+  }
   if (urlPath.startsWith('/project-doc/')) {
     let full;
     try { full = resolveProjectPath(urlPath.slice('/project-doc/'.length)); }

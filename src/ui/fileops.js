@@ -66,6 +66,22 @@ export async function openProjectPath(path, api, { quiet = false } = {}) {
   return out;
 }
 
+// Show the open project's file in Finder (its folder opens with the file
+// selected). Needs the sidecar; the path is the one we opened from.
+export async function revealProjectFolder() {
+  let path = null; try { path = localStorage.getItem(LAST_PROJECT_KEY); } catch {}
+  if (!path) { toast('No project file open. Use Open project… first.'); return false; }
+  try {
+    const res = await fetch('/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+    if (!res.ok) throw new Error(await res.text());
+    toast('Showing the project in Finder');
+    return true;
+  } catch (err) {
+    toast('Could not open the folder: ' + (err.message || err) + '. This needs the Oscine sidecar.');
+    return false;
+  }
+}
+
 // Save the live project back to the document it was opened from.
 export async function saveProjectPath(store, api, path = null) {
   path = path || (() => { try { return localStorage.getItem(LAST_PROJECT_KEY); } catch { return null; } })();
