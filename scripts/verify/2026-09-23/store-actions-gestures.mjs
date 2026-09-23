@@ -187,6 +187,10 @@ console.log('\n[5d] source bin + lanes + cycle');
     await ev(() => window.oscine.app.assetBin.removeLane('carl'));
     await page.waitForTimeout(100);
   }, (b, a) => (!a[0].lanes.find(l => l.id === 'carl') && a[0].placements.every(p => p.track !== 'carl')) || 'carl still there');
+  await proves('marker add (key)', async () => {
+    await ev(() => { window.oscine.transport.songPos = 42; });
+    await page.keyboard.press('KeyM'); await page.waitForTimeout(120);
+  }, (b, a) => ((a[0].markers?.length ?? 0) === (b[0].markers?.length ?? 0) + 1) || 'no marker');
   await proves('cycle toggle (C)', async () => {
     await page.mouse.click(5, 5);
     await page.keyboard.press('KeyC'); await page.waitForTimeout(120);

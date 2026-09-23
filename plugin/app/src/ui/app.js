@@ -246,7 +246,7 @@ export class App {
       'clip.split':          () => this.timeline.splitSelectionAtRange(),
       'clip.delete':         () => this.timeline.selectedMarker ? this.timeline.deleteSelectedMarker() : this.timeline.deleteRangeFromSelection(),
       'range.rippleDelete':  () => this.timeline.active ? this.timeline.rippleDeleteRange() : false,
-      'marker.add':          () => { if (!this.timeline.active) return false; this.store.checkpoint(); const m = this.timeline.addMarker(this.transport.songPos); this.timeline.selectedMarker = m.id; },
+      'marker.add':          () => { if (!this.timeline.active) return false; const m = this.timeline.addMarker(this.transport.songPos); this.timeline.selectedMarker = m.id; },
       // Cycle is its own region (arrangement.loop), independent of the edit
       // range: C toggles it (creating it from the range, or 8 s at the
       // playhead, if it doesn't exist yet); ⌘U copies the range into it.
