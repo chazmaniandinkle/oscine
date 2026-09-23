@@ -325,13 +325,15 @@ export class ClipInspector {
     const field = (grid, key, label, o) => {
       const get = () => key === 'at' ? placement.at : (clip[key] ?? o.default ?? 0);
       const set = v => {
+        if (o.clampTo) { const [lo, hi] = o.clampTo(); v = Math.max(lo, Math.min(hi, v)); w.set(v); }
         if (key === 'at') placement.at = v;
         else if (o.default !== undefined && Math.abs(v - o.default) < 1e-9) delete clip[key];
         else clip[key] = v;
       };
       const row = el('div', 'clip-row');
       row.appendChild(el('span', 'clip-label', label));
-      const w = NumberDrag({
+      let w;
+      w = NumberDrag({
         value: get(), min: o.min, max: o.max, step: o.step ?? 0.01, format: o.format ?? fmt(2), suffix: o.suffix ?? '',
         title: o.title,
         onInput: v => {
@@ -350,8 +352,8 @@ export class ClipInspector {
 
     const g1 = section('Position');
     field(g1, 'at', 'at', { min: 0, max: 36000, step: 0.01, format: fmtTime, title: 'Where the clip starts on the timeline (drag; ⇧ fine)' });
-    field(g1, 'in', 'in', { min: 0, max: asset?.duration ?? 36000, step: 0.01, format: fmtTime, title: 'Source in-point' });
-    field(g1, 'out', 'out', { min: 0, max: asset?.duration ?? 36000, step: 0.01, format: fmtTime, title: 'Source out-point' });
+    field(g1, 'in', 'in', { min: 0, max: asset?.duration ?? 36000, step: 0.01, format: fmtTime, title: 'Source in-point', clampTo: () => [0, clip.out - 0.05] });
+    field(g1, 'out', 'out', { min: 0, max: asset?.duration ?? 36000, step: 0.01, format: fmtTime, title: 'Source out-point', clampTo: () => [clip.in + 0.05, asset?.duration ?? 36000] });
 
     const g2 = section('Time & pitch');
     field(g2, 'stretch', 'stretch', { min: 0.25, max: 4, step: 0.01, default: 1, format: v => `×${Number(v).toFixed(2)}`, title: 'Time-stretch, pitch preserved (phase vocoder)' });
@@ -393,7 +395,7 @@ export class ClipInspector {
       g4.appendChild(flow);
     }
 
-    host.appendChild(el('div', 'clip-hint', `Drag values · ⇧ fine · double-click resets · ${keymap.label('clip.split')} split · ${keymap.label('clip.delete')} remove · ${keymap.gestures['timeline.clipSlip']}-drag slips · ${keymap.gestures['timeline.clipStretch']}-drag edge stretches`));
+    host.appendChild(el('div', 'clip-hint', `Drag values · ⇧ fine · double-click to type · ${keymap.label('clip.split')} split · ${keymap.label('clip.delete')} remove · ${keymap.gestures['timeline.clipSlip']}-drag slips · ${keymap.gestures['timeline.clipStretch']}-drag edge stretches`));
     return true;
   }
 }

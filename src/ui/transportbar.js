@@ -79,6 +79,17 @@ export class TransportBar {
     }, 'mini');
     copyBtn.title = 'Copy active pattern to another slot';
     mid.appendChild(copyBtn);
+    this.patternGroup = mid;
+    // Pattern chrome is inert on an arrangement project; hide it there rather
+    // than show live controls that do nothing (audit). Re-evaluated on load.
+    const routeChrome = () => {
+      const isArr = !!store.project.arrangement?.placements?.length;
+      mid.style.display = isArr ? 'none' : '';
+      this.metroCtl.root.style.display = isArr ? 'none' : '';
+      this.swingCtl.root.style.display = isArr ? 'none' : '';
+    };
+    app.bus.on('project:replaced', routeChrome);
+    queueMicrotask(routeChrome);
 
     // -- right: history, file ops, master --
     const right = el('div', 'tb-group');
@@ -331,12 +342,19 @@ export class TransportBar {
 
   onFrame(pos, masterLevel) {
     this.masterMeter.set(masterLevel);
-    if (pos.playing) {
+    // Arrangement projects read in seconds; pattern projects in bar.beat.
+    // Both update at rest too, so a paused seek shows where you are (audit).
+    const arr = this.store.project.arrangement?.placements?.length;
+    let text;
+    if (arr) {
+      const s = pos.sec ?? this.app.transport.songPos ?? 0;
+      const m = Math.floor(s / 60), r = s % 60;
+      text = `${m}:${r.toFixed(pos.playing ? 1 : 2).padStart(pos.playing ? 4 : 5, '0')}`;
+    } else if (pos.playing) {
       const bar = Math.floor(pos.localBeat / 4) + 1;
       const beat = Math.floor(pos.localBeat % 4) + 1;
-      this.posEl.textContent = `${bar}.${beat}`;
-    } else if (this.posEl.textContent !== '1.1') {
-      this.posEl.textContent = '1.1';
-    }
+      text = `${bar}.${beat}`;
+    } else text = '1.1';
+    if (this.posEl.textContent !== text) this.posEl.textContent = text;
   }
 }

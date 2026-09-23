@@ -70,6 +70,7 @@ export class AssetBin {
       row.appendChild(swatches);
       const mid = el('div', 'asset-mid');
       mid.appendChild(el('div', 'asset-name', a.name || a.id.replace(/^ast_/, '')));
+      mid.lastChild.title = a.name || a.id;
       const v = a.variants?.default;
       mid.appendChild(el('div', 'asset-sub', `${fmtTime(a.duration)} · ${a.kind}${v?.sha256 ? ' · ' + v.sha256.slice(0, 8) : ''}${used.length ? '' : ' · unused'}`));
       row.appendChild(mid);

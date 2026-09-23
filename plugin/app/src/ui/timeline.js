@@ -60,7 +60,26 @@ export class Timeline {
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
     this.canvas.addEventListener('pointercancel', e => this.onUp(e));
     this.canvas.addEventListener('wheel', e => this.onWheel(e), { passive: false });
-    new ResizeObserver(() => { this.dirty = true; }).observe(host);
+    // Undo/redo swaps the project object under us. If the last action was a
+    // delete, re-select the restored placement so ⌫ → ⌘Z leaves you where you were.
+    app.bus.on('project:replaced', () => {
+      this.peaks.clear();
+      if (this.restoreSelOnUndo != null && this.arrangement?.placements[this.restoreSelOnUndo]) {
+        this.selected = this.restoreSelOnUndo;
+        this.app.bus.emit('clip:selected', { index: this.selected });
+      } else if (this.selected != null && !this.arrangement?.placements[this.selected]) {
+        this.selected = null;
+      }
+      this.restoreSelOnUndo = null;
+      this.multi = [];
+      this.dirty = true;
+    });
+    new ResizeObserver(() => {
+      // Keep the song filling the width when the panel grows/shrinks, unless
+      // the user has zoomed in on purpose (then just repaint).
+      if (this.fitted) this.fitToWidth();
+      this.dirty = true;
+    }).observe(host);
   }
 
   // -- data -----------------------------------------------------------------
@@ -69,10 +88,21 @@ export class Timeline {
   get arrangement() { return this.project.arrangement; }
 
   setProject(project) {
+    // Called on every editor route (undo, selection changes, loads). Only a
+    // genuinely different document should reset view state; an undo of the
+    // same song keeps zoom/scroll/selection (audit: ⌫ → ⌘Z lost selection,
+    // and follow-mode was defeated by refit on every route).
+    const key = project?.name + ':' + Object.keys(project?.assets || {}).join(',');
+    const same = this.projectKey === key;
+    this.projectKey = key;
     this.peaks.clear();
-    this.buffers.clear();
-    this.selected = null;
-    this.fitToWidth();
+    if (!same) {
+      this.buffers.clear();
+      this.selected = null; this.multi = []; this.range = null;
+      this.fitToWidth();
+    } else if (this.selected != null && !this.arrangement?.placements[this.selected]) {
+      this.selected = null;
+    }
     this.decodeAll();
     this.dirty = true;
   }
@@ -158,6 +188,21 @@ export class Timeline {
     const len = this.arrangement?.length || 60;
     this.pxPerSec = w / len;
     this.scrollX = 0;
+    this.fitted = true; // cleared by any manual zoom/scroll
+  }
+  // Farthest scrollX that still shows the song's end plus a little runout.
+  maxScrollX() {
+    const len = this.arrangement?.length || 60;
+    const view = this.host.clientWidth - GUTTER_W;
+    return Math.max(0, len * this.pxPerSec + 40 - view);
+  }
+  // Keep `sec` visible: page the view when the playhead runs off the right
+  // edge (DAW follow mode), or nudge it back in when it's off the left.
+  follow(sec) {
+    const view = this.host.clientWidth - GUTTER_W;
+    const x = sec * this.pxPerSec - this.scrollX;
+    if (x > view - 20) this.scrollX = Math.min(this.maxScrollX(), sec * this.pxPerSec - view * 0.15);
+    else if (x < 0) this.scrollX = Math.max(0, sec * this.pxPerSec - view * 0.15);
   }
   x(sec) { return GUTTER_W + (sec * this.pxPerSec) - this.scrollX; }
   sec(x) { return (x - GUTTER_W + this.scrollX) / this.pxPerSec; }
@@ -177,18 +222,28 @@ export class Timeline {
     const laneIdx = Math.floor((py - RULER_H) / LANE_H);
     const lane = this.lanes()[laneIdx];
     if (!lane) return null;
+    // Two passes: bodies first (the clip the pointer is actually over), then
+    // edges. Without this, the EDGE_PX halo of clip B stole the right edge
+    // of an adjacent clip A when the two were < 2*EDGE_PX apart and B was
+    // later in the array -- a stretch on A silently trimmed B (audit blocker).
+    let best = null;
     for (let i = arr.placements.length - 1; i >= 0; i--) {
       const p = arr.placements[i];
       if (p.track !== lane.id) continue;
       const clip = this.project.clips[p.clip];
       if (!clip) continue;
       const x0 = this.x(p.at), x1 = this.x(p.at + placedDur(clip));
-      if (px >= x0 - EDGE_PX && px <= x1 + EDGE_PX) {
-        const edge = px <= x0 + EDGE_PX ? 'left' : px >= x1 - EDGE_PX ? 'right' : 'body';
-        return { index: i, placement: p, clip, edge };
-      }
+      if (px < x0 - EDGE_PX || px > x1 + EDGE_PX) continue;
+      const inside = px >= x0 && px <= x1;
+      const w = x1 - x0;
+      // Tiny clips (< 3*EDGE_PX): the middle third is body so they can still be moved.
+      const eL = Math.min(EDGE_PX, w / 3), eR = Math.min(EDGE_PX, w / 3);
+      const edge = px <= x0 + eL ? 'left' : px >= x1 - eR ? 'right' : 'body';
+      const cand = { index: i, placement: p, clip, edge, inside };
+      if (inside) return cand;          // pointer is over this clip: it wins
+      if (!best) best = cand;           // else remember the first halo hit
     }
-    return null;
+    return best;
   }
 
   // Split the selected clip at the playhead into two virtual clips that
@@ -248,8 +303,10 @@ export class Timeline {
   deleteSelected() {
     if (this.selected == null) return;
     this.store.checkpoint();
-    this.arrangement.placements.splice(this.selected, 1); // clip record stays; it's a reference
+    const idx = this.selected;
+    this.arrangement.placements.splice(idx, 1); // clip record stays; it's a reference
     this.selected = null;
+    this.restoreSelOnUndo = idx; // undo puts it back at the same index; reselect it
     this.app.bus.emit('clip:selected', { index: null });
     this.app.bus.emit('arrangement:changed', {});
     this.dirty = true;
@@ -334,7 +391,8 @@ export class Timeline {
       return;
     }
     this.canvas.setPointerCapture(e.pointerId);
-    this.store.checkpoint();
+    // Checkpoint lazily: only once the drag actually changes something.
+    // A plain click-to-select must not burn an undo slot (audit).
     this.clearAssetSel();
     this.multi = [];
     if (this.selectedLane != null) { this.selectedLane = null; this.app.bus.emit('lane:selected', { id: null }); }
@@ -440,6 +498,15 @@ export class Timeline {
       const h = this.hit(x, y);
       this.hoverLane = this.range && x >= GUTTER_W && y >= RULER_H ? this.laneAt(x, y)?.lane.id ?? null : null;
       if (this.range) this.dirty = true;
+      // Gutter: pointer over M/S/+lane, ns-resize over the gain bar.
+      if (x < GUTTER_W && y >= RULER_H) {
+        const li = Math.floor((y - RULER_H) / LANE_H), ly = y - this.laneY(li);
+        const overBtn = li < this.lanes().length && ly >= 8 && ly <= 26 && ((x >= BTN.m[0] && x <= BTN.m[0] + BTN.m[1]) || (x >= BTN.s[0] && x <= BTN.s[0] + BTN.s[1]));
+        const overGain = li < this.lanes().length && ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12;
+        const overAdd = li === this.lanes().length && ly <= 28;
+        this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd || li < this.lanes().length) ? 'pointer' : 'default';
+        return;
+      }
       this.canvas.style.cursor = (y < RULER_H && x >= GUTTER_W) ? 'ew-resize' : !h ? 'default' : h.edge === 'body' ? (keymap.gesture('timeline.clipSlip', e) ? 'move' : 'grab') : (h.edge === 'right' && keymap.gesture('timeline.clipStretch', e)) ? 'col-resize' : 'ew-resize';
       return;
     }
@@ -465,6 +532,10 @@ export class Timeline {
     }
     const asset = this.project.assets[d.clip.sourceOf];
     const maxOut = asset?.duration ?? Infinity;
+    if (!d.armed) {
+      if (Math.abs(x - d.startX) < 3) return; // click, not a drag yet
+      this.store.checkpoint(); d.armed = true;
+    }
     if (d.edge === 'body') {
       d.placement.at = Math.max(0, d.at0 + ds);
     } else if (d.edge === 'slip') {
@@ -508,6 +579,7 @@ export class Timeline {
       return;
     }
     const wasGain = d.edge === 'gain';
+    if (!wasGain && !d.armed) { this.dirty = true; return; } // plain click: nothing changed
     this.app.bus.emit(wasGain ? 'lanes:changed' : 'arrangement:changed', {});
     this.dirty = true;
   }
@@ -522,7 +594,8 @@ export class Timeline {
     } else {
       this.scrollX += (e.deltaX || e.deltaY);
     }
-    this.scrollX = Math.max(0, this.scrollX);
+    this.fitted = false;
+    this.scrollX = Math.max(0, Math.min(this.maxScrollX(), this.scrollX));
     this.dirty = true;
   }
 
@@ -531,6 +604,7 @@ export class Timeline {
   onFrame(pos) {
     if (!this.active) return;
     const playing = !!pos?.playing;
+    if (playing && !this.drag) this.follow(pos.sec);
     if (playing || this.dirty) this.paint(pos?.sec ?? null, playing);
   }
 
@@ -643,6 +717,23 @@ export class Timeline {
         if (clip.gainDb) tags.push(`${clip.gainDb > 0 ? '+' : ''}${clip.gainDb}dB`);
         g.fillText((clip.name || clip.id) + (tags.length ? '  ' + tags.join(' ') : ''), x0 + 5, y + 9); g.restore();
       });
+      g.restore();
+      // Overlaps: where two placements on one lane cover the same time, hatch
+      // the shared span so it's visible (the later one wins on playback and
+      // occludes the earlier in paint; the hatch is the only tell).
+      g.save(); g.beginPath(); g.rect(GUTTER_W, RULER_H, w - GUTTER_W, h - RULER_H); g.clip();
+      for (let li = 0; li < lanes.length; li++) {
+        const ps = arr.placements.filter(p => p.track === lanes[li].id).map(p => { const c = this.project.clips[p.clip]; return c ? [p.at, p.at + placedDur(c)] : null; }).filter(Boolean).sort((a, b) => a[0] - b[0]);
+        for (let i = 1; i < ps.length; i++) {
+          const a = Math.max(ps[i][0], ps[i - 1][0]), b = Math.min(ps[i][1], ps[i - 1][1]);
+          if (b <= a) continue;
+          const x0 = this.x(a), x1 = this.x(b), y = this.laneY(li) + 4, ch = LANE_H - 9;
+          g.fillStyle = 'rgba(227,58,65,0.18)'; g.fillRect(x0, y, x1 - x0, ch);
+          g.strokeStyle = 'rgba(227,58,65,0.7)'; g.lineWidth = 1; g.beginPath();
+          for (let hx = x0 - ch; hx < x1; hx += 6) { g.moveTo(hx, y + ch); g.lineTo(hx + ch, y); }
+          g.stroke();
+        }
+      }
       g.restore();
     }
 
