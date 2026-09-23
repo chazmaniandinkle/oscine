@@ -476,14 +476,16 @@ export class Store {
   //                                no history. Ops carry ABSOLUTE values (at,
   //                                in, t, gainDb), so re-applying is idempotent
   //                                and object identity is kept mid-drag.
-  //   gestureCommit(ops, events)   pointerup: restore the snapshot, then apply
-  //                                the FULL op list (relative to the
-  //                                pre-gesture state) as ONE undo step
+  //   gestureCommit(ops, events)   pointerup: replay the FULL op list on the
+  //                                pre-gesture snapshot as ONE undo step (the
+  //                                snapshot is the undo entry)
   //   gestureCancel(events)        abandon: restore the snapshot, no history
   // Ops are [[name, ...args]] naming exports of core/arrangement.js. A commit
   // with no ops (a click that never moved) restores and adds no history.
   // Only arrangement, clips and assets are restored; arrangement ops touch
-  // nothing else. See docs/ui-store-actions.md.
+  // nothing else. When the replay equals the previewed state the live
+  // objects are kept, so references held during the drag stay valid.
+  // See docs/ui-store-actions.md.
   gestureBegin() {
     if (this._gesture) return;
     A.requireArrangement(this.project);
@@ -509,13 +511,20 @@ export class Store {
     const snap = this._gesture;
     if (!snap) return ops.length ? this.arrangementBatch(ops, events) : [];
     this._gesture = null;
-    this._gestureRestore(snap);
-    if (!ops.length) { this._emitAll(events); return []; }
-    this._runOps(deepClone(this.project), ops); // throws before touching history
+    if (!ops.length) { this._gestureRestore(snap); this._emitAll(events); return []; }
+    const clone = JSON.parse(snap);
+    let out;
+    try { out = this._runOps(clone, ops); } // throws before touching history
+    catch (err) { this._gestureRestore(snap); this._emitAll(events); throw err; }
+    const pick = o => JSON.stringify([o.arrangement, o.clips, o.assets]);
+    if (pick(clone) !== pick(this.project)) {
+      for (const k of ['arrangement', 'clips', 'assets']) {
+        if (k in clone) this.project[k] = clone[k]; else delete this.project[k];
+      }
+    }
     this.undoStack.push(snap);
     if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift();
     this.redoStack.length = 0;
-    const out = this._runOps(this.project, ops);
     this._emitAll(events);
     return out;
   }

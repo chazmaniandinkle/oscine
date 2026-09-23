@@ -3,15 +3,18 @@
 // drag-to-move / edge-trim. Times are SECONDS throughout (the arrangement is
 // seconds-based; only the pattern editors think in beats).
 //
-// Mutations are minimal and direct: a gesture calls store.checkpoint() on
-// pointerdown, edits placement.at / clip.in / clip.out in place, and emits
-// 'arrangement:changed' on pointerup so the transport (next play) and any
-// other view pick it up. Nothing here touches audio nodes.
+// Every project edit goes through a store action (core/store.js), which
+// runs the pure edit in core/arrangement.js as one undo step and emits the
+// bus events. Discrete edits (split, delete, marker add/rename, M/S) call the
+// action directly. Drags (move, trim, slip, stretch, gain, marker, cycle,
+// automation point) preview through store.gesturePreview() and end in ONE
+// store.gestureCommit() on pointerup; a click that never moved commits
+// nothing. See docs/ui-store-actions.md. Nothing here touches audio nodes.
 
 import { el, openMenu } from './widgets.js';
 import { AssetCache } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
-import { ensureEnvelope, findEnvelope, targetOf, parseTarget, rangeOf, addPoint, movePoint, removePoint, valueAt } from '../engine/automation.js';
+import { findEnvelope, targetOf, parseTarget, rangeOf, addPoint, valueAt } from '../engine/automation.js';
 import { getEffectDef } from '../engine/effects/index.js';
 
 const TICK_H = 22;   // time ticks + playhead handle
@@ -72,7 +75,7 @@ export class Timeline {
       if (!(y >= TICK_H && y < RULER_H && x >= GUTTER_W)) return;
       const m = this.markerAt(x);
       if (m) { this.selectedMarker = m.id; this.renameMarker(m); }
-      else { this.store.checkpoint(); const nm = this.addMarker(this.snapTime(this.sec(x), { e })); this.selectedMarker = nm.id; this.renameMarker(nm, { noCheckpoint: true }); }
+      else { const nm = this.addMarker(this.snapTime(this.sec(x), { e })); this.selectedMarker = nm.id; this.renameMarker(nm, { amend: true }); }
       this.dirty = true;
     });
     // Right-click on an automation point: Linear / Hold / Exponential.
@@ -153,15 +156,8 @@ export class Timeline {
   }
 
   // Lane mix state lives on arrangement.lanes[] (persisted with the doc).
-  // Lanes discovered from placements (no lanes[] entry) get one created on
-  // first edit so the change has somewhere to live.
-  laneRecord(id) {
-    const arr = this.arrangement;
-    if (!arr.lanes) arr.lanes = this.lanes().map(l => ({ ...l }));
-    let l = arr.lanes.find(x => x.id === id);
-    if (!l) { l = { id, name: id }; arr.lanes.push(l); }
-    return l;
-  }
+  // Lanes discovered from placements (legacy docs, no lanes[] entry) are
+  // materialised by the store action on their first edit (resolveLane).
   laneAudible(lane) {
     const anySolo = this.lanes().some(l => l.solo);
     return anySolo ? !!lane.solo : !lane.mute;
@@ -443,9 +439,8 @@ export class Timeline {
     const expOk = !probe.shapeCoerced;
     const set = (shape) => {
       if (cur === shape) return;
-      this.store.checkpoint();
-      movePoint(env, idx, p.t, p.v, this.project, shape);
-      this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
+      this.store.automationMovePoint(target, idx, { shape });
+      this.dirty = true;
     };
     const r = this.canvas.getBoundingClientRect();
     const anchor = { getBoundingClientRect: () => ({ left: r.left + cx, right: r.left + cx, top: r.top + cy, bottom: r.top + cy }) };
@@ -497,15 +492,8 @@ export class Timeline {
     const t = this.app.transport.getPosition().sec ?? this.app.transport.songPos;
     const dur = placedDur(clip);
     if (t <= p.at + 0.02 || t >= p.at + dur - 0.02) return false;
-    this.store.checkpoint();
-    const frac = (t - p.at) / dur;
-    const cut = clip.in + (clip.out - clip.in) * frac;
-    const right = { ...clip, id: `${clip.id}~${Math.random().toString(36).slice(2, 7)}`, in: cut, fadeIn: 0, name: (clip.name || clip.id) + ' ·b' };
-    clip.out = cut; clip.fadeOut = 0;
-    this.project.clips[right.id] = right;
-    arr.placements.splice(this.selected + 1, 0, { track: p.track, clip: right.id, at: t });
+    this.store.clipSplit(this.selected, t);
     this.peaks.clear();
-    this.app.bus.emit('arrangement:changed', {});
     this.app.bus.emit('clip:selected', { index: this.selected });
     this.dirty = true;
     return true;
@@ -533,22 +521,18 @@ export class Timeline {
     if (this.selected == null) return;
     const clip = this.project.clips[this.arrangement.placements[this.selected].clip];
     if (!clip) return;
-    this.store.checkpoint();
     const v = Math.round(((clip[field] ?? 0) + delta) * 10) / 10;
-    if (Math.abs(v) < 1e-6) delete clip[field]; else clip[field] = v;
-    this.app.bus.emit('arrangement:changed', {});
+    this.store.clipSet(clip.id, { [field]: Math.abs(v) < 1e-6 ? null : v });
     this.dirty = true;
   }
 
   deleteSelected() {
     if (this.selected == null) return;
-    this.store.checkpoint();
     const idx = this.selected;
-    this.arrangement.placements.splice(idx, 1); // clip record stays; it's a reference
     this.selected = null;
+    this.store.clipRemove(idx); // clip record stays; it's a reference
     this.restoreSelOnUndo = idx; // undo puts it back at the same index; reselect it
     this.app.bus.emit('clip:selected', { index: null });
-    this.app.bus.emit('arrangement:changed', {});
     this.dirty = true;
   }
 
@@ -564,7 +548,7 @@ export class Timeline {
       if (m) { // select + (maybe) drag to move
         this.canvas.setPointerCapture(e.pointerId);
         this.selectedMarker = m.id;
-        this.drag = { edge: 'marker', marker: m, t0: m.t, startX: x, armed: false };
+        this.drag = { edge: 'marker', markerId: m.id, t0: m.t, startX: x, armed: false };
       } else { // click in a section band: jump to its start
         const ms = this.markers(), t = this.sec(x);
         const sec = [...ms].reverse().find(k => k.t <= t);
@@ -663,24 +647,18 @@ export class Timeline {
         return;
       }
       if (inBtn(BTN.m) || inBtn(BTN.s)) {
-        this.store.checkpoint();
-        const rec = this.laneRecord(lane.id);
-        if (inBtn(BTN.m)) rec.mute = !rec.mute; else rec.solo = !rec.solo;
-        this.app.bus.emit('lanes:changed', {});
+        this.store.laneSet(lane.id, inBtn(BTN.m) ? { mute: !lane.mute } : { solo: !lane.solo });
         this.dirty = true;
         return;
       }
       if (ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12) {
         this.canvas.setPointerCapture(e.pointerId);
-        this.store.checkpoint();
-        const rec = this.laneRecord(lane.id);
-        this.drag = { edge: 'gain', lane: rec, startY: y, g0: rec.gainDb ?? 0 };
+        this.drag = { edge: 'gain', laneId: lane.id, startY: y, g0: lane.gainDb ?? 0, armed: false };
         return;
       }
       // Name area: click selects the lane; a vertical drag REORDERS it.
       // (The dB bar below is the gain drag; the two zones don't overlap.)
       this.canvas.setPointerCapture(e.pointerId);
-      this.laneRecord(lane.id); // ensure lanes[] is materialised so order can be stored
       this.drag = { edge: 'reorder', laneId: lane.id, from: li, startY: y, to: li, armed: false };
       return;
     }
@@ -697,15 +675,19 @@ export class Timeline {
       if (sub) {
         if (e.button === 2) return; // right-click: the contextmenu handler owns it
         this.canvas.setPointerCapture(e.pointerId);
-        const env = ensureEnvelope(this.arrangement, sub.target);
         const y0 = sub.y0, info = this.autoInfo(sub.target);
         const vOf = (py) => this.autoV(y0, py, info);
         const hitIdx = this.autoPointAt(sub.target, y0, x, y);
-        this.store.checkpoint();
-        if (hitIdx >= 0 && e.altKey) { removePoint(env, hitIdx); this.app.bus.emit('arrangement:changed', {}); this.dirty = true; return; }
-        let idx = hitIdx;
-        if (idx < 0) { const pt = addPoint(env, this.snapTime(this.sec(x), { e }), vOf(y), this.project); idx = env.points.indexOf(pt); }
-        this.drag = { edge: 'auto', env, idx, li, y0, vOf, armed: true };
+        if (hitIdx >= 0 && e.altKey) { this.store.automationRemovePoint(sub.target, { index: hitIdx }); this.dirty = true; return; }
+        // Click on empty sub-lane = add a point (committed on pointerup, with
+        // any drag of it, as one undo step); click on a point = drag it.
+        let idx = hitIdx, baseOps = [];
+        this.store.gestureBegin();
+        if (idx < 0) {
+          baseOps = [['addAutomationPoint', sub.target, { t: this.snapTime(this.sec(x), { e }), v: vOf(y) }]];
+          idx = this.store.gesturePreview(baseOps)[0].index;
+        }
+        this.drag = { edge: 'auto', target: sub.target, idx, li, y0, vOf, baseOps, ops: [], armed: true };
         this.dirty = true;
         return;
       }
@@ -779,14 +761,10 @@ export class Timeline {
     if (!this.range) return this.splitAtPlayhead();
     const targets = this.multi.length ? [...this.multi] : (this.selected != null ? [this.selected] : []);
     if (!targets.length) return false;
-    this.store.checkpoint();
-    // Split at b first so indices before it stay valid, then at a.
-    for (const t of [this.range.b, this.range.a]) {
-      for (const i of [...targets].sort((x, y) => y - x)) this._splitIndexAt(i, t, { checkpoint: false });
-    }
     this.multi = [];
     this.selected = null;
-    this.app.bus.emit('arrangement:changed', {});
+    this.store.clipSplitMany(targets, [this.range.b, this.range.a]);
+    this.peaks.clear();
     this.app.bus.emit('clip:selected', { index: null });
     this.dirty = true;
     return true;
@@ -797,34 +775,10 @@ export class Timeline {
     if (!this.range) return this.deleteSelected();
     const targets = this.multi.length ? [...this.multi] : (this.selected != null ? [this.selected] : []);
     if (!targets.length) return false;
-    this.store.checkpoint();
-    const arr = this.arrangement, { a, b } = this.range;
-    // Work from the highest index down so splices don't shift what's left to do.
-    for (const i of [...targets].sort((x, y) => y - x)) {
-      const p = arr.placements[i], c = this.project.clips[p.clip];
-      const st = (c.stretch ?? 1) / (c.rate ?? 1);
-      const end = p.at + placedDur(c);
-      if (b <= p.at || a >= end) continue;
-      if (a <= p.at && b >= end) { arr.placements.splice(i, 1); continue; } // fully inside: drop
-      if (a > p.at && b < end) {
-        // Middle cut: keep the head, add a tail clip.
-        const cutIn = c.in + (a - p.at) / st, cutOut = c.in + (b - p.at) / st;
-        const tail = { ...c, id: `${c.id}~${Math.random().toString(36).slice(2, 7)}`, in: cutOut, fadeIn: 0, name: (c.name || c.id) + ' ·b' };
-        this.project.clips[tail.id] = tail;
-        c.out = cutIn; c.fadeOut = 0;
-        arr.placements.splice(i + 1, 0, { track: p.track, clip: tail.id, at: b });
-        continue;
-      }
-      if (a <= p.at) { // cut the head off
-        const cutOut = c.in + (b - p.at) / st;
-        c.in = cutOut; p.at = b;
-      } else {         // cut the tail off
-        c.out = c.in + (a - p.at) / st;
-      }
-    }
+    const { a, b } = this.range;
     this.multi = []; this.selected = null;
+    this.store.clipCutRange(targets, a, b);
     this.peaks.clear();
-    this.app.bus.emit('arrangement:changed', {});
     this.app.bus.emit('clip:selected', { index: null });
     this.dirty = true;
     return true;
@@ -837,50 +791,14 @@ export class Timeline {
   // [reaper_userguide.txt:6108]). One undo step.
   rippleDeleteRange() {
     if (!this.range || this.range.b - this.range.a < 0.01) return false;
-    const arr = this.arrangement; if (!arr) return false;
-    const { a, b } = this.range, gap = b - a;
-    this.store.checkpoint();
-    // 1. cut the range out of every placement that crosses it (reuse the
-    //    per-placement cutter by selecting all overlapping indices).
-    const all = arr.placements.map((p, i) => i).filter(i => {
-      const p = arr.placements[i], c = this.project.clips[p.clip];
-      return c && p.at < b && p.at + placedDur(c) > a;
-    });
-    const saveCk = this.store.checkpoint; this.store.checkpoint = () => {}; // one undo step
-    this.multi = all; this.selected = null;
-    try { this.deleteRangeFromSelection(); } finally { this.store.checkpoint = saveCk; }
-    // 2. shift everything starting at/after b left by the gap
-    for (const p of arr.placements) if (p.at >= b - 1e-6) p.at = Math.max(a, p.at - gap);
-    for (const m of arr.markers ?? []) { if (m.t >= b) m.t -= gap; else if (m.t > a) m.t = a; }
-    arr.markers = (arr.markers ?? []).filter((m, i, ms) => ms.findIndex(k => Math.abs(k.t - m.t) < 1e-6) === i);
-    if (arr.loop) { const sh = t => t >= b ? t - gap : t > a ? a : t; arr.loop.a = sh(arr.loop.a); arr.loop.b = sh(arr.loop.b); if (arr.loop.b - arr.loop.a < 0.05) arr.loop = null; }
-    for (const env of arr.automation ?? []) {
-      if (env.target?.startsWith('clip:')) continue; // clip-local time: travels with its clip
-      env.points = env.points.filter(p => p.t <= a || p.t >= b).map(p => p.t >= b ? { ...p, t: p.t - gap } : p);
-    }
-    if (arr.length) arr.length = Math.max(0, arr.length - gap);
-    this.range = null; this.multi = [];
+    if (!this.arrangement) return false;
+    const { a, b } = this.range;
+    this.range = null; this.multi = []; this.selected = null;
+    this.store.rangeRippleDelete(a, b); // emits arrangement, loop and range changes
     this.app.transport.songPos = a;
     this.peaks.clear();
-    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('range:changed', {});
+    this.app.bus.emit('clip:selected', { index: null });
     this.dirty = true;
-    return true;
-  }
-
-  // Split placement `i` at song time `t` if t is strictly inside it.
-  _splitIndexAt(i, t, { checkpoint = true } = {}) {
-    const arr = this.arrangement;
-    const p = arr.placements[i], clip = this.project.clips[p.clip];
-    const dur = placedDur(clip);
-    if (t <= p.at + 0.02 || t >= p.at + dur - 0.02) return false;
-    if (checkpoint) this.store.checkpoint();
-    const frac = (t - p.at) / dur;
-    const cut = clip.in + (clip.out - clip.in) * frac;
-    const right = { ...clip, id: `${clip.id}~${Math.random().toString(36).slice(2, 7)}`, in: cut, fadeIn: 0, name: (clip.name || clip.id) + ' ·b' };
-    clip.out = cut; clip.fadeOut = 0;
-    this.project.clips[right.id] = right;
-    arr.placements.splice(i + 1, 0, { track: p.track, clip: right.id, at: t });
-    this.peaks.clear();
     return true;
   }
 
@@ -921,24 +839,29 @@ export class Timeline {
       return;
     }
     if (d.edge === 'auto') {
-      movePoint(d.env, d.idx, this.snapTime(this.sec(x), { e }), d.vOf(y), this.project);
+      d.ops = [['moveAutomationPoint', d.target, d.idx, { t: this.snapTime(this.sec(x), { e }), v: d.vOf(y) }]];
+      this.preview(d.ops);
       this.dirty = true;
       return;
     }
     if (d.edge === 'loop') {
       if (!d.armed && Math.abs(x - d.startX) < 3) return;
-      if (!d.armed) { this.store.checkpoint(); d.armed = true; }
+      if (!d.armed) { this.store.gestureBegin(); d.armed = true; }
       const L = this.arrangement.loop, ds = (x - d.startX) / this.pxPerSec;
-      if (d.part === 'a') L.a = Math.min(this.snapTime(Math.max(0, d.a0 + ds), { e }), L.b - 0.1);
-      else if (d.part === 'b') L.b = Math.max(this.snapTime(d.b0 + ds, { e }), L.a + 0.1);
-      else { const len = d.b0 - d.a0; L.a = this.snapTime(Math.max(0, d.a0 + ds), { e }); L.b = L.a + len; }
+      let a = L.a, b = L.b;
+      if (d.part === 'a') a = Math.min(this.snapTime(Math.max(0, d.a0 + ds), { e }), L.b - 0.1);
+      else if (d.part === 'b') b = Math.max(this.snapTime(d.b0 + ds, { e }), L.a + 0.1);
+      else { const len = d.b0 - d.a0; a = this.snapTime(Math.max(0, d.a0 + ds), { e }); b = a + len; }
+      d.ops = [['setCycle', { a, b }]];
+      this.preview(d.ops);
       this.dirty = true;
       return;
     }
     if (d.edge === 'marker') {
       if (!d.armed && Math.abs(x - d.startX) < 3) return;
-      if (!d.armed) { this.store.checkpoint(); d.armed = true; }
-      d.marker.t = this.snapTime(Math.max(0, d.t0 + (x - d.startX) / this.pxPerSec), { e });
+      if (!d.armed) { this.store.gestureBegin(); d.armed = true; }
+      d.ops = [['moveMarker', d.markerId, this.snapTime(Math.max(0, d.t0 + (x - d.startX) / this.pxPerSec), { e })]];
+      this.preview(d.ops);
       this.dirty = true;
       return;
     }
@@ -954,10 +877,12 @@ export class Timeline {
       return;
     }
     if (d.edge === 'gain') {
-      // 1 px = 0.25 dB, up is louder; range -60..+12. Live-applied.
+      // 1 px = 0.25 dB, up is louder; range -60..+12. Live-previewed.
+      if (!d.armed && Math.abs(y - d.startY) < 1) return;
+      if (!d.armed) { this.store.gestureBegin(); d.armed = true; }
       const g = Math.max(-60, Math.min(12, d.g0 + (d.startY - y) * 0.25));
-      d.lane.gainDb = Math.round(g * 10) / 10;
-      this.app.bus.emit('lanes:changed', {});
+      d.ops = [['setLane', d.laneId, { gainDb: Math.round(g * 10) / 10 }]];
+      this.preview(d.ops, ['lanes:changed']);
       this.dirty = true;
       return;
     }
@@ -966,55 +891,69 @@ export class Timeline {
     if (!d.armed) {
       // Arm on horizontal OR vertical movement (a straight-down lane move is a drag too).
       if (Math.abs(x - d.startX) < 3 && Math.abs(y - (d.startY ?? y)) < 3) return; // click, not a drag yet
-      this.store.checkpoint(); d.armed = true;
+      this.store.gestureBegin(); d.armed = true;
       if (d.dup) {
-        // Clone clip + placement; the drag continues on the copy. The
-        // original stays exactly where it was.
-        const P = this.project, src = d.clip;
-        let n = 2, id = `${src.id}_copy`; while (P.clips[id]) id = `${src.id}_copy${n++}`;
-        P.clips[id] = { ...structuredClone(src), id, name: src.name ? `${src.name} (copy)` : undefined };
-        const pl = { ...d.placement, clip: id };
-        this.arrangement.placements.push(pl);
-        d.index = this.arrangement.placements.length - 1;
-        d.placement = pl; d.clip = P.clips[id];
+        // Copy clip + placement (store op, replayed on commit); the drag
+        // continues on the copy. The original stays exactly where it was.
+        d.baseOps = [['copyPlacement', d.index]];
+        d.index = this.store.gesturePreview(d.baseOps)[0].index;
+        d.placement = this.arrangement.placements[d.index]; d.clip = this.project.clips[d.placement.clip];
         this.selected = d.index; this.app.bus.emit('clip:selected', { index: d.index });
       }
     }
+    const cid = d.clip.id;
     if (d.edge === 'body') {
       const len = placedDur(d.clip);
-      d.placement.at = this.snapTime(Math.max(0, d.at0 + ds), { exclude: d.index, e, extraLen: len });
+      const at = this.snapTime(Math.max(0, d.at0 + ds), { exclude: d.index, e, extraLen: len });
       // Vertical: move to the lane under the pointer (clip part only; the
       // gutter / automation sub-lanes / "+ lane" row don't capture it).
       const li = this.laneIndexAt(y), lane = this.lanes()[li];
-      if (lane && lane.id !== d.placement.track) d.placement.track = lane.id;
+      // Name the lane only when it differs from the start (or a preview moved
+      // it and the pointer came back), so a plain move never touches lanes[].
+      const laneTo = lane && (lane.id !== d.lane0 || d.placement.track !== d.lane0) ? lane.id : null;
+      d.ops = [['movePlacement', d.index, laneTo ? { at, lane: laneTo } : { at }]];
     } else if (d.edge === 'slip') {
       // Move the source window under a fixed placement: in/out shift
       // together, clamped to the asset. Drag RIGHT = the waveform moves right
       // with your hand, i.e. earlier audio slides into the window (in decreases).
       const len = d.out0 - d.in0, st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
       const nin = Math.max(0, Math.min(maxOut - len, d.in0 - ds / st));
-      d.clip.in = nin; d.clip.out = nin + len;
+      d.ops = [['clipSet', cid, { in: nin, out: nin + len }]];
       this.peaks.clear();
     } else if (d.edge === 'stretch') {
       // New placed length / source length = stretch. Clamp 0.25x..4x.
       const srcLen = d.out0 - d.in0, want = srcLen * d.st0 + ds;
-      d.clip.stretch = Math.round(Math.max(0.25, Math.min(4, want / srcLen)) * 1000) / 1000;
-      if (Math.abs(d.clip.stretch - 1) < 0.005) delete d.clip.stretch;
+      const stv = Math.round(Math.max(0.25, Math.min(4, want / srcLen)) * 1000) / 1000;
+      d.ops = [['clipSet', cid, { stretch: Math.abs(stv - 1) < 0.005 ? null : stv }]];
       this.peaks.clear();
     } else if (d.edge === 'left') {
       // Trim in-point; keep the right edge fixed in song time. Snap the
-      // new left edge in song time, then map back to source.
+      // new left edge in song time, then map back to source. The left edge
+      // stops at song time 0 (a placement can't start before the song).
       const st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
       const wantAt = this.snapTime(d.at0 + ds, { exclude: d.index, e });
-      const nin = Math.min(Math.max(0, d.in0 + (wantAt - d.at0) / st), d.out0 - 0.05);
-      d.clip.in = nin;
-      d.placement.at = d.at0 + (nin - d.in0) * st;
+      const nin = Math.min(Math.max(0, d.in0 - d.at0 / st, d.in0 + (wantAt - d.at0) / st), d.out0 - 0.05);
+      d.ops = [['clipSet', cid, { in: nin }], ['movePlacement', d.index, { at: d.at0 + (nin - d.in0) * st }]];
     } else {
       const st = (d.clip.stretch ?? 1) / (d.clip.rate ?? 1);
       const wantEnd = this.snapTime(d.at0 + (d.out0 - d.in0) * st + ds, { exclude: d.index, e });
-      d.clip.out = Math.max(d.in0 + 0.05, Math.min(maxOut, d.in0 + (wantEnd - d.at0) / st));
+      d.ops = [['clipSet', cid, { out: Math.max(d.in0 + 0.05, Math.min(maxOut, d.in0 + (wantEnd - d.at0) / st)) }]];
     }
+    this.preview(d.ops);
     this.dirty = true;
+  }
+
+  // Live drag preview through the store (no history). A frame the pure
+  // function rejects is skipped; the last good preview stays on screen.
+  // Only a preview that applied is remembered as what pointerup commits.
+  preview(ops, events) {
+    try { this.store.gesturePreview(ops, events); if (this.drag) this.drag.good = ops; return true; } catch { return false; }
+  }
+  // End a drag: the whole gesture becomes ONE store action / undo step.
+  commitGesture(d, events) {
+    if (!this.store.inGesture) return; // an undo/load mid-drag ended it
+    try { this.store.gestureCommit([...(d.baseOps ?? []), ...(d.good ?? [])], events); }
+    catch (err) { console.warn('[timeline] gesture rejected:', err.message); }
   }
 
   onUp(e) {
@@ -1047,14 +986,19 @@ export class Timeline {
       return;
     }
     if (d.edge === 'loop') {
-      const L = this.arrangement.loop;
-      if (!d.armed) { this.store.checkpoint(); L.on = !L.on; } // a click toggles
-      this.app.transport.armLoop?.(); this.app.bus.emit('loop:changed', { ...L });
+      if (!d.armed) this.store.cycleSet({ on: !this.arrangement.loop.on }); // a click toggles
+      else this.commitGesture(d, ['loop:changed', 'arrangement:changed']);
+      this.app.transport.armLoop?.();
       this.dirty = true;
       return;
     }
     if (d.edge === 'marker') {
-      if (d.armed) { this.sortMarkers(); this.app.bus.emit('arrangement:changed', {}); }
+      if (d.armed) this.commitGesture(d, ['arrangement:changed']);
+      this.dirty = true;
+      return;
+    }
+    if (d.edge === 'auto') {
+      this.commitGesture(d, ['arrangement:changed']); // a click on a point: no ops, no history
       this.dirty = true;
       return;
     }
@@ -1063,20 +1007,12 @@ export class Timeline {
       // Move lanes[from] to slot `to` (slot indexes count boundaries, so a
       // drop below the source shifts by one after removal).
       let to = d.to > d.from ? d.to - 1 : d.to;
-      if (to !== d.from) {
-        this.store.checkpoint();
-        const ls = this.arrangement.lanes;
-        const [rec] = ls.splice(d.from, 1);
-        ls.splice(to, 0, rec);
-        this.app.bus.emit('lanes:changed', {});
-        this.app.bus.emit('arrangement:changed', {});
-      }
+      if (to !== d.from) this.store.laneReorder(d.laneId, to);
       this.dirty = true;
       return;
     }
-    const wasGain = d.edge === 'gain';
-    if (!wasGain && !d.armed) { this.dirty = true; return; } // plain click: nothing changed
-    this.app.bus.emit(wasGain ? 'lanes:changed' : 'arrangement:changed', {});
+    if (!d.armed) { this.dirty = true; return; } // plain click: nothing changed
+    this.commitGesture(d, d.edge === 'gain' ? ['lanes:changed', 'arrangement:changed'] : ['arrangement:changed']);
     this.dirty = true;
   }
 
@@ -1183,15 +1119,12 @@ export class Timeline {
   // arrangement.markers = [{id, t, name, color?}], sorted by t. A marker's
   // SECTION runs to the next marker (or the song end). Stored in seconds,
   // like everything else in v2; v3 may add a tempo map above it.
-  markers() { const a = this.arrangement; return a ? (a.markers ??= []) : []; }
-  sortMarkers() { this.markers().sort((a, b) => a.t - b.t); }
+  markers() { return this.arrangement?.markers ?? []; }
+  // Add a marker (one undo step) and return the live record.
   addMarker(t, name) {
-    const ms = this.markers();
-    let n = ms.length + 1, id = `m${n}`; while (ms.find(m => m.id === id)) id = `m${++n}`;
-    const m = { id, t: Math.max(0, t), name: name ?? `Marker ${ms.length + 1}` };
-    ms.push(m); this.sortMarkers();
-    this.app.bus.emit('arrangement:changed', {}); this.dirty = true;
-    return m;
+    const { marker } = this.store.markerAdd(t, name);
+    this.dirty = true;
+    return this.markers().find(m => m.id === marker.id);
   }
   markerAt(x) {
     let best = null, bd = 7;
@@ -1201,8 +1134,9 @@ export class Timeline {
   deleteSelectedMarker() {
     const ms = this.markers(), i = ms.findIndex(m => m.id === this.selectedMarker);
     if (i < 0) return false;
-    this.store.checkpoint(); ms.splice(i, 1); this.selectedMarker = null;
-    this.app.bus.emit('arrangement:changed', {}); this.app.bus.emit('marker:selected', { id: null }); this.dirty = true;
+    const id = this.selectedMarker; this.selectedMarker = null;
+    this.store.markerRemove(id);
+    this.app.bus.emit('marker:selected', { id: null }); this.dirty = true;
   }
   markerNav(dir) {
     const ms = this.markers(), t = this.app.transport.songPos;
@@ -1212,9 +1146,9 @@ export class Timeline {
   }
   // Inline rename: an <input> over the marker strip at the marker's x.
   // Enter / blur commit (one undo step; none if unchanged), Esc cancels.
-  // `noCheckpoint`: the caller already checkpointed (double-click-to-add),
-  // so add + name is a single undo step.
-  renameMarker(m, { noCheckpoint = false } = {}) {
+  // `amend`: the marker was just added (double-click-to-add), so the name is
+  // folded into that add's undo step: add + name is a single undo step.
+  renameMarker(m, { amend = false } = {}) {
     this.markerEdit?.cancel();
     const inp = document.createElement('input');
     inp.type = 'text'; inp.className = 'marker-edit'; inp.value = m.name ?? ''; inp.spellcheck = false;
@@ -1229,9 +1163,8 @@ export class Timeline {
       const name = inp.value.trim();
       inp.remove();
       if (commit && name && name !== m.name) {
-        if (!noCheckpoint) this.store.checkpoint();
-        m.name = name;
-        this.app.bus.emit('arrangement:changed', {});
+        if (amend) this.store.arrangementAmend([['renameMarker', m.id, name]]);
+        else this.store.markerRename(m.id, name);
       }
       this.dirty = true;
       this.canvas.focus?.();
