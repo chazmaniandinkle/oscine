@@ -78,14 +78,16 @@ unifying them (pattern clips on lanes) is the next schema version.
 | ⇧-drag the ruler, or click then ⇧-click | Select a time range; drag its edges to resize |
 | Click a lane inside a range | Select that lane's slice (for S, ⌫, or the analysis panel) |
 | Drag a lane's name in the gutter | Reorder lanes (the dB bar under it is the gain drag) |
-| Click the **A** button on a lane | Show its gain automation; click to add points, drag to move, ⌥-click to remove |
+| Click the **A** button on a lane | Pick a parameter to automate: Gain, Pan, or any param of the lane's inserts (e.g. EQ · Low Shelf Gain). Each pick opens its own sub-lane under the lane; × in its gutter closes it. A dot on **A** means a closed parameter still has points |
+| In an automation sub-lane | Click to add a point, drag to move, ⌥-click to remove. Right-click a point for its shape: Linear, Hold (a step) or Exponential (greyed out where the range reaches zero, such as gain and pan) |
 | Wheel / ⇧-wheel / ⌘-wheel | Scroll lanes / scroll time / zoom |
 
 Where two clips overlap on a lane, the shared part is hatched and clickable:
 select it to set a crossfade.
 
 **Markers and sections.** M adds a marker at the playhead; double-click the
-marker strip to add or rename one; drag to move. The stretch between two
+marker strip to add or rename one (the name is edited in place: Enter or
+clicking away keeps it, Esc cancels); drag to move. The stretch between two
 markers is a section: click it to jump there, ⇧-click to select it as the
 range. ⌥, and ⌥. step between markers.
 
@@ -321,13 +323,12 @@ protocol and reading project state back; commit messages carry the numbers.
   cycle, automation, effects and transcripts are UI-only. Claude can open and
   save arrangement projects over MCP but can't edit them. This breaks the
   catalog-first rule in `AGENTS.md` and is the first thing to fix.
-- Automation UI only draws lane gain. The engine also handles pan, master,
-  effect params and clip envelopes, with linear, hold and exponential curves.
+- Master-gain and clip-gain envelopes play but have no UI yet; lane gain, pan
+  and insert params do.
 - Patterns and arrangements are separate models. v3 unifies them (see
   `ROADMAP.md`).
 - The limiter is a sample-peak ceiling, not true-peak. The gate's hold is
   approximated by its release.
-- Marker names use the browser's prompt dialog for now.
 
 ## Where it's going
 
