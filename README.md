@@ -129,6 +129,12 @@ each with pan, fader, meter, mute/solo, and an insert chain. *+ insert* adds any
 of eleven effects (EQ, filter, saturator, stereo delay, reverb, chorus, phaser,
 compressor, limiter, gate, utility); click one to edit it in the inspector.
 
+**Settings** (⚙ at the right of the toolbar, or ⌘,): snap on/off, grid,
+snap distance, follow playhead, lyrics bar, key scheme (with a list of every
+shortcut in it), and the whisper model used by Transcribe. Each has a line of
+help and a ↺ to reset it. They're saved in the browser, not in the project,
+and Claude reads and changes the same values with the `settings` tool.
+
 **Toolbar and status bar.** The toolbar mirrors the main edit actions and has
 the **Keys** picker: shortcut schemes for Oscine, Ableton, Logic and REAPER
 (each binding in those schemes cites the manual page it came from, or says it

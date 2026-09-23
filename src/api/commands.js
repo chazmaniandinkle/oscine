@@ -432,6 +432,19 @@ export const COMMANDS = [
     },
   },
   {
+    name: 'settings',
+    description: "App preferences (not project state; they persist per browser). 'get' lists every setting with value, default, type, allowed values and help, or one 'key'. 'set' changes one (validated; errors name the allowed values). 'reset' restores one 'key', or all when omitted. Keys: snap.on, snap.grid (beats; 0 = objects only), snap.distancePx, view.follow, view.lyrics, keys.scheme, transcribe.model.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set', 'reset'] },
+        key: { type: 'string', description: 'Setting key, e.g. snap.grid.' },
+        value: { description: "For 'set': the new value (boolean, number or string per the setting's type)." },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'words',
     description: "Word-level transcripts on assets (source seconds). 'get' returns words for an 'asset', or for a 'clip' (only the words inside its in/out window), optionally narrowed to 'from'/'to' source seconds and capped at 'limit'; includes the joined text. 'set' replaces an asset's words with [{s, e, t}].",
     input: {

@@ -194,6 +194,15 @@ start from scratch. What cost time before:
   import it from `effects/index.js`. Implement `paramNode(key)` when a param
   maps to a real AudioParam so automation can schedule it exactly. Add
   `test/fx-<type>.mjs`.
+- **Preferences live in `core/prefs.js`.** Anything that's "how I like to
+  work" rather than part of the song (snap, grid, snap distance, follow,
+  lyrics bar, key scheme, whisper model) is one entry in `PREFS` (type,
+  default, label, section, help, options or min/max). Read it with
+  `prefs.get(key)`; change it with `prefs.set` so the settings panel
+  (`ui/settings.js`, built from the schema), the `settings` catalog command
+  and the toolbar stay one truth. Don't add new ad hoc `localStorage` keys or
+  new persisted `store.ui` fields. `app.js` bridges prefs into `store.ui` for
+  the hot paths. Proof harness: `scripts/verify/2026-09-23/settings.mjs`.
 - **Keys and drag modifiers live in `core/keymap.js`.** UI code asks
   `keymap.action(e, scopes)` or `keymap.gesture(name, e)`; it never tests
   `e.code`, `e.shiftKey` and friends directly. Scheme bindings for other DAWs

@@ -24,7 +24,8 @@ const SECTION_COLORS = ['#5b8def', '#e3a13a', '#5ce0a8', '#c678dd', '#e06c75', '
 const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
-const SNAP_PX = 8;
+const SNAP_PX = 8; // default; the live value is the snap.distancePx setting
+import { prefs } from '../core/prefs.js';
 // The noSnap modifier may be held ON TOP of the range gesture (⇧⌘-drag =
 // unsnapped range) without breaking its exact modifier match. Scoped to range
 // selection only: a general rule leaks (REAPER's noSnap is ⇧, so ⌥⇧ would
@@ -288,7 +289,7 @@ export class Timeline {
   }
   snapTime(sec, { exclude = null, e = null, extraLen = 0 } = {}) {
     if (!this.snapOn || (e && (keymap.gesture('timeline.noSnap', e) || (this.drag?.edge === 'range' && noSnapHeld(e))))) return sec;
-    const tol = SNAP_PX / this.pxPerSec;
+    const tol = prefs.get('snap.distancePx') / this.pxPerSec;
     let best = sec, bestD = tol;
     // Object targets: snap the dragged clip's START or END to them.
     for (const tgt of this.snapTargets(exclude)) {

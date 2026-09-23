@@ -27,6 +27,7 @@ Chaz's machine; adjust before running elsewhere.
 | eardebug.py / earlive.py | ear worker health; background profiling completes (27.7 s) |
 | earbench.mjs / eareq.mjs | FFT NSDF speed, and identical pitch to the old direct NSDF |
 | range-select.mjs | **start here for new UI tests.** Range snapping, edge vs playhead vs triangle grab rules, ⌘ bypass, lyrics bar scrollbar + auto-scroll, hover tooltips (26 checks, playwright) |
+| settings.mjs | settings panel: ⌘, / ⚙ / Esc, one row per pref, panel = toolbar = keys = `settings` command, snap distance changes the magnet, reload persists, Reset all (17 checks) |
 | store-actions-gestures.mjs | UI edits go through store actions: one undo per gesture (67 checks) |
 | mcpdrive.mjs | arrangement editing through real MCP tools, then 10 undos |
 | nosagan.mjs | render a clone with a lane muted to WAV (the no-Sagan bounce) |

@@ -311,7 +311,7 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Count guard: the arrangement nouns (arrangement, clip, lane, marker, cycle,
   // range, insert, automation, words) took the count from 21 to 30. The e2e
   // tool-count check is derived from COMMANDS.length, so it tracks this.
-  check('catalog command count is 32', COMMANDS.length === 32, `got ${COMMANDS.length}`);
+  check('catalog command count is 33', COMMANDS.length === 33, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -468,6 +468,33 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
     check(`${name} on a pattern project errors clearly`, want.test(err ?? ''), err ?? 'did not throw');
   }
   check('arrangement errors leave no undo entries', store.undoStack.length === undoDepth);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n[4b2] settings command: app preferences (headless, no localStorage)');
+{
+  const bus = new EventBus();
+  const store = new Store(bus, demoProject());
+  const api = new CommandAPI({ store, engine: {}, transport: { getPosition() { return { playing: false, localBeat: 0, loopBeats: 8 }; } }, bus });
+  const all = await api.execute('settings', { action: 'get' });
+  const keys = all.settings.map(x => x.key);
+  check('settings get lists every pref with metadata', keys.includes('snap.grid') && keys.includes('transcribe.model') && all.settings.every(x => 'default' in x && x.help));
+  const g0 = (await api.execute('settings', { action: 'get', key: 'snap.grid' })).value;
+  check('snap.grid defaults to 1/16 beat', g0 === 0.25, String(g0));
+  const r = await api.execute('settings', { action: 'set', key: 'snap.grid', value: 1 });
+  check('settings set returns the coerced value', r.ok && r.value === 1);
+  let err = null; try { await api.execute('settings', { action: 'set', key: 'snap.grid', value: 3 }); } catch (e) { err = e.message; }
+  check('bad option is rejected with the allowed values', /one of: 0, 0.25, 0.5, 1, 4/.test(err ?? ''), err ?? 'no throw');
+  err = null; try { await api.execute('settings', { action: 'set', key: 'snap.distancePx', value: 99 }); } catch (e) { err = e.message; }
+  check('out-of-range number is rejected', /≤ 30/.test(err ?? ''), err ?? 'no throw');
+  err = null; try { await api.execute('settings', { action: 'set', key: 'nope', value: 1 }); } catch (e) { err = e.message; }
+  check('unknown key names the known keys', /Known: .*snap\.grid/.test(err ?? ''), err ?? 'no throw');
+  await api.execute('settings', { action: 'set', key: 'view.follow', value: 'false' });
+  check("booleans accept 'false'", (await api.execute('settings', { action: 'get', key: 'view.follow' })).value === false);
+  const u = store.undoStack.length;
+  await api.execute('settings', { action: 'reset' });
+  check('reset restores defaults', (await api.execute('settings', { action: 'get', key: 'snap.grid' })).value === 0.25 && (await api.execute('settings', { action: 'get', key: 'view.follow' })).value === true);
+  check('settings never touch project history', store.undoStack.length === u);
 }
 
 // ---------------------------------------------------------------------------

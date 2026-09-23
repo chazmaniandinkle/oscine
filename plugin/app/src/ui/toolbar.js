@@ -41,10 +41,10 @@ export class Toolbar {
     this.snapSel = Select({
       options: [{ value: 0, label: 'Off' }, { value: 0.25, label: '1/16' }, { value: 0.5, label: '1/8' }, { value: 1, label: 'Beat' }, { value: 4, label: 'Bar' }],
       value: this.store.ui.snap,
-      onChange: v => { this.store.ui.snap = Number(v); this.app.timeline.dirty = true; },
+      onChange: v => { app.prefs.set('snap.grid', Number(v)); },
     });
     this.snapSel.root.classList.add('snap-ctl');
-    this.snapSel.root.title = 'Grid for snap: with a grid picked, drags and ranges land on it; clip edges, the playhead and a range\'s fixed edge still catch within 8 px. Off = only those objects';
+    this.snapSel.root.title = 'Grid for snap: with a grid picked, drags and ranges land on it; clip edges, the playhead and a range\'s fixed edge still catch within the snap distance (8 px; change it in ⚙ Settings). Off = no snapping';
     snap.appendChild(this.snapSel.root);
 
     // -- view
@@ -61,9 +61,10 @@ export class Toolbar {
       label: 'Keys',
       options: keymap.schemes().map(s => ({ value: s.id, label: s.label })),
       value: keymap.scheme,
-      onChange: v => { keymap.use(v); this.relabel(); app.bus.emit('keymap:changed', {}); },
+      onChange: v => { app.prefs.set('keys.scheme', v); this.relabel(); },
     });
     right.appendChild(this.schemeSel.root);
+    btn(right, 'app.settings', '⚙', { title: 'Settings: snap, view, keys, transcription' });
 
     const { bus } = app;
     for (const t of ['clip:selected', 'lane:selected', 'asset:selected', 'overlap:selected', 'project:replaced', 'range:changed', 'ui:snap', 'ui:view', 'keymap:changed']) bus.on(t, () => this.refresh());
@@ -86,6 +87,8 @@ export class Toolbar {
     this.buttons.get('edit.undo').disabled = !st.canUndo;
     this.buttons.get('edit.redo').disabled = !st.canRedo;
     this.snapBtn.classList.toggle('on-accent', st.ui.snapOn !== false);
+    this.schemeSel.set?.(keymap.scheme);
+    this.relabel();
     this.snapSel.set?.(st.ui.snap);
     this.followBtn.classList.toggle('on-accent', st.ui.follow !== false);
     this.lyricsBtn.classList.toggle('on-accent', st.ui.lyrics !== false);

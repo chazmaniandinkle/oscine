@@ -15,6 +15,8 @@ import { Timeline } from './timeline.js';
 import { AssetBin } from './assetbin.js';
 import { Toolbar } from './toolbar.js';
 import { LyricsBar } from './lyricsbar.js';
+import { prefs } from '../core/prefs.js';
+import { SettingsPanel } from './settings.js';
 import { StatusBar } from './statusbar.js';
 import { saveProjectPath, revealProjectFolder } from './fileops.js';
 import { keymap } from '../core/keymap.js';
@@ -103,7 +105,27 @@ export class App {
     this.midi.init();
     // Bars: toolbar under the transport, lyrics under the editor, status at
     // the very bottom. Built after the components they read from.
+    // Preferences -> the live UI state the rest of the app reads. The store's
+    // ui fields stay the runtime copy (hot paths read them); prefs is the
+    // persisted truth, and every toggle writes through prefs.set so reloads,
+    // the settings panel and the `settings` command all agree.
+    this.prefs = prefs;
+    const applyPref = (key, v) => {
+      const ui = this.store.ui;
+      if (key === 'snap.on') { ui.snapOn = v; bus.emit('ui:snap', {}); }
+      else if (key === 'snap.grid') { ui.snap = v; bus.emit('ui:snap', {}); }
+      else if (key === 'view.follow') { ui.follow = v; bus.emit('ui:view', {}); }
+      else if (key === 'view.lyrics') { ui.lyrics = v; this.routeLyrics?.(); bus.emit('ui:view', {}); }
+      else if (key === 'keys.scheme') { if (keymap.scheme !== v) { keymap.use(v); bus.emit('keymap:changed', {}); } }
+      if (this.timeline) this.timeline.dirty = true;
+    };
+    prefs.setOptions('keys.scheme', keymap.schemes().map(s => ({ value: s.id, label: s.label })));
+    // The keymap persisted its own scheme before prefs existed: adopt it once.
+    if (prefs.get('keys.scheme') !== keymap.scheme && !('keys.scheme' in prefs.values)) prefs.set('keys.scheme', keymap.scheme);
+    for (const { key, value } of prefs.all()) applyPref(key, value);
+    prefs.onChange(applyPref);
     this.toolbar = new Toolbar(toolbarHost, this);
+    this.settings = new SettingsPanel(this);
     this.lyrics = new LyricsBar(lyricsHost, this);
     this.status = new StatusBar(statusHost, this);
     bus.on('project:replaced', () => this.routeLyrics());
@@ -268,12 +290,13 @@ export class App {
       'clip.gainUp':         () => this.timeline.nudgeSelected(1, 'gainDb'),
       'clip.gainDown':       () => this.timeline.nudgeSelected(-1, 'gainDb'),
       'range.clear':         () => { if (!this.timeline.range) return false; this.timeline.range = null; this.timeline.multi = []; this.timeline.dirty = true; this.bus.emit('range:changed', {}); },
-      'snap.toggle':         () => { this.store.ui.snapOn = this.store.ui.snapOn === false; this.timeline.dirty = true; this.bus.emit('ui:snap', {}); },
+      'snap.toggle':         () => { prefs.set('snap.on', !prefs.get('snap.on')); },
       'view.fit':            () => { this.timeline.fitToWidth(); this.timeline.dirty = true; },
       'view.zoomIn':         () => { this.timeline.zoomBy(1.25); },
       'view.zoomOut':        () => { this.timeline.zoomBy(0.8); },
-      'view.follow':         () => { this.store.ui.follow = this.store.ui.follow === false; this.bus.emit('ui:view', {}); },
-      'view.lyrics':         () => { this.store.ui.lyrics = this.store.ui.lyrics === false; this.routeLyrics(); this.bus.emit('ui:view', {}); },
+      'view.follow':         () => { prefs.set('view.follow', !prefs.get('view.follow')); },
+      'view.lyrics':         () => { prefs.set('view.lyrics', !prefs.get('view.lyrics')); },
+      'app.settings':        () => { this.settings.toggle(); },
       'slot.1': () => this.store.requestSlot(0, this.transport.playing),
       'slot.2': () => this.store.requestSlot(1, this.transport.playing),
       'slot.3': () => this.store.requestSlot(2, this.transport.playing),

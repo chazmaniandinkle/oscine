@@ -25,6 +25,7 @@ export const ACTIONS = {
   'project.reveal':        { label: 'Show project in Finder', scope: 'global' },
   'edit.undo':             { label: 'Undo', scope: 'global' },
   'edit.redo':             { label: 'Redo', scope: 'global' },
+  'app.settings':          { label: 'Settings', scope: 'global' },
   'clip.split':            { label: 'Split at playhead / range', scope: 'timeline' },
   'clip.delete':           { label: 'Remove clip / cut range from selected clips', scope: 'timeline' },
   'range.rippleDelete':    { label: 'Ripple delete: cut the range from all lanes and close the gap', scope: 'timeline' },
@@ -78,6 +79,7 @@ export const SCHEMES = {
       'project.reveal': 'Mod+Shift+KeyR', // macOS 'Reveal in Finder' convention
       'edit.undo': 'Mod+KeyZ',
       'edit.redo': ['Mod+Shift+KeyZ', 'Mod+KeyY'],
+      'app.settings': 'Mod+Comma',
       'clip.split': 'KeyS',
       'clip.delete': ['Backspace', 'Delete'],
       'range.rippleDelete': ['Shift+Backspace', 'Shift+Delete'],

@@ -1157,3 +1157,31 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 .variant-name { font-size: 11px; }
 .variant-sub { font-size: 10px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .variant-drop { padding: 0 6px; }
+
+/* ---------- settings (⚙ / ⌘,) ---------- */
+.settings-backdrop { position: fixed; inset: 0; background: rgba(5,7,10,0.55); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh; }
+.settings { width: min(640px, 92vw); max-height: 80vh; display: flex; flex-direction: column; background: var(--bg-1); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); color: var(--text); }
+.settings-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.settings-title { font-weight: 600; letter-spacing: 0.04em; }
+.settings-close { font-size: 16px; padding: 0 8px; }
+.settings-body { overflow-y: auto; padding: 4px 14px 10px; }
+.settings-section { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.settings-section:last-child { border-bottom: none; }
+.settings-h { margin: 6px 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); font-weight: 600; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 6px 0; cursor: default; }
+.settings-text { min-width: 0; }
+.settings-label { font-size: 12.5px; }
+.settings-help { font-size: 11px; color: var(--dim); line-height: 1.35; margin-top: 2px; }
+.settings-right { display: flex; align-items: center; gap: 6px; flex: none; }
+.settings-ctl { font: inherit; font-size: 12px; accent-color: var(--accent); }
+.settings-ctl[type=checkbox] { width: 15px; height: 15px; }
+select.settings-ctl, .settings-num { background: var(--bg-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+.settings-num { width: 64px; }
+.settings-suffix { color: var(--dim); font-size: 11px; }
+.settings-reset { padding: 0 6px; font-size: 12px; }
+.settings-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.settings-note { font-size: 11px; color: var(--dim); }
+.settings-keys { margin-top: 6px; font-size: 12px; }
+.settings-keys summary { cursor: pointer; color: var(--dim); padding: 4px 0; }
+.settings-keytable { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; padding: 6px 0 2px; font-size: 11.5px; }
+.settings-k { font-family: ui-monospace, monospace; color: var(--accent); text-align: right; }

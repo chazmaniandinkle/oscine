@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Settings
+- A settings panel (⚙ in the toolbar, or ⌘,): snap, grid, snap distance, follow playhead, lyrics bar, key scheme with its full shortcut list, and the whisper model for Transcribe. Each has help text and a reset. Saved per browser and restored on reload.
+- New `settings` command (and MCP tool): get, set (validated; errors name the allowed values) and reset. The panel, the toolbar, the shortcuts and Claude all change the same values.
+- Snap distance is now a setting (was fixed at 8 px); Transcribe uses the chosen whisper model.
+
 ### Selection and the playhead
 - A range edge wins over the playhead: a plain drag on either edge (ruler or lanes) moves that boundary alone. ⇧-drag moves the boundary and pulls the playhead along.
 - The playhead's triangle only ever moves the playhead; the range stays put.

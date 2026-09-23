@@ -14,6 +14,7 @@ import { encodeWav } from '../core/wav.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 import * as Arr from '../core/arrangement.js';
 import * as Src from '../core/sources.js';
+import { prefs } from '../core/prefs.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {
@@ -942,6 +943,17 @@ export class CommandAPI {
       case 'remove_point': needTarget(); return { ok: true, ...store.automationRemovePoint(target, { index, t }) };
       case 'clear': needTarget(); return { ok: true, ...store.automationClear(target) };
       default: throw this.badAction('automation', action, ['list', 'set_points', 'add_point', 'remove_point', 'clear']);
+    }
+  }
+
+  cmd_settings({ action, key, value }) {
+    switch (action) {
+      case 'get': return key ? prefs.all().find(p => p.key === key) ?? (() => { prefs.get(key); })() : { settings: prefs.all() };
+      case 'set':
+        if (key == null) throw new Error("settings 'set' needs 'key' and 'value'.");
+        return { ok: true, key, value: prefs.set(key, value) };
+      case 'reset': prefs.reset(key ?? null); return { ok: true, reset: key ?? 'all' };
+      default: throw this.badAction('settings', action, ['get', 'set', 'reset']);
     }
   }
 

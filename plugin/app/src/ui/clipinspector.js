@@ -75,7 +75,7 @@ export class AssetInspector {
       const file = rel(); if (!file) { status.textContent = 'no file for this source'; return; }
       gen.disabled = true; status.textContent = 'whisper running…';
       try {
-        const body = { file, force: !!(asset.words?.length) };
+        const body = { file, force: !!(asset.words?.length), model: app.prefs?.get('transcribe.model') ?? 'small' };
         if (clip) { body.from = clip.in; body.to = clip.out; }
         const res = await fetch('/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.ok) throw new Error(await res.text());
