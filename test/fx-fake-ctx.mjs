@@ -4,12 +4,16 @@
 // run without throwing outside a browser.
 
 function fakeParam(initial = 0) {
+  // Node tests run with no real clock/render thread, so ramps are modelled
+  // as instantaneous: each scheduling call sets `.value` to its target
+  // immediately. That's enough fidelity for effects to assert "the param I
+  // computed for this control got applied" without simulating audio time.
   return {
     value: initial,
-    setTargetAtTime() { return this; },
-    setValueAtTime() { return this; },
-    linearRampToValueAtTime() { return this; },
-    exponentialRampToValueAtTime() { return this; },
+    setTargetAtTime(target) { this.value = target; return this; },
+    setValueAtTime(target) { this.value = target; return this; },
+    linearRampToValueAtTime(target) { this.value = target; return this; },
+    exponentialRampToValueAtTime(target) { this.value = target; return this; },
     cancelScheduledValues() { return this; },
   };
 }
