@@ -508,6 +508,11 @@ input.numdrag-edit { width: 56px; padding: 0 4px; text-align: center; }
 .asset-word.uncovered:hover { background: none; }
 .asset-word.current { background: var(--accent-soft); color: var(--text); }
 .asset-gap { color: var(--dim); }
+.ear-body { padding: 6px 10px; }
+.ear-lines { display: flex; flex-direction: column; gap: 3px; }
+.ear-line { font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px; color: var(--text); line-height: 1.4; }
+.ear-text { font-size: 11px; color: var(--dim); font-style: italic; margin: 6px 0; line-height: 1.5; }
+.ear-spark { display: block; width: 100%; height: 48px; border: 1px solid var(--line-soft); border-radius: 4px; margin: 6px 0; }
 
 /* ---------- asset bin (left panel for arrangement projects) ---------- */
 

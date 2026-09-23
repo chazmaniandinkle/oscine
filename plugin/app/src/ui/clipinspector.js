@@ -8,6 +8,7 @@
 import { el, NumberDrag, Btn } from './widgets.js';
 import { wordsFor } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
+import { analyzeSpan, compareSpans, describe, describeDelta } from '../engine/ear.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`;
@@ -137,6 +138,109 @@ export class AssetInspector {
     }
     host.appendChild(g2);
     host.appendChild(el('div', 'clip-hint', 'Click a word to seek · dim words aren\'t placed in the song'));
+    return true;
+  }
+}
+
+// Range inspector -- "the ear". When a time range is set and a lane is
+// clicked inside it, this measures exactly the audio that lane plays across
+// the range (through every placement's in/out/stretch/gain) and says what a
+// listener would say: pitch, level, tone, pace. Pin a measurement as A and
+// the next becomes B with the deltas. Nothing here is a guess; every number
+// comes from the decoded samples.
+export class RangeInspector {
+  constructor(host, app) {
+    this.app = app; this.store = app.store; this.host = host;
+    this.pinned = null; // { label, result }
+    app.bus.on('clip:selected', () => this.render());
+    app.bus.on('range:changed', () => this.render());
+  }
+  get selection() {
+    const tl = this.app.timeline;
+    if (!tl?.active || !tl.range || !tl.multi?.length) return null;
+    const laneId = this.store.project.arrangement.placements[tl.multi[0]]?.track;
+    return { range: tl.range, laneId, indices: tl.multi };
+  }
+  // Render the lane's audio across the range into one mono Float32Array by
+  // pulling from decoded buffers -- same arithmetic as ClipPlayer.start.
+  async bounceSpan({ range, indices }) {
+    const arr = this.store.project.arrangement, proj = this.store.project;
+    const cache = this.app.assetCache;
+    const sr = 44100, n = Math.max(1, Math.round((range.b - range.a) * sr));
+    const out = new Float32Array(n);
+    const words = [];
+    for (const i of indices) {
+      const p = arr.placements[i], c = proj.clips[p.clip]; if (!c) continue;
+      let buf = await cache.getBuffer(proj, c.sourceOf, c.representation);
+      const st = c.stretch ?? 1, rate = c.rate ?? 1, sp = st / rate;
+      const gain = Math.pow(10, (c.gainDb || 0) / 20);
+      const bsr = buf.sampleRate, chans = buf.numberOfChannels;
+      const data = []; for (let ch = 0; ch < chans; ch++) data.push(buf.getChannelData(ch));
+      for (let k = 0; k < n; k++) {
+        const t = range.a + k / sr;              // song time
+        const rel = t - p.at; if (rel < 0) continue;
+        const srcT = c.in + rel / sp; if (srcT >= c.out) break;
+        const j = Math.floor(srcT * bsr); if (j >= data[0].length) break;
+        let s = 0; for (let ch = 0; ch < chans; ch++) s += data[ch][j];
+        out[k] += (s / chans) * gain;
+      }
+      for (const w of wordsFor(proj, c)) {
+        const s = p.at + w.start * sp - range.a, e = p.at + w.end * sp - range.a;
+        if (e > 0 && s < range.b - range.a) words.push({ start: s, end: e, word: w.word });
+      }
+    }
+    return { x: out, sr, words: words.sort((a, b) => a.start - b.start) };
+  }
+  render() {
+    const { host } = this;
+    const sel = this.selection;
+    if (!sel) return false;
+    host.textContent = '';
+    const lane = this.store.project.arrangement.lanes?.find(l => l.id === sel.laneId);
+    const head = el('div', 'panel-head');
+    const title = el('div', 'panel-title', `${lane?.name || sel.laneId} · ${fmtTime(sel.range.a)}–${fmtTime(sel.range.b)}`);
+    title.style.color = lane?.color || '';
+    head.appendChild(title); host.appendChild(head);
+    const body = el('div', 'ear-body');
+    body.appendChild(el('div', 'clip-hint', 'listening…'));
+    host.appendChild(body);
+    const key = `${sel.laneId}:${sel.range.a.toFixed(3)}:${sel.range.b.toFixed(3)}`;
+    this.pending = key;
+    this.bounceSpan(sel).then(({ x, sr, words }) => {
+      if (this.pending !== key) return;
+      const r = analyzeSpan(x, sr, { words });
+      body.textContent = '';
+      const lines = el('div', 'ear-lines');
+      for (const l of describe(r, 'range')) lines.appendChild(el('div', 'ear-line', l));
+      body.appendChild(lines);
+      if (r.pace?.text) { const t = el('div', 'ear-text', r.pace.text); t.title = 'words the source transcript places in this range'; body.appendChild(t); }
+      // pitch contour sparkline
+      if (r.pitch?.track?.length) {
+        const cv = el('canvas', 'ear-spark'); cv.width = 300; cv.height = 48; body.appendChild(cv);
+        const g = cv.getContext('2d'); g.fillStyle = '#11141c'; g.fillRect(0, 0, 300, 48);
+        const v = r.pitch.track.filter(p => p.hz && p.clarity > 0.6);
+        if (v.length) {
+          const lo = r.pitch.lowMidi - 2, hi = r.pitch.highMidi + 2;
+          g.fillStyle = lane?.color || '#5ce0a8';
+          for (const p of r.pitch.track) {
+            if (!p.hz || p.clarity <= 0.6) continue;
+            const m = 69 + 12 * Math.log2(p.hz / 440);
+            g.fillRect(p.t / r.duration * 300, 48 - (m - lo) / (hi - lo) * 48, 2, 2);
+          }
+          g.fillStyle = '#8891a5'; g.font = '9px system-ui'; g.fillText(r.pitch.high, 2, 9); g.fillText(r.pitch.low, 2, 46);
+        }
+      }
+      const acts = el('div', 'clip-actions');
+      acts.appendChild(Btn(this.pinned ? 'Pin as A (replace)' : 'Pin as A', () => { this.pinned = { label: title.textContent, result: r }; this.render(); }));
+      if (this.pinned) acts.appendChild(Btn('Clear A', () => { this.pinned = null; this.render(); }));
+      body.appendChild(acts);
+      if (this.pinned && this.pinned.label !== title.textContent) {
+        const d = compareSpans(this.pinned.result, r);
+        const cmp = el('div', 'insp-group'); cmp.appendChild(el('div', 'insp-group-title', `vs A · ${this.pinned.label}`));
+        for (const l of describeDelta(d, 'A', 'this')) cmp.appendChild(el('div', 'ear-line', l));
+        body.appendChild(cmp);
+      }
+    }).catch(err => { body.textContent = ''; body.appendChild(el('div', 'clip-hint', 'ear: ' + err.message)); });
     return true;
   }
 }
