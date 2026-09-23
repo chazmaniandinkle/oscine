@@ -1,0 +1,15 @@
+User-Agent: *
+Allow: /
+Disallow: /profile/*/followers
+Disallow: /profile/*/following
+Disallow: /login
+Disallow: /voice/
+
+Sitemap: https://suno.com/sitemap.xml
+Sitemap: https://suno.com/styles-sitemap.xml
+Sitemap: https://suno.com/music-library-sitemap.xml
+Sitemap: https://suno.com/products-sitemap.xml
+Sitemap: https://suno.com/tools-sitemap.xml
+Sitemap: https://suno.com/hub-sitemap.xml
+Sitemap: https://suno.com/landing-sitemap.xml
+Sitemap: https://suno.com/blog-sitemap.xml

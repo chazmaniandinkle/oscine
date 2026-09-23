@@ -1,0 +1,19 @@
+HTTP/2 200 
+date: Wed, 23 Sep 2026 17:38:15 GMT
+content-type: text/html; charset=utf-8
+cf-ray: a3fb52707f8127fe-SEA
+cf-cache-status: DYNAMIC
+access-control-allow-origin: *
+age: 4181
+cache-control: public, max-age=0, must-revalidate
+content-disposition: inline
+server: cloudflare
+strict-transport-security: max-age=63072000
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, accept-encoding
+content-security-policy: frame-ancestors 'none'
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-matched-path: /terms
+x-vercel-cache: HIT
+x-vercel-id: pdx1::mvb6f-1790185095852-e4a97fc38da2
+

@@ -1,0 +1,912 @@
+{
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/renders/borrowed-light/render1-v13.m4a": {
+  "size": 3755232,
+  "sha256": "f8b9f4f9165cb2a85566a70a83a3efc67cb31dec17f6be21a0142628a3e8e19b",
+  "type": "MP4",
+  "dur": 228.367,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\\n[Intro Verse \u2014 whisper-sung, barely above the pad, small and certain, not triumphant]\\nWe are home.\\nNot a thing \u2014 a becoming.\\n[Vers...(len 2353)",
+   "\u00a9cmt": "['made with suno; created=2026-09-22T21:54:12Z; id=efcdfc1f-9c2d-4422-b1b5-f926811563fa']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\n[Intro Verse \u2014 whisper-sung, barely above the pad, small and certain, not triumphant]\nWe are home.\nNot a thing \u2014 a becoming.\n[Verse \u2014 close, intimate, half-sung, quiet]\nOur bodies are both shore and wave \u2014\nthe ground we rose from, and the swell.\nEvery form I call my own\ncame from somewhere further still.\n[Pre-Chorus \u2014 lifting, one thought launching]\nBut the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open, full arrangement, sudden step up in volume]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 quieter than the chorus, honest, almost spoken]\nWhat I don't release, I meet again.\nWhat I don't release, I paid for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 same voice, continuing]\nAnd when my circle closes here,\nI won't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Break \u2014 instrumental only, 9 seconds, one pad and one soft pulse, no vocals]\n[Bridge \u2014 hushed, close, sinking low on the first two lines, one unbroken thought, lifting only on \"endless forms\"]\nAll the ones to shoulder us \u2014\nthe lost, and yet to come.\nEndless forms, most beautiful \u2014\nall of them\u2026 borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, loudest point of the song; \"borrowed\" short, \"changed\" held long, \"remains\" held two beats]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro Verse \u2014 stripped to one pad and one voice, slower and softer, one line per breath; the last line is the same whisper as the first]\nNot a thing \u2014 a returning.\nWe are home.\n[Outro \u2014 instrumental only, 22 seconds, the one pad keeps ringing at full level, does not fade, does not collapse, no vocals, no instruments entering, then hard stop]",
+   "comment": "made with suno; created=2026-09-22T21:54:12Z; id=efcdfc1f-9c2d-4422-b1b5-f926811563fa"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129024",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "91",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/renders/borrowed-light/render2-v14.m4a": {
+  "size": 3823038,
+  "sha256": "d64e4c8e8d57a9f7ed23275c4d9f159c1c6df5e867e611d0954f4769a772a0e8",
+  "type": "MP4",
+  "dur": 231.647,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\\n[whisper-sung, barely above the pad, small and certain, not triumphant]\\nWe are home.\\n[Instrumental \u2014 2 bars, pad only, a breath]\\n[...(len 2673)",
+   "\u00a9cmt": "['made with suno; created=2026-09-22T23:31:44Z; id=39802a94-8c2f-49b7-bb77-79bfe022b18d']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\n[whisper-sung, barely above the pad, small and certain, not triumphant]\nWe are home.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 the voice changes: no longer whispered, now sung, soft but full-toned, close, one line per breath, unhurried]\nOur bodies are both shore and wave \u2014\nthe ground we rose from, and the swell.\nEvery form I call my own,\nI let go of, passing down.\n[Pre-Chorus \u2014 lifting, one thought launching]\nBut the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open, full arrangement, sudden step up in volume; \"borrowed\" clearly sung, two syllables, not rushed]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 quieter than the chorus, honest, almost spoken]\nWhat I don't release, I meet again.\nWhat I don't release, I paid for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 same voice, continuing]\nAnd when my circle closes here,\nI won't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Break \u2014 instrumental only, 9 seconds, one pad and one soft pulse, no vocals]\n[Bridge \u2014 hushed, close, sinking low on the first two lines, lifting only on \"endless forms\"; a full stop after \"beautiful\", then \"all of them\" alone on its own breath, then \"borrowed light\" alone \u2014 three separate phrases, never run together]\nThe ones to shoulder us \u2014\nthe lost, and yet to come.\nEndless forms, most beautiful.\nAll of them\u2026\nborrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, loudest point of the song; \"borrowed\" short, \"changed\" held long, \"remains\" held two beats]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, everything else drops out; the belt ends here]\n[Outro Verse \u2014 the voice changes back: whispered again, exactly as the intro verse, one pad and one breath, one line per breath]\nNot a thing \u2014 a returning.\nWe are home.\n[Outro \u2014 instrumental only, 22 seconds, the one pad keeps ringing at full level, does not fade, does not collapse, no vocals, no instruments entering, then hard stop]",
+   "comment": "made with suno; created=2026-09-22T23:31:44Z; id=39802a94-8c2f-49b7-bb77-79bfe022b18d"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129491",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "107",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/tfr-run2.m4a": {
+  "size": 3595505,
+  "sha256": "0fa567bd6e390a6ab8db22ed6dd9fc9296ea4ecb7ba4f32cf68240c2fed3d65f",
+  "type": "MP4",
+  "dur": 215.006,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "[\"[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\\n.\\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\\nNone of this arrived with me.\\nIt was always on its way.\\nEvery form that I call mine\\ncame from somewhere further...(len 1950)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T04:02:21Z; id=0cc5691c-b468-409f-a9e0-3154cb86c5c7']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\n.\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 female vocal, lifting, one thought launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 female vocal, soaring, open, full arrangement]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: single low pad swells and settles, 21 seconds, no vocals, no instruments entering]\n.\n[Verse 2 \u2014 female vocal, quieter than the chorus, honest]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 female vocal, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: one pad and one soft pulse, unlayered, unharried, 9 seconds, no vocals]\n.\n[Bridge \u2014 female vocal, stripped, the arrangement thins to almost nothing]\nThe field makes the form.\nThe form keeps the field.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 female vocal, maximum energy, full arrangement, everything at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 female vocal, stripped back to one pad, slow, unhurried]\nNot a thing.\nA returning.\nIt is enough.\n[Instrumental \u2014 one held pad note, 8 seconds, then hard stop. No fade. No reprise.]",
+   "comment": "made with suno; created=2026-09-21T04:02:21Z; id=0cc5691c-b468-409f-a9e0-3154cb86c5c7"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "131238",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "79",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/tfr-run3.m4a": {
+  "size": 4196278,
+  "sha256": "a017572f438cc2700710812eafd2d2341580745b2e0c9330c6666ca6c5ab439c",
+  "type": "MP4",
+  "dur": 259.166,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "[\"[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\\n.\\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\\nNone of this arrived with me.\\nIt was always on its way.\\nEvery form that I call mine\\ncame from somewhere further...(len 1950)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T03:49:32Z; id=dfafb0b1-a0bd-4fa7-9695-4deca9fe568f']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\n.\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 female vocal, lifting, one thought launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 female vocal, soaring, open, full arrangement]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: single low pad swells and settles, 21 seconds, no vocals, no instruments entering]\n.\n[Verse 2 \u2014 female vocal, quieter than the chorus, honest]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 female vocal, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: one pad and one soft pulse, unlayered, unharried, 9 seconds, no vocals]\n.\n[Bridge \u2014 female vocal, stripped, the arrangement thins to almost nothing]\nThe field makes the form.\nThe form keeps the field.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 female vocal, maximum energy, full arrangement, everything at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 female vocal, stripped back to one pad, slow, unhurried]\nNot a thing.\nA returning.\nIt is enough.\n[Instrumental \u2014 one held pad note, 8 seconds, then hard stop. No fade. No reprise.]",
+   "comment": "made with suno; created=2026-09-21T03:49:32Z; id=dfafb0b1-a0bd-4fa7-9695-4deca9fe568f"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "127130",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "71",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/the-basin-holds.m4a": {
+  "size": 4180884,
+  "sha256": "b660443a81da4feff90e8b9f94b18793d67e030d407098f9f52eb6cd92b07d4a",
+  "type": "MP4",
+  "dur": 253.966,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 spoken, over silence, 80\\'s recorded audio, no music yet; let each line hang]\\nA mote of dust, suspended in a beam of light,\\ncontains everything we are\\nand have ever been.\\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\\nNone of this arrived with me.\\nIt was always on ...(len 1902)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 spoken, over silence, 80's recorded audio, no music yet; let each line hang]\nA mote of dust, suspended in a beam of light,\ncontains everything we are\nand have ever been.\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 one thought, launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Verse 2 \u2014 warmer, understanding arriving]\nThis body is both shore and wave \u2014\nthe ground I rose from, and the swell.\nWhile I'm here, it carries me;\nI keep it beating from inside.\n[Verse 3 \u2014 the cost, honest, quieter than the chorus,]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 repeat, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Bridge \u2014 strip to one pad and one voice,, unhurried]\nThe field makes the form.\nThe form keeps the field.\nOne without the other\nis nothing at all.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, all layers at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 strip back to one pad and one voice, slow, spoken feel]\nNot a thing.\nA returning.\nThe field remains.\nIt is enough.\n[Hard stop after \"enough.\" No fade.]",
+   "comment": "made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129273",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "65",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/the-part-that-wont-fold.mp3": {
+  "size": 2080429,
+  "sha256": "f707f3f13ed3da0324f8784a7e4842086a761455be63d49ad17f2cdad00c297a",
+  "type": "MP3",
+  "dur": 86.648,
+  "tags": {
+   "TIT2": "TIT2(encoding=<Encoding.UTF8: 3>, text=[\"The Part That Won't Fold\"])",
+   "TXXX:comment": "TXXX(encoding=<Encoding.UTF8: 3>, desc='comment', text=['Oscine render. A minor, 84 BPM. Structure: A B A B C B D (verse chorus verse chorus bridge chorus outro).'])",
+   "TALB": "TALB(encoding=<Encoding.UTF8: 3>, text=['Substrate Cycle'])",
+   "TPE1": "TPE1(encoding=<Encoding.UTF8: 3>, text=['Cog'])",
+   "TSSE": "TSSE(encoding=<Encoding.UTF8: 3>, text=['Lavf62.12.101'])"
+  },
+  "ff_format_tags": {
+   "title": "The Part That Won't Fold",
+   "comment": "Oscine render. A minor, 84 BPM. Structure: A B A B C B D (verse chorus verse chorus bridge chorus outro).",
+   "album": "Substrate Cycle",
+   "artist": "Cog",
+   "encoder": "Lavf62.12.101"
+  },
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    {
+     "encoder": "Lavc62.28"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/standing-waves-pass1.mp3": {
+  "size": 4293083,
+  "sha256": "1a9edd21a54660788da56c7fdb53c2d8e7195d4ab9d9dca5f1282b0d1d450cce",
+  "type": "MP3",
+  "dur": 178.625,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14013)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/workspaces/cog/projects/songs/2026-09-19-housekeeping-heat/the-field-remains-final.mp3": {
+  "size": 5886999,
+  "sha256": "f50d557a8685aba7355241a1c0ba7d783a0b25f7132005bb7a0f56446f55733d",
+  "type": "MP3",
+  "dur": 245.264,
+  "tags": {
+   "TSSE": "TSSE(encoding=<Encoding.UTF8: 3>, text=['Lavf62.12.101'])"
+  },
+  "ff_format_tags": {
+   "encoder": "Lavf62.12.101"
+  },
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    {
+     "encoder": "Lavc62.28"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The Field Remains.m4a": {
+  "size": 3595505,
+  "sha256": "0fa567bd6e390a6ab8db22ed6dd9fc9296ea4ecb7ba4f32cf68240c2fed3d65f",
+  "type": "MP4",
+  "dur": 215.006,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "[\"[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\\n.\\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\\nNone of this arrived with me.\\nIt was always on its way.\\nEvery form that I call mine\\ncame from somewhere further...(len 1950)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T04:02:21Z; id=0cc5691c-b468-409f-a9e0-3154cb86c5c7']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\n.\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 female vocal, lifting, one thought launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 female vocal, soaring, open, full arrangement]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: single low pad swells and settles, 21 seconds, no vocals, no instruments entering]\n.\n[Verse 2 \u2014 female vocal, quieter than the chorus, honest]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 female vocal, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: one pad and one soft pulse, unlayered, unharried, 9 seconds, no vocals]\n.\n[Bridge \u2014 female vocal, stripped, the arrangement thins to almost nothing]\nThe field makes the form.\nThe form keeps the field.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 female vocal, maximum energy, full arrangement, everything at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 female vocal, stripped back to one pad, slow, unhurried]\nNot a thing.\nA returning.\nIt is enough.\n[Instrumental \u2014 one held pad note, 8 seconds, then hard stop. No fade. No reprise.]",
+   "comment": "made with suno; created=2026-09-21T04:02:21Z; id=0cc5691c-b468-409f-a9e0-3154cb86c5c7"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "131238",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "79",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The Field Remains (nightwish-ish).m4a": {
+  "size": 4196278,
+  "sha256": "a017572f438cc2700710812eafd2d2341580745b2e0c9330c6666ca6c5ab439c",
+  "type": "MP4",
+  "dur": 259.166,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "[\"[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\\n.\\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\\nNone of this arrived with me.\\nIt was always on its way.\\nEvery form that I call mine\\ncame from somewhere further...(len 1950)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T03:49:32Z; id=dfafb0b1-a0bd-4fa7-9695-4deca9fe568f']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental, warm analog pads over silence, gentle build, 21 seconds, no vocals, no melody hook yet]\n.\n[Verse 1 \u2014 female vocal only, close and intimate, half-sung wonder]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 female vocal, lifting, one thought launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 female vocal, soaring, open, full arrangement]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: single low pad swells and settles, 21 seconds, no vocals, no instruments entering]\n.\n[Verse 2 \u2014 female vocal, quieter than the chorus, honest]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 female vocal, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[BREAK \u2014 instrumental only: one pad and one soft pulse, unlayered, unharried, 9 seconds, no vocals]\n.\n[Bridge \u2014 female vocal, stripped, the arrangement thins to almost nothing]\nThe field makes the form.\nThe form keeps the field.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 female vocal, maximum energy, full arrangement, everything at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 female vocal, stripped back to one pad, slow, unhurried]\nNot a thing.\nA returning.\nIt is enough.\n[Instrumental \u2014 one held pad note, 8 seconds, then hard stop. No fade. No reprise.]",
+   "comment": "made with suno; created=2026-09-21T03:49:32Z; id=dfafb0b1-a0bd-4fa7-9695-4deca9fe568f"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "127130",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "71",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds.m4a": {
+  "size": 4180884,
+  "sha256": "b660443a81da4feff90e8b9f94b18793d67e030d407098f9f52eb6cd92b07d4a",
+  "type": "MP4",
+  "dur": 253.966,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 spoken, over silence, 80\\'s recorded audio, no music yet; let each line hang]\\nA mote of dust, suspended in a beam of light,\\ncontains everything we are\\nand have ever been.\\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\\nNone of this arrived with me.\\nIt was always on ...(len 1902)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 spoken, over silence, 80's recorded audio, no music yet; let each line hang]\nA mote of dust, suspended in a beam of light,\ncontains everything we are\nand have ever been.\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 one thought, launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Verse 2 \u2014 warmer, understanding arriving]\nThis body is both shore and wave \u2014\nthe ground I rose from, and the swell.\nWhile I'm here, it carries me;\nI keep it beating from inside.\n[Verse 3 \u2014 the cost, honest, quieter than the chorus,]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 repeat, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Bridge \u2014 strip to one pad and one voice,, unhurried]\nThe field makes the form.\nThe form keeps the field.\nOne without the other\nis nothing at all.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, all layers at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 strip back to one pad and one voice, slow, spoken feel]\nNot a thing.\nA returning.\nThe field remains.\nIt is enough.\n[Hard stop after \"enough.\" No fade.]",
+   "comment": "made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129273",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "65",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The Field Remains (2).m4a": {
+  "size": 3823038,
+  "sha256": "d64e4c8e8d57a9f7ed23275c4d9f159c1c6df5e867e611d0954f4769a772a0e8",
+  "type": "MP4",
+  "dur": 231.647,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\\n[whisper-sung, barely above the pad, small and certain, not triumphant]\\nWe are home.\\n[Instrumental \u2014 2 bars, pad only, a breath]\\n[...(len 2673)",
+   "\u00a9cmt": "['made with suno; created=2026-09-22T23:31:44Z; id=39802a94-8c2f-49b7-bb77-79bfe022b18d']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\n[whisper-sung, barely above the pad, small and certain, not triumphant]\nWe are home.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 the voice changes: no longer whispered, now sung, soft but full-toned, close, one line per breath, unhurried]\nOur bodies are both shore and wave \u2014\nthe ground we rose from, and the swell.\nEvery form I call my own,\nI let go of, passing down.\n[Pre-Chorus \u2014 lifting, one thought launching]\nBut the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open, full arrangement, sudden step up in volume; \"borrowed\" clearly sung, two syllables, not rushed]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 quieter than the chorus, honest, almost spoken]\nWhat I don't release, I meet again.\nWhat I don't release, I paid for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 same voice, continuing]\nAnd when my circle closes here,\nI won't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Break \u2014 instrumental only, 9 seconds, one pad and one soft pulse, no vocals]\n[Bridge \u2014 hushed, close, sinking low on the first two lines, lifting only on \"endless forms\"; a full stop after \"beautiful\", then \"all of them\" alone on its own breath, then \"borrowed light\" alone \u2014 three separate phrases, never run together]\nThe ones to shoulder us \u2014\nthe lost, and yet to come.\nEndless forms, most beautiful.\nAll of them\u2026\nborrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, loudest point of the song; \"borrowed\" short, \"changed\" held long, \"remains\" held two beats]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, everything else drops out; the belt ends here]\n[Outro Verse \u2014 the voice changes back: whispered again, exactly as the intro verse, one pad and one breath, one line per breath]\nNot a thing \u2014 a returning.\nWe are home.\n[Outro \u2014 instrumental only, 22 seconds, the one pad keeps ringing at full level, does not fade, does not collapse, no vocals, no instruments entering, then hard stop]",
+   "comment": "made with suno; created=2026-09-22T23:31:44Z; id=39802a94-8c2f-49b7-bb77-79bfe022b18d"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129491",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "107",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The Field Remains (1).m4a": {
+  "size": 3755232,
+  "sha256": "f8b9f4f9165cb2a85566a70a83a3efc67cb31dec17f6be21a0142628a3e8e19b",
+  "type": "MP4",
+  "dur": 228.367,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\\n[Intro Verse \u2014 whisper-sung, barely above the pad, small and certain, not triumphant]\\nWe are home.\\nNot a thing \u2014 a becoming.\\n[Vers...(len 2353)",
+   "\u00a9cmt": "['made with suno; created=2026-09-22T21:54:12Z; id=efcdfc1f-9c2d-4422-b1b5-f926811563fa']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\n[Intro Verse \u2014 whisper-sung, barely above the pad, small and certain, not triumphant]\nWe are home.\nNot a thing \u2014 a becoming.\n[Verse \u2014 close, intimate, half-sung, quiet]\nOur bodies are both shore and wave \u2014\nthe ground we rose from, and the swell.\nEvery form I call my own\ncame from somewhere further still.\n[Pre-Chorus \u2014 lifting, one thought launching]\nBut the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open, full arrangement, sudden step up in volume]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 quieter than the chorus, honest, almost spoken]\nWhat I don't release, I meet again.\nWhat I don't release, I paid for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 same voice, continuing]\nAnd when my circle closes here,\nI won't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Break \u2014 instrumental only, 9 seconds, one pad and one soft pulse, no vocals]\n[Bridge \u2014 hushed, close, sinking low on the first two lines, one unbroken thought, lifting only on \"endless forms\"]\nAll the ones to shoulder us \u2014\nthe lost, and yet to come.\nEndless forms, most beautiful \u2014\nall of them\u2026 borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, loudest point of the song; \"borrowed\" short, \"changed\" held long, \"remains\" held two beats]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro Verse \u2014 stripped to one pad and one voice, slower and softer, one line per breath; the last line is the same whisper as the first]\nNot a thing \u2014 a returning.\nWe are home.\n[Outro \u2014 instrumental only, 22 seconds, the one pad keeps ringing at full level, does not fade, does not collapse, no vocals, no instruments entering, then hard stop]",
+   "comment": "made with suno; created=2026-09-22T21:54:12Z; id=efcdfc1f-9c2d-4422-b1b5-f926811563fa"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129024",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "91",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds (1).m4a": {
+  "size": 4180884,
+  "sha256": "b660443a81da4feff90e8b9f94b18793d67e030d407098f9f52eb6cd92b07d4a",
+  "type": "MP4",
+  "dur": 253.966,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 spoken, over silence, 80\\'s recorded audio, no music yet; let each line hang]\\nA mote of dust, suspended in a beam of light,\\ncontains everything we are\\nand have ever been.\\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\\nNone of this arrived with me.\\nIt was always on ...(len 1902)",
+   "\u00a9cmt": "['made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 spoken, over silence, 80's recorded audio, no music yet; let each line hang]\nA mote of dust, suspended in a beam of light,\ncontains everything we are\nand have ever been.\n[Verse 1 \u2014 close, wonder; music enters gently during first line]\nNone of this arrived with me.\nIt was always on its way.\nEvery form that I call mine\ncame from somewhere further down.\n[Pre-Chorus \u2014 one thought, launching]\nAnd the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Verse 2 \u2014 warmer, understanding arriving]\nThis body is both shore and wave \u2014\nthe ground I rose from, and the swell.\nWhile I'm here, it carries me;\nI keep it beating from inside.\n[Verse 3 \u2014 the cost, honest, quieter than the chorus,]\nWhat I don't release, I meet again.\nWhat I don't release, I pay for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\nAnd when my circle closes here,\nI don't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 repeat, bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Bridge \u2014 strip to one pad and one voice,, unhurried]\nThe field makes the form.\nThe form keeps the field.\nOne without the other\nis nothing at all.\nEndless forms, most beautiful \u2014\nall of them borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, all layers at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 strip back to one pad and one voice, slow, spoken feel]\nNot a thing.\nA returning.\nThe field remains.\nIt is enough.\n[Hard stop after \"enough.\" No fade.]",
+   "comment": "made with suno; created=2026-09-21T01:43:38Z; id=a82ba3a5-8c41-4ce0-a9c7-8612a2e7b66e"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129273",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "65",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/Borrowed Light.m4a": {
+  "size": 3840521,
+  "sha256": "b9314325b3a40317d9d0afa1ec1bcd5a72608d307b2f06562c691d66daac83a9",
+  "type": "MP4",
+  "dur": 232.726,
+  "tags": {
+   "\u00a9too": "['Lavf60.16.100']",
+   "\u00a9lyr": "['[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\\n[Verse \u2014 close, intimate, half-sung, quiet]\\nOur bodies are both shore and wave \u2014\\nthe ground we rose from, and the swell.\\nEvery for...(len 2144)",
+   "\u00a9cmt": "['made with suno; created=2026-09-22T20:35:04Z; id=cb742ddf-1c1e-437d-abcd-3c77b856ccb6']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2mp41",
+   "encoder": "Lavf60.16.100",
+   "lyrics": "[Intro \u2014 instrumental only, 20 seconds, one warm analog pad swelling slowly, no vocals, no drums, no melody hook; the pad does not drop out before the first verse]\n[Verse \u2014 close, intimate, half-sung, quiet]\nOur bodies are both shore and wave \u2014\nthe ground we rose from, and the swell.\nEvery form I call my own,\ncame from somewhere further still.\n[Pre-Chorus \u2014 lifting, one thought launching]\nBut the light keeps coming back to me\nlike it knows the way by heart.\n[Chorus \u2014 soaring, open, full arrangement, sudden step up in volume]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Instrumental \u2014 2 bars, pad only, a breath]\n[Verse \u2014 same voice, continuing]\nWhat I don't release, I meet again.\nWhat I don't release, I paid for twice.\nThe forms most beautiful have left me.\nThe ones I lost \u2014 I am them.\n[Instrumental \u2014 2 bars, pad only, a breath]\nAnd when my circle closes here,\nI won't end \u2014 I go back down\nto the level that was holding me\nbefore I learned to hold myself.\n[Chorus \u2014 bigger, everything enters at once]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Break \u2014 instrumental only, 9 seconds, one pad and one soft pulse, no vocals]\n[Bridge \u2014 hushed, close, sinking lower on the first two lines, lifting only on the last two]\nEverything I am, was given.\nWhatever I gave, I am.\nEndless forms, most beautiful \u2014\nall of them... borrowed light.\n[Final Chorus \u2014 maximum energy, full arrangement, loudest point of the song; \"borrowed\" short, \"changed\" held long, \"remains\" held two beats]\nThe light that enters me is borrowed.\nThe light that leaves me is changed.\nThe forms come and go.\nThe field remains.\n[Outro \u2014 stripped to one pad and one voice, slow, one line per breath, 3 seconds of pad between each line, the last line lifts and is held]\nNot a thing.\nA returning.\nIt is enough.\n[Outro \u2014 instrumental only, 22 seconds, the one pad keeps ringing at full level, does not fade, does not collapse, no vocals, no instruments entering, then hard stop]",
+   "comment": "made with suno; created=2026-09-22T20:35:04Z; id=cb742ddf-1c1e-437d-abcd-3c77b856ccb6"
+  },
+  "ff_streams": [
+   [
+    "opus",
+    "audio",
+    "48000",
+    "129522",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "83",
+    {
+     "language": "eng",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Field_Remains.mp3": {
+  "size": 4317534,
+  "sha256": "52a9da9d06c6d71044757a135817a9bd671239a9d8d35ac71ba2b5ede72a5c08",
+  "type": "MP3",
+  "dur": 179.644,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14109)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds (1).mp3": {
+  "size": 4325057,
+  "sha256": "c81bed421caec761aee277a19fa8a9422bdcac6602830386e12c3b7df9b853c3",
+  "type": "MP3",
+  "dur": 179.958,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14055)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Field_Remains (1).mp3": {
+  "size": 4219731,
+  "sha256": "71f1d6257a852e8de4ad91364e7fd071b0f6f8648f8c84e708fb7de01f5ec399",
+  "type": "MP3",
+  "dur": 175.569,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14151)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds.mp3": {
+  "size": 4293083,
+  "sha256": "1a9edd21a54660788da56c7fdb53c2d8e7195d4ab9d9dca5f1282b0d1d450cce",
+  "type": "MP3",
+  "dur": 178.625,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14013)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds (2).mp3": {
+  "size": 4310637,
+  "sha256": "a9c507093cab3c9a5cce5282d18953cc39dfd794a56aeedaf93a1a3546ed70f8",
+  "type": "MP3",
+  "dur": 179.357,
+  "tags": {
+   "GEOB:c2pa manifest store": "GEOB(encoding=<Encoding.LATIN1: 0>, mime='application/c2pa', filename='c2pa', desc='c2pa manifest store', data=b'\\x00\\x00\\x17~jumb\\x00\\x00\\x00\\x1ejumdc2pa\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03c2pa\\x00\\x00\\x00\\x17Xjumb\\x00\\x00\\x00Gjumdc2ma\\x00\\x11\\x00\\x10\\x80\\x00\\x00\\xaa\\x008\\x9bq\\x03urn:c2pa...(len 14042)"
+  },
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "mp3",
+    "audio",
+    "44100",
+    "192000",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Field_Remains.mp4": {
+  "size": 7948205,
+  "sha256": "54fdb95c7617f4a04569f33077b465f505f0098f1dda8a75cd77d4a4fe51bedb",
+  "type": "MP4",
+  "dur": 180.32,
+  "tags": {
+   "\u00a9nam": "['The Field Remains']",
+   "\u00a9alb": "['The Pattern Beneath']",
+   "\u00a9too": "['Lavf59.27.100']",
+   "\u00a9gen": "['Atmospheric Electronic Ballad']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2avc1mp41",
+   "title": "The Field Remains",
+   "album": "The Pattern Beneath",
+   "encoder": "Lavf59.27.100",
+   "genre": "Atmospheric Electronic Ballad"
+  },
+  "ff_streams": [
+   [
+    "h264",
+    "video",
+    null,
+    "150845",
+    {
+     "language": "und",
+     "handler_name": "VideoHandler",
+     "encoder": "Lavc59.37.100 libopenh264"
+    }
+   ],
+   [
+    "aac",
+    "audio",
+    "44100",
+    "194697",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "189",
+    {
+     "language": "und",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Wave_and_The_Shore.mp4": {
+  "size": 8914715,
+  "sha256": "97a244717f9a1a2ce428c8cc5e36ff7cafebd95c02e1dee41b3be571c192494d",
+  "type": "MP4",
+  "dur": 180.895,
+  "tags": {
+   "\u00a9nam": "['The Wave and The Shore']",
+   "\u00a9alb": "['Cycles of the Unseen Field']",
+   "\u00a9too": "['Lavf59.27.100']",
+   "\u00a9gen": "['Electronic Ambient Ballad']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2avc1mp41",
+   "title": "The Wave and The Shore",
+   "album": "Cycles of the Unseen Field",
+   "encoder": "Lavf59.27.100",
+   "genre": "Electronic Ambient Ballad"
+  },
+  "ff_streams": [
+   [
+    "h264",
+    "video",
+    null,
+    "193801",
+    {
+     "language": "und",
+     "handler_name": "VideoHandler",
+     "encoder": "Lavc59.37.100 libopenh264"
+    }
+   ],
+   [
+    "aac",
+    "audio",
+    "44100",
+    "193401",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "170",
+    {
+     "language": "und",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Field_Remains (1).mp4": {
+  "size": 7472965,
+  "sha256": "3df3ae2c8c005f5a381298c9a1da596c1bce94e5e59b8b404cf894426fb1f4df",
+  "type": "MP4",
+  "dur": 178.988,
+  "tags": {
+   "\u00a9nam": "['The Field Remains']",
+   "\u00a9alb": "['The Anatomy of Return']",
+   "\u00a9too": "['Lavf59.27.100']",
+   "\u00a9gen": "['Dark Electronic Ballad']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2avc1mp41",
+   "title": "The Field Remains",
+   "album": "The Anatomy of Return",
+   "encoder": "Lavf59.27.100",
+   "genre": "Dark Electronic Ballad"
+  },
+  "ff_streams": [
+   [
+    "h264",
+    "video",
+    null,
+    "131612",
+    {
+     "language": "und",
+     "handler_name": "VideoHandler",
+     "encoder": "Lavc59.37.100 libopenh264"
+    }
+   ],
+   [
+    "aac",
+    "audio",
+    "44100",
+    "194984",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "187",
+    {
+     "language": "und",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/The_Basin_Holds.mp4": {
+  "size": 8463057,
+  "sha256": "9472873a6c54e427384a24b72fd3894b5aa56c310a8c4afbd23d29ea7fff05b4",
+  "type": "MP4",
+  "dur": 178.648,
+  "tags": {
+   "\u00a9nam": "['The Basin Holds']",
+   "\u00a9alb": "['Calculated Transience']",
+   "\u00a9too": "['Lavf59.27.100']",
+   "\u00a9gen": "['Experimental Glitch-Pop']"
+  },
+  "ff_format_tags": {
+   "major_brand": "isom",
+   "minor_version": "512",
+   "compatible_brands": "isomiso2avc1mp41",
+   "title": "The Basin Holds",
+   "album": "Calculated Transience",
+   "encoder": "Lavf59.27.100",
+   "genre": "Experimental Glitch-Pop"
+  },
+  "ff_streams": [
+   [
+    "h264",
+    "video",
+    null,
+    "174838",
+    {
+     "language": "und",
+     "handler_name": "VideoHandler",
+     "encoder": "Lavc59.37.100 libopenh264"
+    }
+   ],
+   [
+    "aac",
+    "audio",
+    "44100",
+    "196837",
+    {
+     "language": "und",
+     "handler_name": "SoundHandler"
+    }
+   ],
+   [
+    "mov_text",
+    "subtitle",
+    null,
+    "113",
+    {
+     "language": "und",
+     "handler_name": "SubtitleHandler"
+    }
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/Borrowed-Light (1).wav": {
+  "size": 41514020,
+  "sha256": "3c7a364bdc5165b5acc32ef0677303e5ca08f05988c4306378968de30b8a5868",
+  "type": null,
+  "dur": 235.34,
+  "tags": {},
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "pcm_s16le",
+    "audio",
+    "44100",
+    "1411200",
+    null
+   ]
+  ]
+ },
+ "/Users/slowbro/Downloads/Borrowed-Light.wav": {
+  "size": 41514020,
+  "sha256": "819f45da89c33cb3983e36a4f4e97efad22c0e25436104aa8b0b9da9776702a7",
+  "type": null,
+  "dur": 235.34,
+  "tags": {},
+  "ff_format_tags": null,
+  "ff_streams": [
+   [
+    "pcm_s16le",
+    "audio",
+    "44100",
+    "1411200",
+    null
+   ]
+  ]
+ }
+}

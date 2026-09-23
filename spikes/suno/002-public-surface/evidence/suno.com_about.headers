@@ -1,0 +1,18 @@
+HTTP/2 200 
+date: Wed, 23 Sep 2026 17:38:16 GMT
+content-type: text/html; charset=utf-8
+cf-ray: a3fb5275685cd7dd-SEA
+cf-cache-status: DYNAMIC
+age: 54
+cache-control: public, max-age=0, must-revalidate
+server: cloudflare
+strict-transport-security: max-age=63072000
+vary: accept-encoding
+content-security-policy: frame-ancestors 'none'
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-matched-path: /
+x-powered-by: Next.js
+x-vercel-cache: HIT
+x-vercel-id: pdx1::iad1::4q5br-1790185096592-a2a14b9c727e
+

@@ -1,0 +1,753 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oscine/spikes/suno/clip.schema.json",
+  "title": "Suno clip object (unofficial, reconstructed from public client code)",
+  "description": "Reconstructed 2026-09-23 from ChanMeng666/github-readme-suno-cards@3b94d8e fixtures (40 clips) + paperfoot/suno-cli@f0dea4d, gcui-art/suno-api@a2e6a82, jchoi2x/suno-api, tjdevries/subd, gantasmo/theDAW@851f6a0. Permissive by design: Suno's shape changes ~monthly. See README.md.",
+  "type": "object",
+  "required": [
+    "id",
+    "status",
+    "model_name",
+    "created_at",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "queued",
+        "streaming",
+        "complete",
+        "error"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "model_name": {
+      "type": "string",
+      "description": "chirp-* internal key; chirp-chirp = no model"
+    },
+    "major_model_version": {
+      "type": "string",
+      "description": "v3.5|v4.5-all|v5.5|v6|'' ..."
+    },
+    "audio_url": {
+      "type": "string",
+      "description": "Since 2026-09 the placeholder https://studio-api.prod.suno.com/api/forbidden on public reads"
+    },
+    "audio_url_2": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "unconfirmed (paperfoot API_INTELLIGENCE only)"
+    },
+    "media_urls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "video_url": {
+      "type": "string"
+    },
+    "video_cover_url": {
+      "type": "string"
+    },
+    "hook_preview_thumbnail_url": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "image_large_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "is_video_pending": {
+      "type": "boolean"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "handle": {
+      "type": "string"
+    },
+    "is_handle_updated": {
+      "type": "boolean"
+    },
+    "avatar_image_url": {
+      "type": "string"
+    },
+    "is_public": {
+      "type": "boolean"
+    },
+    "is_liked": {
+      "type": "boolean"
+    },
+    "is_trashed": {
+      "type": "boolean"
+    },
+    "is_hidden": {
+      "type": "boolean"
+    },
+    "is_pinned": {
+      "type": "boolean"
+    },
+    "is_verified": {
+      "type": "boolean"
+    },
+    "explicit": {
+      "type": "boolean"
+    },
+    "allow_comments": {
+      "type": "boolean"
+    },
+    "is_contest_clip": {
+      "type": "boolean"
+    },
+    "has_hook": {
+      "type": "boolean"
+    },
+    "is_persona_root": {
+      "type": "boolean"
+    },
+    "is_following_creator": {
+      "type": "boolean"
+    },
+    "play_count": {
+      "type": "integer"
+    },
+    "upvote_count": {
+      "type": "integer"
+    },
+    "comment_count": {
+      "type": "integer"
+    },
+    "flag_count": {
+      "type": "integer"
+    },
+    "batch_index": {
+      "type": "integer"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "song_schema"
+    },
+    "display_tags": {
+      "type": "string"
+    },
+    "caption": {
+      "type": "string"
+    },
+    "persona": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "root_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image_s3_id": {
+          "type": "string"
+        },
+        "user_handle": {
+          "type": "string"
+        },
+        "user_display_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "albums": {
+      "type": "array"
+    },
+    "action_config": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Style prompt"
+        },
+        "prompt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lyrics (custom mode) or description; full /api/clip shape only"
+        },
+        "gpt_description_prompt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "negative_tags": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "description": "gen|concat|concat_infilling|upsample|upload|studio_export|edit_v3_export|edit_crop|edit_speed|edit_fade"
+        },
+        "task": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "cover|upsample|playlist_condition|remaster|..."
+        },
+        "duration": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "make_instrumental": {
+          "type": "boolean"
+        },
+        "has_vocal": {
+          "type": "boolean"
+        },
+        "has_stem": {
+          "type": "boolean"
+        },
+        "is_remix": {
+          "type": "boolean"
+        },
+        "can_remix": {
+          "type": "boolean"
+        },
+        "show_remix": {
+          "type": "boolean"
+        },
+        "is_mumble": {
+          "type": "boolean"
+        },
+        "uses_latest_model": {
+          "type": "boolean"
+        },
+        "can_publish_with_vocal": {
+          "type": "boolean"
+        },
+        "stream": {
+          "type": "boolean"
+        },
+        "refund_credits": {
+          "type": "boolean"
+        },
+        "video_is_stale": {
+          "type": "boolean"
+        },
+        "is_audio_upload_tos_accepted": {
+          "type": "boolean"
+        },
+        "infill": {
+          "type": "boolean"
+        },
+        "lyrics_updated": {
+          "type": "boolean"
+        },
+        "normalize_volume": {
+          "type": "boolean"
+        },
+        "is_loudness_under_threshold": {
+          "type": "boolean"
+        },
+        "is_max_mode": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "control_sliders": {
+          "type": "object",
+          "properties": {
+            "style_weight": {
+              "type": "number"
+            },
+            "audio_weight": {
+              "type": "number"
+            },
+            "weirdness_constraint": {
+              "type": "number"
+            },
+            "aug_creativity": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": true
+        },
+        "persona_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Persona UUID; not redacted"
+        },
+        "cover_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "edited_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "upsample_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "stem_from_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "artist_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "overpainting_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "underpainting_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "override_history_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "override_future_clip_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Lineage pointer; the zero UUID 00000000-0000-0000-0000-000000000000 means redacted on public reads."
+        },
+        "continue_at": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "cover_start_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "cover_end_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "artist_start_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "artist_end_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "override_history_end_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "override_future_start_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "seconds"
+        },
+        "infill_lyrics": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "concat_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "description": "web | ios | ..."
+              },
+              "source_is_webview": {
+                "type": "boolean"
+              },
+              "continue_at": {
+                "type": "number",
+                "description": "seconds into this segment where the next one takes over"
+              },
+              "infill": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "continue_at": {
+                "type": "number"
+              },
+              "infill": {
+                "type": "boolean"
+              },
+              "infill_start_s": {
+                "type": "number"
+              },
+              "infill_end_s": {
+                "type": "number"
+              },
+              "infill_dur_s": {
+                "type": "number"
+              },
+              "infill_context_start_s": {
+                "type": "number"
+              },
+              "infill_context_end_s": {
+                "type": "number"
+              },
+              "infill_req_duration_s": {
+                "type": "number"
+              },
+              "infill_lyrics": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "include_history_s": {
+                "type": "number"
+              },
+              "include_future_s": {
+                "type": "number"
+              },
+              "lyrics_updated": {
+                "type": "boolean"
+              },
+              "edited_clip_id": {
+                "type": "string"
+              },
+              "stem_clip_id": {
+                "type": "string"
+              },
+              "stem_from_id": {
+                "type": "string"
+              },
+              "stem_task": {
+                "type": "string"
+              },
+              "stem_type_id": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              },
+              "stem_type_group_name": {
+                "type": "string"
+              },
+              "control_tags": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "description": "Names from gantasmo/theDAW LIVE_CACHE_FIELD_DICTIONARY.md:268-290; types beyond id/type/source/continue_at are INFERRED from names.",
+            "additionalProperties": true
+          }
+        },
+        "mashup_clip_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "playlist_clip_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "playlist_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stem_task": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stem_type_id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "stem_type_group_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "avg_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "type UNKNOWN (name only)"
+        },
+        "studio_project_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "studio_project_version_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "edit_session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vox_render_mode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "strict|beautified"
+        },
+        "variation_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "free_quota_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error_message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "video_upload_width": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "video_upload_height": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "model_badges": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "secondary_badges": {
+          "type": "array"
+        },
+        "image_config": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "alignedLyricsResponse": {
+      "type": "object",
+      "properties": {
+        "aligned_words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "word",
+              "start_s",
+              "end_s"
+            ],
+            "properties": {
+              "word": {
+                "type": "string",
+                "description": "may include punctuation and trailing \\n"
+              },
+              "start_s": {
+                "type": "number"
+              },
+              "end_s": {
+                "type": "number"
+              },
+              "success": {
+                "type": "boolean"
+              },
+              "p_align": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

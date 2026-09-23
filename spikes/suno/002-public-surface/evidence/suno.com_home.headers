@@ -1,0 +1,23 @@
+HTTP/2 200 
+date: Wed, 23 Sep 2026 17:39:27 GMT
+content-type: text/html; charset=utf-8
+age: 0
+cache-control: private, no-cache, no-store, max-age=0, must-revalidate
+content-security-policy: frame-ancestors 'none'; font-src 'self'
+link: </static-p/PPNeueMontreal-Regular.7a832673.woff>; rel=preload; as="font"; crossorigin="anonymous"; type="font/woff"; fetchpriority="high", </static-p/PPNeueMontreal-Medium.8b97a885.woff>; rel=preload; as="font"; crossorigin="anonymous"; type="font/woff", <https://cdn2.suno.ai/569593ec-f0ac-445c-b99c-6ca6141634b8.jpeg?width=360>; rel=preload; as="image"; fetchpriority="high"; media="(min-width: 1024px)", <https://cdn-o.suno.com/Aura-1-Hero-Web.jpg>; rel=preload; as="image"; fetchpriority="high", <https://cdn-o.suno.com/splash-page/logo-cloud/Billboard_logo.svg>; rel=preload; as="image", <https://cdn-o.suno.com/splash-page/logo-cloud/COMPLEX_Magazine_logo.svg>; rel=preload; as="image", <https://cdn-o.suno.com/splash-page/logo-cloud/Forbes_logo.svg>; rel=preload; as="image"
+server: cloudflare
+set-cookie: statsig_stable_id=6f2438fe-ba7d-4a65-97ec-c0abf952b2f0; Path=/; Expires=Thu, 23 Sep 2027 17:39:27 GMT; Max-Age=31536000; SameSite=lax
+set-cookie: ajs_anonymous_id=2a08f101-c59c-49fd-8c04-a16139558d22; Path=/; Expires=Thu, 23 Sep 2027 17:39:27 GMT; Max-Age=31536000; Domain=.suno.com; SameSite=lax
+set-cookie: suno_auth_bucket=77; Path=/; Expires=Wed, 07 Oct 2026 17:39:27 GMT; Max-Age=1209600; SameSite=lax
+strict-transport-security: max-age=63072000
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+vary: accept-encoding
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-matched-path: /
+x-powered-by: Next.js
+x-vercel-cache: MISS
+x-vercel-id: pdx1::cle1::mvb6f-1790185167050-d61ea9d3ca15
+cf-cache-status: DYNAMIC
+cf-ray: a3fb542e0e15201d-SEA
+

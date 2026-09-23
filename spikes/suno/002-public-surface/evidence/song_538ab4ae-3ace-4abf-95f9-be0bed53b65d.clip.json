@@ -1,0 +1,200 @@
+{
+  "status": "complete",
+  "title": "Porch Light On",
+  "play_count": 62094,
+  "upvote_count": 1148,
+  "allow_comments": true,
+  "is_verified": false,
+  "id": "538ab4ae-3ace-4abf-95f9-be0bed53b65d",
+  "entity_type": "song_schema",
+  "video_url": "https://cdn1.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d.mp4",
+  "audio_url": "https://studio-api.prod.suno.com/api/forbidden",
+  "media_urls": [
+    {
+      "url": "https://d2lwuy8qc234o3.cloudfront.net/1/clip/538ab4ae-3ace-4abf-95f9-be0bed53b65d.m4a",
+      "content_type": "m4a-opus",
+      "delivery": "progressive",
+      "encoding": "1.0.0"
+    }
+  ],
+  "image_url": "https://cdn2.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d_e7472649.jpeg",
+  "image_large_url": "https://cdn2.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d_e7472649.jpeg",
+  "major_model_version": "v6",
+  "model_name": "chirp-hawk",
+  "metadata": {
+    "tags": "slow atmospheric indie alternative ballad, sparse sustained acoustic piano, subtle ambient pad, intimate breathy low male vocal, restrained emotional delivery, spacious natural room reverb, clean upfront vocal mix, gradual understated swell, melancholic reflective mood",
+    "prompt": "[Verse 1]\nYou leave your coat beside the kitchen chair\nRain in the hallway, water everywhere\nI read the note you folded into four\nOne careful sentence saying nothing more\n\n[Pre-Chorus]\nIf you are tired of carrying the blame\nPut down the weight, forget my name\n\n[Chorus]\nYou don't have to disappear tonight\nYou can leave the porch light on inside\nI won't ask you to explain the scars\nJust tell me where you are\n\n[Verse 2]\nThe kettle clicks, the room begins to cool\nYour photograph is face-down by the stool\nI count the tiles and wait for morning's sound\nA small red button rolling on the ground\n\n[Bridge]\nTake what you need, take the old blue shirt\nTake every promise that was made to hurt\nBut if you turn around before you go\nYou'll find me by the door\n\n[Chorus]\nYou don't have to disappear tonight\nYou can leave the porch light on inside\nI won't ask you to explain the scars\nJust tell me where you are\n\n[Outro]\nJust tell me where you are\nJust tell me where you are",
+    "edited_clip_id": "00000000-0000-0000-0000-000000000000",
+    "type": "gen",
+    "duration": 213.96,
+    "refund_credits": false,
+    "stream": true,
+    "has_vocal": false,
+    "can_publish_with_vocal": true,
+    "make_instrumental": false,
+    "cover_clip_id": "00000000-0000-0000-0000-000000000000",
+    "task": "cover",
+    "can_remix": false,
+    "is_remix": true,
+    "priority": 10,
+    "has_stem": false,
+    "video_is_stale": false,
+    "uses_latest_model": true,
+    "model_badges": {
+      "songcard": {
+        "display_name": "V6",
+        "light": {
+          "text_color": "FD429C",
+          "background_color": "0000004D",
+          "border_color": "00000000"
+        },
+        "dark": {
+          "text_color": "FD429C",
+          "background_color": "0000004D",
+          "border_color": "00000000"
+        }
+      },
+      "songrow": {
+        "display_name": "V6",
+        "light": {
+          "text_color": "FD429C",
+          "text_color_gradient": [
+            "FD429C",
+            "FF5126"
+          ]
+        },
+        "dark": {
+          "text_color": "FD429C",
+          "text_color_gradient": [
+            "FD429C",
+            "FF5126"
+          ]
+        }
+      }
+    },
+    "secondary_badges": [
+      {
+        "display_name": "COVER",
+        "light": {
+          "text_color": "A3A3A3"
+        },
+        "dark": {
+          "text_color": "A3A3A3"
+        }
+      }
+    ],
+    "image_config": {
+      "use_image_config_template": true,
+      "id": "black_and_white_photograph",
+      "default_cover_style": "brand_refresh"
+    },
+    "is_mumble": false
+  },
+  "caption": "#song",
+  "is_liked": false,
+  "user_id": "b7dbbd28-4717-4ce2-9f4c-828c5ec767c4",
+  "display_name": "kealix",
+  "handle": "kealix018",
+  "is_handle_updated": false,
+  "avatar_image_url": "https://cdn1.suno.ai/314053e5.webp",
+  "is_trashed": false,
+  "is_hidden": false,
+  "created_at": "2026-09-09T20:37:50.189Z",
+  "is_public": true,
+  "is_persona_root": false,
+  "is_following_creator": false,
+  "albums": [],
+  "ownership": {
+    "ownership_reason": "subscribed"
+  },
+  "explicit": false,
+  "comment_count": 84,
+  "flag_count": 20,
+  "display_tags": "indie, alternative, ballad",
+  "is_contest_clip": false,
+  "has_hook": true,
+  "hook_preview_thumbnail_url": "https://cdn2.suno.ai/video_upload_8e3bec8b-a6b4-4d5b-9b33-44a8b36db85c_video_upload_8e3bec8b-a6b4-4d5b-9b33-44a8b36db85c_cover_snapshot_0s_1789304487_image.jpeg",
+  "batch_index": 1,
+  "action_config": {
+    "actions": [
+      {
+        "action_type": "add_to_playlist",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "like_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "share_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "dislike_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "report_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remove_from_playlist",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "play_next",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "add_to_queue",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remix_extend",
+        "disabled": true,
+        "visible": false,
+        "action_override": {
+          "type": "toast",
+          "text": "This user disabled remixes for this song."
+        }
+      },
+      {
+        "action_type": "remix_cover",
+        "disabled": true,
+        "visible": false,
+        "action_override": {
+          "type": "toast",
+          "text": "This user disabled remixes for this song."
+        }
+      },
+      {
+        "action_type": "remix_reuse_style",
+        "disabled": true,
+        "visible": false,
+        "action_override": {
+          "type": "toast",
+          "text": "This user disabled remixes for this song."
+        }
+      }
+    ]
+  },
+  "clip_roots": {
+    "clips": [
+      {
+        "is_public": false,
+        "user_display_name": "kealix",
+        "user_handle": "kealix018",
+        "user_avatar_image_url": "https://cdn1.suno.ai/314053e5.webp"
+      }
+    ],
+    "clip_attribution_type": "remix"
+  }
+}

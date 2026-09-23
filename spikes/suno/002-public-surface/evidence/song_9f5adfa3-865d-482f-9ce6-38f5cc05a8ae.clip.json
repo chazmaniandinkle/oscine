@@ -1,0 +1,167 @@
+{
+  "status": "complete",
+  "title": "1nes and zer0s",
+  "play_count": 191292,
+  "upvote_count": 3726,
+  "allow_comments": true,
+  "is_verified": false,
+  "id": "9f5adfa3-865d-482f-9ce6-38f5cc05a8ae",
+  "entity_type": "song_schema",
+  "video_url": "https://cdn1.suno.ai/9f5adfa3-865d-482f-9ce6-38f5cc05a8ae.mp4",
+  "video_cover_url": "https://cdn1.suno.ai/video_gen_09c504d8-dfba-416a-b694-9cfd4944f424_processed_video.mp4",
+  "preview_url": "https://cdn1.suno.ai/video_gen_09c504d8-dfba-416a-b694-9cfd4944f42409c504d8-dfba-416a-b694-9cfd4944f424_preview.mp4",
+  "audio_url": "https://studio-api.prod.suno.com/api/forbidden",
+  "media_urls": [
+    {
+      "url": "https://d2lwuy8qc234o3.cloudfront.net/1/clip/9f5adfa3-865d-482f-9ce6-38f5cc05a8ae.m4a",
+      "content_type": "m4a-opus",
+      "delivery": "progressive",
+      "encoding": "1.0.0"
+    }
+  ],
+  "image_url": "https://cdn2.suno.ai/video_gen_09c504d8-dfba-416a-b694-9cfd4944f424_video_upload_09c504d8-dfba-416a-b694-9cfd4944f424_cover_snapshot_0s_1789082347_image.jpeg",
+  "image_large_url": "https://cdn2.suno.ai/video_gen_09c504d8-dfba-416a-b694-9cfd4944f424_video_upload_09c504d8-dfba-416a-b694-9cfd4944f424_cover_snapshot_0s_1789082347_image.jpeg",
+  "major_model_version": "v6",
+  "model_name": "chirp-hawk",
+  "metadata": {
+    "tags": "Anachronistic cave-pop lament, slow lurching groove, primitive acoustic guitar with dry finger noise, hollow log percussion and stones struck in irregular machine-like patterns, flickering analog synth pulses, dial-up modem harmonies used as background texture, distant monastic choir, intimate weary lead vocal, verses sparse and claustrophobic, chorus widening into a ritual lament, stark close-miked production with abrupt dropouts and dusty tape coloration",
+    "prompt": "[Verse 1]\nAll my friends are\nones and zeros,\nAnd I\u2019m one\nof the lonely ones\nSince God stopped\nListening to my\nSorrows\n\n[Verse 2]\nMy best is what I gave\nIt\u2019s all I had\nLive the rest\nOf my years\nAs a nomad\nI\u2019ll take my torch\nAnd head back to the\nCave\nCarve a status on the wall\nAnd wait for it to save\n\n[Chorus]\nAm I the one\nor the zero?\nAm I lost or just alone?\nI keep sending out a signal\nTo a world that isn\u2019t home\n\n[Post-Chorus]\nAm I the one\nor the zero?\nAm I the one\nNo one knows\n\n[Bridge]\nAll my friends are\nOnes and zeros\nOnes and zeros\nOnes and zeros\n\n[Outro]\nAnd I\u2019m one of\nthe\nlonely\nones",
+    "type": "gen",
+    "duration": 189.2,
+    "refund_credits": false,
+    "stream": true,
+    "make_instrumental": false,
+    "video_upload_width": 768,
+    "video_upload_height": 768,
+    "task": "agentic_thinking",
+    "can_remix": true,
+    "show_remix": true,
+    "is_remix": false,
+    "priority": 10,
+    "has_stem": true,
+    "video_is_stale": true,
+    "uses_latest_model": true,
+    "model_badges": {
+      "songcard": {
+        "display_name": "V6",
+        "light": {
+          "text_color": "FD429C",
+          "background_color": "0000004D",
+          "border_color": "00000000"
+        },
+        "dark": {
+          "text_color": "FD429C",
+          "background_color": "0000004D",
+          "border_color": "00000000"
+        }
+      },
+      "songrow": {
+        "display_name": "V6",
+        "light": {
+          "text_color": "FD429C",
+          "text_color_gradient": [
+            "FD429C",
+            "FF5126"
+          ]
+        },
+        "dark": {
+          "text_color": "FD429C",
+          "text_color_gradient": [
+            "FD429C",
+            "FF5126"
+          ]
+        }
+      }
+    },
+    "image_config": {
+      "use_image_config_template": true,
+      "id": "renaissance",
+      "default_cover_style": "brand_refresh"
+    },
+    "is_mumble": false
+  },
+  "caption": "YT Video link in bio. Life isn\u2019t too bad, as a Nomad. \ud83d\udc3a\ud83d\udd25\ud83c\udf19",
+  "is_liked": false,
+  "user_id": "b379db21-e5fd-4f11-a007-173221a6e88d",
+  "display_name": "INJURY",
+  "handle": "theinjurycomplex",
+  "is_handle_updated": true,
+  "avatar_image_url": "https://cdn2.suno.ai/de9fe938-618d-40f3-8403-894519559c75.jpeg",
+  "is_trashed": false,
+  "is_hidden": false,
+  "created_at": "2026-09-09T19:27:47.187Z",
+  "is_public": true,
+  "is_persona_root": false,
+  "is_following_creator": false,
+  "albums": [],
+  "ownership": {
+    "ownership_reason": "subscribed"
+  },
+  "explicit": false,
+  "comment_count": 379,
+  "flag_count": 11,
+  "display_tags": "cave-pop, experimental, folk",
+  "is_contest_clip": false,
+  "has_hook": true,
+  "hook_preview_thumbnail_url": "https://cdn2.suno.ai/video_upload_6f8f661e-cd98-45fe-975e-75c23c871e13_video_upload_6f8f661e-cd98-45fe-975e-75c23c871e13_cover_snapshot_0s_1789397796_image.jpeg",
+  "batch_index": 1,
+  "action_config": {
+    "actions": [
+      {
+        "action_type": "add_to_playlist",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "like_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "share_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "dislike_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "report_song",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remove_from_playlist",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "play_next",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "add_to_queue",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remix_extend",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remix_cover",
+        "disabled": false,
+        "visible": true
+      },
+      {
+        "action_type": "remix_reuse_style",
+        "disabled": false,
+        "visible": true
+      }
+    ]
+  }
+}

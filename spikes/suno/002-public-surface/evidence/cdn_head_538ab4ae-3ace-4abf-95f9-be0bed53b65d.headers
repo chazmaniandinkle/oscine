@@ -1,0 +1,72 @@
+### HEAD https://d2lwuy8qc234o3.cloudfront.net/1/clip/538ab4ae-3ace-4abf-95f9-be0bed53b65d.m4a
+HTTP/1.1 200 OK
+Content-Type: audio/mp4
+Content-Length: 3571467
+Connection: keep-alive
+Date: Thu, 10 Sep 2026 15:59:14 GMT
+Last-Modified: Wed, 09 Sep 2026 20:38:33 GMT
+x-amz-expiration: expiry-date="Sat, 10 Oct 2026 00:00:00 GMT", rule-id="YTJiZjQ3NDItNTA1Mi00MGE1LTgxZWMtY2MxMTU5NDg3ZTY2"
+ETag: "5845c12d4e9cefefdf25742004dba9a6"
+x-amz-server-side-encryption: AES256
+Accept-Ranges: bytes
+Server: AmazonS3
+X-Cache: Hit from cloudfront
+Via: 1.1 25d9b5959eaa82bb18ee3f35e6bf34b4.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: IAD12-P1
+Alt-Svc: h3=":443"; ma=86400
+X-Amz-Cf-Id: HyU_hd7eXtInHOe5ui8_f2BxQf6unCLp0h9v4MG62Ud-RCdT7h1iwA==
+Age: 1130342
+Vary: Origin
+
+### HEAD https://cdn1.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d.mp3
+HTTP/2 403 
+server: CloudFront
+date: Wed, 23 Sep 2026 17:58:15 GMT
+content-type: text/xml
+content-length: 146
+x-cache: Error from cloudfront
+via: 1.1 6028cf6b68ccf308226eae7dc6c6af42.cloudfront.net (CloudFront)
+x-amz-cf-pop: IAD55-P7
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: lke0DhKZwbf7giBoaFntmIy9Y6YN_RnEEJeM_67EFFarpJjRQh1Jjw==
+
+### HEAD https://cdn2.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d_e7472649.jpeg
+HTTP/2 200 
+content-type: image/jpeg
+content-length: 80538
+date: Thu, 10 Sep 2026 17:30:03 GMT
+accept-ranges: bytes
+x-amzn-requestid: bd69a772-05f3-4c21-aef4-9586ce30fe26
+x-amzn-remapped-content-length: 80538
+x-amz-apigw-id: DflcbFsEIAMEUvA=
+cache-control: public,max-age=2592000
+x-amzn-trace-id: Root=1-6aa2e91b-3f7c57c3198869763b7defca;Parent=0ac881a939be85ba;Sampled=0;Lineage=1:420d00c8:0
+x-cache: Hit from cloudfront
+via: 1.1 19a1f4ad0433ae2397d314489416121e.cloudfront.net (CloudFront)
+x-amz-cf-pop: IAD61-P11
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: iADi3AfIl6-NzTiqLDEbsMsb0Xz95Iy85O13IQez-Z3UaEWDE7nAIw==
+age: 1124892
+cross-origin-resource-policy: cross-origin
+vary: Origin
+
+### HEAD https://cdn1.suno.ai/538ab4ae-3ace-4abf-95f9-be0bed53b65d.mp4
+HTTP/2 200 
+content-type: video/mp4
+content-length: 7686188
+date: Wed, 23 Sep 2026 17:58:16 GMT
+last-modified: Wed, 09 Sep 2026 20:54:53 GMT
+etag: "4ef484575abce2dbdf5e08a313d9545d"
+x-amz-storage-class: INTELLIGENT_TIERING
+x-amz-server-side-encryption: AES256
+x-amz-version-id: 7fxnbGbd..RWfbA_aeWFSmCWuYNWdllf
+accept-ranges: bytes
+server: AmazonS3
+x-cache: Miss from cloudfront
+via: 1.1 48850a600c11c704f12260094c298d3a.cloudfront.net (CloudFront)
+x-amz-cf-pop: IAD55-P7
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: zdZVCHEFZOEXx6dwUZhb7LvYx4wmauvsD7TTVr53soaTP5RIvhYlBQ==
+cross-origin-resource-policy: cross-origin
+vary: Origin
+
