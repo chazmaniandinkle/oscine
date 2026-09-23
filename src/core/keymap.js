@@ -50,6 +50,7 @@ export const GESTURES = {
   'timeline.rangeSelect':  { label: 'Ruler drag → select range' },
   'timeline.clipSlip':     { label: 'Clip drag → slip content' },
   'timeline.clipStretch':  { label: 'Right-edge drag → time-stretch' },
+  'timeline.clipDuplicate': { label: 'Clip drag → duplicate (copy follows the pointer)' },
   'timeline.noSnap':       { label: 'Hold while dragging → bypass snap' },
   'timeline.zoom':         { label: 'Wheel → zoom' },
   'pianoroll.addToSel':    { label: 'Click note → add to selection' },
@@ -91,6 +92,7 @@ export const SCHEMES = {
       'timeline.rangeSelect': 'Shift',
       'timeline.clipSlip': 'Shift',
       'timeline.clipStretch': 'Alt',
+      'timeline.clipDuplicate': 'Alt', // body only; the right edge's Alt is stretch (edges are hit-tested first)
       'timeline.noSnap': 'Mod',
       'timeline.zoom': 'Mod',
       'pianoroll.addToSel': 'Shift',
@@ -132,6 +134,7 @@ export const SCHEMES = {
       // held-modifier edge-drag [logic_resize_regions.txt, logic_flex_tool_time_stretching.txt]
       'timeline.clipStretch': 'Alt',
       'timeline.noSnap': 'Ctrl', // "override the grid by holding down Control while dragging" [logic_move_regions.txt line 5]
+      // clipDuplicate inherits 'Alt': "Option-drag the region" [logic_copy_paste_regions.txt line 11]
     },
   },
   reaper: {
@@ -141,6 +144,7 @@ export const SCHEMES = {
     gestures: {
       'timeline.clipSlip': 'Alt', // "Move item contents (within item): Alt drag" [reaper_userguide.txt line 6933]
       'timeline.clipStretch': 'Alt', // corrected from 'Alt+Shift': corpus only attests plain Alt for "Stretch area contents"; Shift there means ignore-snap, a separate modifier, not part of the stretch chord [reaper_userguide.txt line 7373]
+      'timeline.clipDuplicate': 'Mod', // "Copy entire item … Ctrl drag" (Ctrl → ⌘ on Mac) [reaper_userguide.txt line 6931]
       'timeline.noSnap': 'Shift', // "Move item/items, ignore snap and time selection: Shift drag" [reaper_userguide.txt line 6921]
     },
   },

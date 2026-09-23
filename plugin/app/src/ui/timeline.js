@@ -574,7 +574,10 @@ export class Timeline {
     // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
     // ⇧ on the body = slip: move the audio inside the clip, edges stay put.
     const edge = (h.edge === 'right' && keymap.gesture('timeline.clipStretch', e)) ? 'stretch' : (h.edge === 'body' && keymap.gesture('timeline.clipSlip', e)) ? 'slip' : h.edge;
-    this.drag = { ...h, edge, startX: x, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out, st0: h.clip.stretch ?? 1 };
+    // ⌥ on the body = duplicate: the copy is made on the first real movement
+    // (so ⌥-click alone doesn't clone), then the drag moves the COPY.
+    const dup = h.edge === 'body' && edge === 'body' && keymap.gesture('timeline.clipDuplicate', e);
+    this.drag = { ...h, edge, dup, startX: x, startY: this.pos(e).y, lane0: h.placement.track, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out, st0: h.clip.stretch ?? 1 };
     this.dirty = true;
   }
 
@@ -729,12 +732,29 @@ export class Timeline {
     const asset = this.project.assets[d.clip.sourceOf];
     const maxOut = asset?.duration ?? Infinity;
     if (!d.armed) {
-      if (Math.abs(x - d.startX) < 3) return; // click, not a drag yet
+      // Arm on horizontal OR vertical movement (a straight-down lane move is a drag too).
+      if (Math.abs(x - d.startX) < 3 && Math.abs(y - (d.startY ?? y)) < 3) return; // click, not a drag yet
       this.store.checkpoint(); d.armed = true;
+      if (d.dup) {
+        // Clone clip + placement; the drag continues on the copy. The
+        // original stays exactly where it was.
+        const P = this.project, src = d.clip;
+        let n = 2, id = `${src.id}_copy`; while (P.clips[id]) id = `${src.id}_copy${n++}`;
+        P.clips[id] = { ...structuredClone(src), id, name: src.name ? `${src.name} (copy)` : undefined };
+        const pl = { ...d.placement, clip: id };
+        this.arrangement.placements.push(pl);
+        d.index = this.arrangement.placements.length - 1;
+        d.placement = pl; d.clip = P.clips[id];
+        this.selected = d.index; this.app.bus.emit('clip:selected', { index: d.index });
+      }
     }
     if (d.edge === 'body') {
       const len = placedDur(d.clip);
       d.placement.at = this.snapTime(Math.max(0, d.at0 + ds), { exclude: d.index, e, extraLen: len });
+      // Vertical: move to the lane under the pointer (clip part only; the
+      // gutter / automation sub-lanes / "+ lane" row don't capture it).
+      const li = this.laneIndexAt(y), lane = this.lanes()[li];
+      if (lane && lane.id !== d.placement.track) d.placement.track = lane.id;
     } else if (d.edge === 'slip') {
       // Move the source window under a fixed placement: in/out shift
       // together, clamped to the asset. Drag RIGHT = the waveform moves right
