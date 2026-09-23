@@ -183,6 +183,16 @@ export class ClipPlayer {
     this.masterChain.dispose();
   }
 
+  // Sample-accurate end for a loop boundary: sources stop at ctx time `t`
+  // (in the audio thread), then the graph is torn down a moment later.
+  stopAt(t) {
+    for (const { source } of this.liveNodes) { try { source.stop(t); } catch {} }
+    for (const timer of this._autoTimers ?? []) clearTimeout(timer);
+    this._autoTimers = [];
+    setTimeout(() => this.stop(), Math.max(0, (t - this.ctx.currentTime) * 1000) + 120);
+    return true;
+  }
+
   // Live mix update: re-read lanes[].gainDb/mute/solo and ramp each lane's
   // GainNode over ~30 ms so a fader move during playback doesn't click.
   applyLanes() {

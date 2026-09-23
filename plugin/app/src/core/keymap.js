@@ -33,6 +33,8 @@ export const ACTIONS = {
   'range.clear':           { label: 'Clear range', scope: 'timeline' },
   'snap.toggle':           { label: 'Toggle snap', scope: 'timeline' },
   'marker.add':            { label: 'Add marker at playhead', scope: 'timeline' },
+  'loop.toggle':           { label: 'Cycle on/off (sets it from the range if none)', scope: 'timeline' },
+  'loop.fromRange':        { label: 'Set cycle to the selected range', scope: 'timeline' },
   'marker.prev':           { label: 'Previous marker', scope: 'timeline' },
   'marker.next':           { label: 'Next marker', scope: 'timeline' },
   'view.fit':              { label: 'Fit song to width', scope: 'timeline' },
@@ -82,6 +84,8 @@ export const SCHEMES = {
       'range.clear': 'Escape',
       'snap.toggle': 'KeyN',
       'marker.add': 'KeyM',          // "Insert marker at current position — M" [reaper_userguide.txt:9262]
+      'loop.toggle': 'KeyC',         // "Click the Cycle button … (or press C)" [logic_cycle_area.txt:11]
+      'loop.fromRange': 'Mod+KeyU',  // Logic's "Set Locators by Selection" default
       'marker.prev': 'Alt+Comma',
       'marker.next': 'Alt+Period',
       'view.fit': 'KeyF',

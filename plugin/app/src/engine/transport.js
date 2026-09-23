@@ -149,9 +149,46 @@ export class Transport {
     this.clipAnchorTime = now;
     this.clipAnchorSec = fromSeconds;
     player.start(now, fromSeconds);
+    this._ClipPlayer = ClipPlayer;
+    this.armLoop();
+  }
+
+  // -- arrangement cycle ---------------------------------------------------
+  // arrangement.loop = {a, b, on}. When on and the play pass reaches b, the
+  // next pass from a is scheduled AHEAD on a fresh ClipPlayer (buffers are
+  // cached, so prepare() is instant) to start exactly at the boundary; the
+  // old player is stopped at the same ctx time. Sample-accurate, no gap.
+  loopSpan() {
+    const l = this.store.project.arrangement?.loop;
+    return l?.on && l.b - l.a > 0.05 ? l : null;
+  }
+  armLoop() {
+    clearTimeout(this._loopTimer);
+    const l = this.loopSpan(); if (!l || !this.playing || !this.clipPlayer) return;
+    const nowSec = this.clipAnchorSec + (this.ctx.currentTime - this.clipAnchorTime);
+    if (nowSec >= l.b) return; // started past the loop: play through, like Logic
+    const boundaryCtx = this.clipAnchorTime + (l.b - this.clipAnchorSec);
+    const lead = 0.25; // schedule the next pass this far ahead of the boundary
+    const wait = Math.max(0, (boundaryCtx - lead - this.ctx.currentTime) * 1000);
+    this._loopTimer = setTimeout(async () => {
+      if (!this.playing || !this.loopSpan()) return;
+      const cur = this.loopSpan();
+      const old = this.clipPlayer;
+      const next = new this._ClipPlayer(this.ctx, this.store.project, { assetCache: this.assetCache });
+      await next.prepare();
+      if (!this.playing || this.clipPlayer !== old) { next.stop?.(); return; }
+      const at = Math.max(boundaryCtx, this.ctx.currentTime + 0.01);
+      next.start(at, cur.a);
+      old.stopAt(at);
+      this.clipPlayer = next;
+      this.clipAnchorTime = at; this.clipAnchorSec = cur.a;
+      this.bus.emit('transport:looped', { a: cur.a, b: cur.b });
+      this.armLoop();
+    }, wait);
   }
 
   stopClips() {
+    clearTimeout(this._loopTimer);
     if (this.clipPlayer) {
       // Like a DAW's stop: sources are torn down and play() resumes from
       // songPos, not from where we halted. Seek by setting songPos.
@@ -226,7 +263,7 @@ export class Transport {
     const arr = this.store.project.arrangement;
     if (arr?.placements?.length && this.clipAnchorTime != null) {
       const end = this.arrangementEnd();
-      if (sec >= end + 0.05) { this.stop(); this.songPos = end; this.bus.emit('transport:ended', { sec: end }); return { playing: false, localBeat: 0, loopBeats: this.loopBeats, sec: end }; }
+      if (sec >= end + 0.05 && !this.loopSpan()) { this.stop(); this.songPos = end; this.bus.emit('transport:ended', { sec: end }); return { playing: false, localBeat: 0, loopBeats: this.loopBeats, sec: end }; }
     }
     return {
       playing: true,

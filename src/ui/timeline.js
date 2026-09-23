@@ -455,6 +455,18 @@ export class Timeline {
       this.dirty = true; return;
     }
     if (hadMarker) this.app.bus.emit('marker:selected', { id: null });
+    // Cycle bar (top 7 px of the tick row): drag an edge to resize, drag the
+    // middle to move, click toggles on/off.
+    const loop = this.arrangement?.loop;
+    if (loop && y < 8 && x >= GUTTER_W) {
+      const xa = this.x(loop.a), xb = this.x(loop.b);
+      if (x >= xa - EDGE_PX && x <= xb + EDGE_PX) {
+        this.canvas.setPointerCapture(e.pointerId);
+        const part = Math.abs(x - xa) <= EDGE_PX ? 'a' : Math.abs(x - xb) <= EDGE_PX ? 'b' : 'mid';
+        this.drag = { edge: 'loop', part, a0: loop.a, b0: loop.b, startX: x, armed: false };
+        return;
+      }
+    }
     // Ruler: press-and-drag scrubs the playhead. ⇧-drag sets a time range
     // instead. If playing, stop, scrub, and resume from the release point.
     if (y < RULER_H && x >= GUTTER_W) {
@@ -745,6 +757,16 @@ export class Timeline {
       this.dirty = true;
       return;
     }
+    if (d.edge === 'loop') {
+      if (!d.armed && Math.abs(x - d.startX) < 3) return;
+      if (!d.armed) { this.store.checkpoint(); d.armed = true; }
+      const L = this.arrangement.loop, ds = (x - d.startX) / this.pxPerSec;
+      if (d.part === 'a') L.a = Math.min(this.snapTime(Math.max(0, d.a0 + ds), { e }), L.b - 0.1);
+      else if (d.part === 'b') L.b = Math.max(this.snapTime(d.b0 + ds, { e }), L.a + 0.1);
+      else { const len = d.b0 - d.a0; L.a = this.snapTime(Math.max(0, d.a0 + ds), { e }); L.b = L.a + len; }
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'marker') {
       if (!d.armed && Math.abs(x - d.startX) < 3) return;
       if (!d.armed) { this.store.checkpoint(); d.armed = true; }
@@ -856,6 +878,13 @@ export class Timeline {
       this.dirty = true;
       return;
     }
+    if (d.edge === 'loop') {
+      const L = this.arrangement.loop;
+      if (!d.armed) { this.store.checkpoint(); L.on = !L.on; } // a click toggles
+      this.app.transport.armLoop?.(); this.app.bus.emit('loop:changed', { ...L });
+      this.dirty = true;
+      return;
+    }
     if (d.edge === 'marker') {
       if (d.armed) { this.sortMarkers(); this.app.bus.emit('arrangement:changed', {}); }
       this.dirty = true;
@@ -959,6 +988,17 @@ export class Timeline {
       if (major) { g.fillStyle = text; g.fillText(fmtTime(s), x + 3, 10); }
     }
     g.fillStyle = line; g.fillRect(GUTTER_W, TICK_H - 1, w - GUTTER_W, 1);
+    // Cycle region: a bar across the top of the tick row (yellow when on,
+    // grey when off), like Logic's cycle area. Drag its edges to resize.
+    const loop = this.arrangement?.loop;
+    if (loop) {
+      const xa = Math.max(GUTTER_W, this.x(loop.a)), xb = Math.min(w, this.x(loop.b));
+      if (xb > xa) {
+        g.fillStyle = loop.on ? '#e3c13a' : faint; g.globalAlpha = loop.on ? 0.85 : 0.6;
+        g.fillRect(xa, 0, xb - xa, 5); g.globalAlpha = 1;
+        g.fillRect(xa, 0, 2, 9); g.fillRect(xb - 2, 0, 2, 9);
+      }
+    }
     this.paintMarkers(g, w, { text, faint, line, accent });
     g.fillStyle = line; g.fillRect(0, RULER_H - 1, w, 1);
     // vertical scroll hint: a thin thumb on the right edge when content overflows
