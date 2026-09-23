@@ -1,5 +1,14 @@
 # Platform-API opportunity backlog
 
+> **Status, September 2026.** Written for the pattern-composer era, before
+> v2.0. Some items have since been done another way: the asset layer
+> (`indexeddb-asset-store`, `opfs-large-asset-storage`) became hash-addressed
+> files served by the sidecar; `compressionstream-share-link` shipped; real
+> open/save (`file-system-access-save-open`) is served by the sidecar's
+> project-document routes instead; and analysis runs in a Worker (the ear).
+> Arrangement playback schedules in the audio thread, so gate 5 only still
+> applies to the pattern clock. The remaining items stand as written.
+
 This is a build-ready backlog of web-platform-API opportunities for Oscine. It
 came out of an audit that ran seven lenses (concurrency/cross-tab, storage/files,
 page lifecycle, sharing/PWA/OS, rendering, input devices, audio engine/capture)

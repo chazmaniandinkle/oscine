@@ -244,7 +244,7 @@ export class Keymap {
     const b = this.keys[action]; if (!b) return '';
     const s = Array.isArray(b) ? b[0] : b;
     return s.replace('Mod+', IS_MAC ? '⌘' : 'Ctrl+').replace('Shift+', '⇧').replace('Alt+', IS_MAC ? '⌥' : 'Alt+').replace('Ctrl+', '⌃')
-      .replace(/^Key/, '').replace(/Key([A-Z])$/, '$1').replace('Digit', '').replace('BracketLeft', '[').replace('BracketRight', ']').replace('Equal', '=').replace('Minus', '−')
+      .replace(/^Key/, '').replace(/Key([A-Z])$/, '$1').replace('Digit', '').replace('BracketLeft', '[').replace('BracketRight', ']').replace('Equal', '=').replace('Minus', '−').replace('Comma', ',').replace('Period', '.')
       .replace('Backspace', '⌫').replace('Delete', '⌦').replace('Space', '␣').replace('Escape', 'esc');
   }
 }

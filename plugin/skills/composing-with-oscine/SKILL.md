@@ -1,6 +1,6 @@
 ---
 name: composing-with-oscine
-description: Compose and produce music in the Oscine synth composer through its oscine_* MCP tools. Use when the user asks to compose music, make a beat, write a melody, bassline, chords or drums, design a synth sound, mix tracks, or control Oscine playback ("make a beat", "write a bassline", "open oscine", "make the pad warmer").
+description: Compose and produce music in the Oscine browser DAW through its oscine_* MCP tools. Use when the user asks to compose music, make a beat, write a melody, bassline, chords or drums, design a synth sound, mix tracks, open or save an Oscine project, or control Oscine playback ("make a beat", "write a bassline", "open oscine", "make the pad warmer").
 ---
 
 # Composing with Oscine
@@ -34,7 +34,8 @@ Oscine is a live browser app. Tools act on the user's actual session: they hear 
 ## Caveats
 
 - If a tool errors with "Oscine isn't open", use `oscine_open_app` — never tell the user it failed without trying that first.
-- `oscine_transport action:play` loops the active slot from its top; there is no song arrangement yet.
+- Two kinds of project exist. Pattern projects (tracks, slots A-D) are what every `oscine_*` composing tool edits. Arrangement projects (audio clips on lanes, from `*.oscine.json` files) can be opened with `oscine_project_open_file` and saved with `oscine_project_save_file`, but their clips, lanes, markers, effects, automation and transcripts are edited in the UI; there are no tools for them yet. Don't try to fake arrangement edits through the pattern tools. Tell the user what to do in the UI, or edit the project JSON and reopen it.
+- On a pattern project, `oscine_transport action:play` loops the active slot from its top. Arrangement projects play through to the end (or loop the cycle region if it's on).
 - Param tweaks are not in undo history (matches the UI); patterns, tracks, slots, and presets are.
 - Hardware MIDI input exists: a plugged-in controller plays the selected track, record-arm captures quantized notes/steps, and knobs map to params. The `midi` command (`status`, `enable`, `disable`, `select`, `set`, `monitor`, `map`, `learn`, `clear_map`, `claim`, `input`) controls it; the device binding happens in the browser tab.
 - MIDI can also come in over OSC, which works on surfaces where WebMIDI is blocked (the Claude Code preview denies the WebMIDI permission, for one). Run `npm run midi-bridge` in the repo (after a one-time `npm i @julusian/midi`) to read a connected controller and route its raw messages into Oscine over OSC at `/oscine/midi/in <status> <d1> [d2]`. Those bytes feed the same input pipeline WebMIDI uses, so velocity shaping, the monitor, record-arm, and drum-lane mapping all apply. The `midi action:"input"` command takes a raw `bytes` array ([status, data1, data2]) and injects it the same way, so any OSC source (or you, over MCP) can play the selected track even with no hardware bound.

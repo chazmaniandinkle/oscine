@@ -1,5 +1,14 @@
 # The landscape: where Oscine sits and where it can go
 
+> **Status, September 2026.** This survey dates from June 2026, when Oscine
+> was a pattern composer (a "Tier 1" tool below). Since then it has taken the
+> three jumps this document mapped: a linear timeline, audio clips with
+> time-stretch, and insert effects with automation (see `CHANGELOG.md` 2.0 and
+> 2.1). The market picture below is unchanged and still useful; the "where
+> Oscine sits" parts describe the June state. The newer research (DAW manuals,
+> interchange formats, and reports on editing conventions and automation) is
+> in the cog workspace at `.cog/mem/semantic/research/daw/`.
+
 Researched June 2026. Method: parallel source sweeps over each category
 below, primary sources (repos, manufacturer pages, official
 announcements) preferred over coverage, with a verification pass on the

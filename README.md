@@ -3,107 +3,173 @@
 ![Oscine Logo](https://raw.githubusercontent.com/chazmaniandinkle/oscine/refs/heads/main/styles/brand/oscine-master.svg)
 [![CI](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml/badge.svg)](https://github.com/chazmaniandinkle/oscine/actions/workflows/ci.yml)
 
-A synth composer that runs entirely in the browser. No build step, no
-dependencies, no samples: every sound is synthesized live with Web Audio,
-and a whole song saves as a few KB of JSON.
+A browser DAW with no build step and no runtime dependencies. It started as a
+synth composer (every sound synthesized live with Web Audio, a whole song in a
+few KB of JSON) and now also arranges audio: stems on lanes, clips you can
+trim, slip, stretch and repitch, word-level transcripts on the vocals, insert
+effects, automation, markers, and an analysis panel that tells you what a
+selection actually sounds like.
 
-The part that matters is underneath. Everything Oscine can do is one command
-in one catalog, and that catalog is the product. Five surfaces drive it: the
-UI, the browser console, the bundled Claude plugin over MCP, an OSC gateway,
-and live MIDI. So Oscine is two things at once. It is a synth you play with
-your hands, and it is a performance bridge that an agent or a controller can
-play through, on any surface that speaks MCP, OSC, or MIDI. The synth is the
-concrete part you can hear. The bridge is the point.
+The song is a project, not a file. A project stores references and numbers
+(which source, which slice of it, where it sits, how loud, which words are
+sung when), and audio is rendered from that. So a song is yours when you can
+reopen it in Oscine, change the bridge, and export again. `docs/north-star.md`
+says why that matters and where it goes (generating whole projects, not mp3s,
+with the analysis panel closing the loop).
 
-Because the catalog is the contract, the agent surface is not bolted on, it
-is the same surface you use. Claude can compose, sound-design, mix, switch
-patterns, and play notes in your live session, and read back the performance
-ledger (an always-on log of what you played) to grab a riff after the fact.
-The architecture is shaped so the larger parts (an arrangement timeline,
-audio clips, and automation) bolt on without a rewrite. See "Where it's
-going" below.
+Underneath, everything is one command catalog. The UI, the browser console,
+the bundled Claude plugin over MCP, an OSC gateway, and live MIDI are five
+consumers of that catalog, so an agent drives the same surface you do. (The
+arrangement features are the exception for now; see "Known gaps".)
 
 ## Run it
 
-Four ways:
-
-1. Hosted: https://chazmaniandinkle.github.io/oscine/ . The app is static
-   files, so the repo serves it directly via GitHub Pages. Projects autosave
-   to your browser's localStorage; export/import JSON for real files. If the
-   Oscine sidecar (from the Claude plugin) is running on your machine, the
-   hosted page connects to it automatically, which lights up MCP and OSC
-   control of the page you are looking at. (Chrome, Edge, and Firefox let a
-   secure page reach 127.0.0.1; Safari blocks it, so use another option there.)
-2. Claude plugin: add this repo as a marketplace, then install it.
-   `claude plugin marketplace add chazmaniandinkle/oscine`, then
-   `claude plugin install oscine@oscine`. Claude runs the sidecar, which
-   serves the app at `http://127.0.0.1:7321/`. Ask Claude to "open oscine",
-   or open the URL yourself. Update later with `npm run release:local`.
-3. Claude Code preview: with the repo open in Claude Code, the built-in
-   preview hosts the app from `.claude/launch.json` (the `oscine` launch
-   config). It is a real browser context, so Web Audio, WebMIDI, and the
-   sidecar bridge all work, and the previewed app is agent-drivable inline.
-4. Dev server: `./start.sh` (or `python3 -m http.server 8443`) from the repo,
-   then open the printed URL. Any static server works; one is required because
-   native ES modules do not load over `file://`.
+1. **Hosted:** https://chazmaniandinkle.github.io/oscine/ . Static files
+   served by GitHub Pages. Pattern projects autosave to localStorage. If the
+   Oscine sidecar is running on your machine the page connects to it, which
+   turns on MCP and OSC control. (Opening and saving project files needs the
+   page served by the sidecar itself, options 2 and 3. Chrome, Edge and
+   Firefox let a secure page reach 127.0.0.1; Safari doesn't.)
+2. **Claude plugin:** `claude plugin marketplace add chazmaniandinkle/oscine`,
+   then `claude plugin install oscine@oscine`. Claude runs the sidecar, which
+   serves the app at `http://127.0.0.1:7321/`. Ask Claude to "open oscine".
+   Update later with `npm run release:local`.
+3. **Dev sidecar against a folder of projects:** `scripts/dev-sidecar.sh`
+   starts the sidecar on port 7351 with `OSCINE_PROJECT_ROOT` pointed at your
+   workspace, so File > Open project lists every `*.oscine.json` under it and
+   ⌘S writes back to disk. Edit the script's defaults for your machine.
+4. **Any static server:** `./start.sh` (or `python3 -m http.server 8443`).
+   Needed because ES modules don't load over `file://`. No sidecar means no
+   project files, transcription, or MCP; everything else works.
 
 The sidecar only accepts bridge connections from localhost plus origins in
-`OSCINE_ALLOWED_ORIGINS` (the plugin pre-allows this repo's Pages URL), so
-arbitrary websites cannot reach your session.
+`OSCINE_ALLOWED_ORIGINS`, so arbitrary websites can't reach your session.
 
 First open loads a small demo song ("First Light"). Press Space. Click once
-anywhere first if you hear nothing: browsers keep audio suspended until a
-user gesture.
+first if you hear nothing: browsers keep audio suspended until a gesture.
+Reloading reopens the last project file you had open (or pass `?p=<path>` in
+the URL, relative to the project root).
 
-## Using it
+## Two kinds of project
+
+**Pattern projects** are the original Oscine: synth and drum tracks, four
+pattern slots (A to D) that loop, a piano roll and a step grid. Good for
+sketching, and a few KB each, small enough to live in a share link.
+
+**Arrangement projects** are audio on a timeline. They reference audio files
+by content hash (`assets/<sha256>.wav` next to the project file) and never
+copy or cut the bytes: a clip is a pointer (`source`, `in`, `out`) and a
+placement puts a clip on a lane at a time. The two models are separate today;
+unifying them (pattern clips on lanes) is the next schema version.
+
+## Using it: arrangements
+
+**Timeline.** Lanes on the left, the ruler and a marker strip on top.
+
+| Do this | To |
+|---|---|
+| Drag a clip | Move it in time, or up/down to another lane |
+| ⌥-drag a clip | Duplicate it (the copy follows the pointer) |
+| Drag a clip edge | Trim |
+| ⇧-drag a clip body | Slip: move the audio inside the clip, edges stay |
+| ⌥-drag the right edge | Time-stretch (pitch preserved) |
+| Hold ⌘ while dragging | Bypass snap (snap is on by default; N toggles) |
+| Drag the ruler or the playhead | Scrub |
+| ⇧-drag the ruler, or click then ⇧-click | Select a time range; drag its edges to resize |
+| Click a lane inside a range | Select that lane's slice (for S, ⌫, or the analysis panel) |
+| Drag a lane's name in the gutter | Reorder lanes (the dB bar under it is the gain drag) |
+| Click the **A** button on a lane | Show its gain automation; click to add points, drag to move, ⌥-click to remove |
+| Wheel / ⇧-wheel / ⌘-wheel | Scroll lanes / scroll time / zoom |
+
+Where two clips overlap on a lane, the shared part is hatched and clickable:
+select it to set a crossfade.
+
+**Markers and sections.** M adds a marker at the playhead; double-click the
+marker strip to add or rename one; drag to move. The stretch between two
+markers is a section: click it to jump there, ⇧-click to select it as the
+range. ⌥, and ⌥. step between markers.
+
+**Cycle.** A loop region that's separate from the selection (the yellow bar at
+the top of the ruler). C turns it on and off, ⌘U sets it to the current range;
+drag its ends to resize. Looping is gapless.
+
+**Ripple delete.** ⇧⌫ cuts the selected range out of every lane and closes the
+gap. Clips, markers, the cycle and automation all move left together.
+
+**Right panel (inspector)** shows whatever is selected: a clip (position,
+trims, stretch, pitch, gain, fades, and its words), a lane, a source, an
+overlap (crossfade), an effect, or a range on a lane. Values drag; double-click
+to type; names are editable in the header.
+
+**Sources** (left panel) lists every audio file in the project. Drag one onto a
+lane to place it. Selecting a source shows its full transcript.
+
+**Transcripts.** On a source or a clip: *Transcribe* runs whisper locally
+through the sidecar (a clip transcribes only its own span), *Export…* writes
+SRT, WebVTT or word-level JSON, *Import…* reads any of those back (or whisper's
+JSON). Words appear in the lyrics bar under the timeline, which follows one
+lane at a time (pick it on the left of the bar, or select a lane). Click a word
+anywhere to jump there.
+
+**The analysis panel.** Select a range, then click a lane inside it. The panel
+measures exactly the audio that lane plays there: pitch (median and range),
+level, brightness, and singing pace from the word timings. Pin one as A and the
+next range shows the differences. It runs in a background worker, and every
+source is analysed once on load, so a selection inside a single clip answers
+instantly; one spanning several clips is measured on demand.
+
+**Mixer** (bottom; drag its handle to resize): one strip per lane plus master,
+each with pan, fader, meter, mute/solo, and an insert chain. *+ insert* adds any
+of eleven effects (EQ, filter, saturator, stereo delay, reverb, chorus, phaser,
+compressor, limiter, gate, utility); click one to edit it in the inspector.
+
+**Toolbar and status bar.** The toolbar mirrors the main edit actions and has
+the **Keys** picker: shortcut schemes for Oscine, Ableton, Logic and REAPER
+(each binding in those schemes cites the manual page it came from, or says it
+isn't in that DAW). The status bar shows position, range, selection, analysis
+progress, saved state and the sidecar link.
+
+**Files.** File > Open project lists projects under the sidecar's project
+root; ⌘S saves in place. Playback stops at the end of the song unless the
+cycle is on.
+
+### Keys (default scheme)
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| Space | Play / stop | ⇧Space | Play from range start |
+| Home | Go to start | Esc | Stop / clear range |
+| S | Split at playhead or range | ⌫ | Remove clip, or cut the range from selected clips |
+| ⇧⌫ | Ripple delete | [ ] | Pitch −/+1 semitone |
+| ⇧[ ⇧] | Clip gain −/+1 dB | N | Snap on/off |
+| M | Add marker | ⌥, ⌥. | Previous / next marker |
+| C | Cycle on/off | ⌘U | Cycle from range |
+| F | Fit song to window | = − | Zoom in / out |
+| L | Follow playhead | ⇧L | Lyrics bar on/off |
+| ⌘Z ⌘⇧Z | Undo / redo | ⌘S | Save |
+
+## Using it: patterns
 
 Transport bar: play/stop, tempo (drag the bpm number), swing, metronome,
-pattern slots A-D, bar length per slot, undo/redo, song name, File menu (copy
-share link, export audio WAV, export/import JSON, new project), master level.
-
-Two ways to get a song out. "Copy share link" packs the whole project into
-the URL itself (a few KB of pattern data, no upload), so a link is the song;
-open that link and Oscine loads it before the UI draws. The link is
-gzip-compressed (via CompressionStream) for a shorter URL, and older
-uncompressed links still open. "Export audio (.wav)"
-bounces the active slot through the full mix and master FX with an
-OfflineAudioContext and downloads a 16-bit WAV. Both run through the same
-command catalog as everything else, so Claude can trigger them over MCP
-(`oscine_share`, `oscine_export_wav`) too.
+pattern slots A to D, bar length per slot, undo/redo, song name, File menu.
 
 Pattern slots are four independent pattern sets sharing the same tracks, like
-scenes. Click a slot (or keys 1-4) to switch; while playing, the switch queues
-and lands exactly on the next loop boundary. Copy moves the active slot's
-patterns to another slot.
+scenes. Click a slot (or keys 1 to 4) to switch; while playing, the switch
+queues and lands exactly on the next loop boundary.
 
-Tracks: "+ Add" creates a Poly Synth, FM Synth, or Drum Kit track. Select a
-track to edit it; double-click the name to rename; M/S to mute/solo. The
-editor in the middle follows the selected track's type.
+Tracks: "+ Add" creates a Poly Synth, FM Synth, or Drum Kit track. The editor
+in the middle follows the selected track's type. Piano roll: click to add a
+note and drag to set its length; drag to move, drag the right edge to resize;
+⌥-drag for velocity; ⇧-drag for marquee select; double-click deletes. Step
+grid: click toggles a step, drag paints, ⇧-click cycles velocity.
 
-Piano roll (synth tracks): click to add a note and drag to set its length;
-drag notes to move, drag the right edge to resize; alt+drag for velocity
-(brightness shows it); shift+drag for marquee select; right-click or
-double-click deletes; Delete clears the selection; cmd/ctrl+A selects all;
-ctrl/cmd+wheel zooms time; the left key gutter auditions pitches.
+Keyboard footer: play the selected track with the mouse or the A-row keys
+(A W S E D F T G Y H U J), Z/X shifts octave. A hardware MIDI controller works
+too; see "MIDI" below.
 
-Step grid (drum tracks): click toggles a step, drag paints, shift+click cycles
-velocity soft/med/hard. Lane labels audition the sound.
-
-Keyboard footer: play the selected synth track with the mouse or with A-row
-keys (A W S E D F T G Y H U J ...), Z/X shifts octave. On a drum track the
-footer becomes pads on A-K. You can also play a hardware MIDI controller; see
-"Where it's going" for velocity shaping, record, and the OSC bridge that works
-even where WebMIDI is blocked.
-
-Inspector (right): every instrument parameter as knobs, rendered from the
-instrument's own schema, plus presets, pan, and FX sends per track.
-
-Mixer (bottom): fader, meter, pan, delay/reverb sends, mute/solo per track;
-the master strip carries the shared delay (tempo-synced) and reverb plus the
-master fader.
-
-Everything autosaves to localStorage; File > Export writes the song as JSON
-you can commit, share, or re-import.
+"Copy share link" packs the whole pattern project into the URL (gzip, no
+upload), so a link is the song. "Export audio (.wav)" bounces through the full
+mix with an OfflineAudioContext.
 
 ## Architecture
 
@@ -112,34 +178,41 @@ src/
   core/          no DOM, no audio. Importable from node.
     bus.js         event bus: the only channel between layers
     store.js       single source of truth + all mutations + undo
-    schema.js      project format, factories, demo song
-    persist.js     autosave + JSON import/export
-    util.js        helpers
+    schema.js      project format (v2), factories, migrations, demo song
+    assets.js      content-hash asset cache, word lookup per clip
+    keymap.js      every shortcut and drag modifier as a named action; schemes
+    timedtext.js   SRT / WebVTT / JSON transcript import and export
+    persist.js  share.js  wav.js  util.js
   engine/        audio only. Never mutates the project.
-    engine.js      track channel strips, FX buses, master chain, scheduling
-    transport.js   lookahead scheduler, beat clock, swing, loop/slot logic
-    context.js     lazy AudioContext
-    effects/       delay, reverb (send buses)
+    engine.js      pattern-side channel strips, FX buses, master chain
+    transport.js   lookahead scheduler, beat clock, song clock, cycle
+    clips.js       arrangement playback: clips -> lane strips -> master
+    stretch.js     phase vocoder (time-stretch and pitch-shift, decoupled)
+    automation.js  envelopes -> AudioParam schedules
+    ear.js         measurement: pitch, level, brightness, pace
+    ear-worker.js  runs the measurements off the main thread
+    render.js      offline bounce (the export sounds like the mix)
+    effects/       registry + eleven insert effects (+ pattern-side delay/reverb)
     instruments/   registry + poly synth, FM synth, drum kit
   api/           the programmatic surface (the catalog is the contract)
     commands.js    command catalog: names, descriptions, JSON Schemas
-    api.js         CommandAPI: binds the catalog to store/engine/transport
-    bridge.js      WebSocket client that links the app to the MCP sidecar
-    crosstab.js    BroadcastChannel + Web Locks cross-tab coordination
+    api.js         binds the catalog to store/engine/transport
+    bridge.js      WebSocket link to the MCP sidecar
+    crosstab.js    cross-tab coordination (MIDI ownership, autosave)
   ui/            DOM only. Never touches audio nodes.
-    app.js         layout shell, editor routing, the single rAF loop
-    pianoroll.js   canvas note editor
-    stepgrid.js    drum grid
-    midi.js        WebMIDI input, velocity shaping, record, cross-tab owner
-    mixer.js  inspector.js  tracklist.js  transportbar.js  keyboard.js
-    widgets.js     knob/fader/meter/menu primitives
+    app.js         layout, routing, key dispatch, the single rAF loop
+    timeline.js    arrangement canvas: lanes, clips, ruler, markers, cycle
+    clipinspector.js  clip / lane / source / overlap / range / effect panels
+    assetbin.js  lyricsbar.js  toolbar.js  statusbar.js  fileops.js
+    pianoroll.js  stepgrid.js  keyboard.js  midi.js
+    mixer.js  inspector.js  tracklist.js  transportbar.js  widgets.js
   main.js        wires everything; exposes window.oscine for console work
-plugin/          the Claude plugin (see below)
-tools/           sync-plugin.mjs keeps plugin/app identical to the repo;
-                 midi-osc-bridge.mjs forwards a controller into Oscine over OSC
+plugin/          the Claude plugin: sidecar (MCP + HTTP + OSC) and app copy
+tools/           sync-plugin.mjs, midi-osc-bridge.mjs, release-local.sh
+docs/            north star, landscape research, platform notes
 ```
 
-The data flow is one-directional and event-driven:
+Data flow is one-directional:
 
 ```
 UI gesture ----\
@@ -149,19 +222,15 @@ OSC message ----/                                      -> UI re-renders
 MIDI in -------/
 ```
 
-The engine and UI never call each other directly; both react to the store
-through the bus. Undo, import, and autosave fall out of that: any project
-replacement emits one event and every layer rebuilds itself.
+The engine and UI never call each other; both react to the store through the
+bus. Undo, load and autosave fall out of that.
 
 ## The catalog is the contract
 
-`src/api/commands.js` is the contract: 21 commands covering everything the UI
-can do (transport, project ops, tracks, instrument params and presets,
-piano-roll notes, drum steps, mixer, master FX, pattern slots, preview,
-live MIDI, and the performance ledger). Each command carries a JSON Schema;
-`CommandAPI` validates,
-clamps, resolves tracks by name or id, and returns JSON. The UI, the browser
-console, MCP, OSC, and MIDI are five consumers of the same surface:
+`src/api/commands.js` holds 21 commands covering the pattern side (transport,
+project ops, tracks, instrument params and presets, notes, drum steps, mixer,
+master FX, slots, preview, MIDI, the performance ledger, share, WAV export).
+Each carries a JSON Schema; the handler validates, clamps, and returns JSON:
 
 ```js
 // browser console
@@ -170,155 +239,106 @@ await oscine.api.execute('set_notes', { track: 'Bass', mode: 'replace',
   notes: [{ start: 0, pitch: 33, dur: 0.5, vel: 0.9 }] })
 ```
 
-The test suite executes every command headlessly, so catalog, handlers, and
-store cannot drift apart.
+The test suite runs every command headlessly, so catalog, handlers and store
+can't drift apart.
 
 ## Claude plugin (MCP)
 
-`plugin/` is a complete Claude plugin; `oscine.plugin` is its packaged form.
-Its sidecar is one zero-dependency node process that Claude starts and stops
-via the plugin's `.mcp.json`:
+`plugin/` is a complete Claude plugin. Its sidecar is one zero-dependency node
+process:
 
-- MCP server over stdio: `oscine_open_app`, `oscine_sessions`, plus one
-  `oscine_*` tool per catalog command (23 total), schemas taken directly from
-  the catalog
-- HTTP server on `127.0.0.1:7321` (next free port if busy) serving the bundled
-  app from `plugin/app/`
-- WebSocket bridge at `/bridge` that the app connects back through; the green
-  dot in the transport bar shows the link is up. With several tabs open, the
-  sidecar tracks each as an addressable session and routes commands to the
-  active one (`oscine_sessions` lists and switches).
+- MCP over stdio: one `oscine_*` tool per catalog command, plus
+  `oscine_open_app`, `oscine_sessions`, `oscine_project_open_file` and
+  `oscine_project_save_file`. Bundled skills are exposed as MCP resources.
+- HTTP on `127.0.0.1:7321` serving the app, project files under
+  `OSCINE_PROJECT_ROOT` (`/projects.json`, `/project-doc/<path>`,
+  `/project/<path>` with range requests), and `POST /transcribe` (ffmpeg +
+  a local whisper).
+- A WebSocket bridge the app connects back through. With several tabs open,
+  each is an addressable session.
+- An OSC gateway on `udp://127.0.0.1:7340` mapping `/oscine/*` onto the same
+  catalog, with position and meter feedback for subscribers.
 
-So the full loop is: Claude calls a tool, the sidecar forwards it over the
-socket, the app executes it against the same store the UI uses, and you hear
-and see the result live. The plugin also bundles a composing skill so Claude
-knows the conventions (beats, MIDI, lanes, slots).
+Details, OSC addresses and configuration in `plugin/README.md`.
 
-The sidecar also runs an OSC gateway (`udp://127.0.0.1:7340`), mapping the
-`/oscine/*` address space onto the same catalog: TouchOSC, Max/MSP, Pd,
-SuperCollider, Sonic Pi, and friends can fade tracks, tweak params, play notes,
-switch slots, and feed in MIDI (`/oscine/midi/in`), and subscribers get
-position, meters, tempo, and slot feedback back. Address table in
-`plugin/README.md`. OSC, MCP, MIDI, the UI, and the console are five consumers
-of one contract.
+## MIDI
 
-After changing the app, run `node tools/sync-plugin.mjs` and repackage; the
-tests fail if the bundled copy drifts.
+Enable MIDI from the transport bar and a controller plays the selected track.
+Record-arm captures notes or steps quantized to the grid, and knobs map to
+instrument params (with learn). Velocity is shaped in software (floor, curve,
+or a fixed velocity) so stiff mini-keys still play loud, and a monitor shows
+the raw values you're sending. One tab owns the hardware at a time.
 
-Timing uses the standard lookahead pattern: a 25ms JS timer schedules the next
-120ms of events at sample-accurate AudioContext time. The transport walks beats
-and emits scheduling windows that are segmented at loop boundaries, which is
-what makes queued pattern-slot switches land exactly on the 1. Notes are stored
-in beats (floats), so finer grids and triplets are a UI option later, not a
-format change.
+Where WebMIDI is blocked (the Claude Code preview, Safari), `npm run
+midi-bridge` (after `npm i @julusian/midi`) forwards a controller into Oscine
+over OSC at `/oscine/midi/in`. The performance ledger logs everything you play
+live, even with the transport stopped, and the `ledger` command reads it back
+so an agent can grab a riff after the fact.
 
 ## Extending it
 
-New instrument: create `src/engine/instruments/yoursynth.js`, subclass
-`BaseInstrument`, implement `noteOn/noteOff` (or `trigger` for kits), call
-`defineInstrument({...})` with a param schema, and import the file from
-`instruments/index.js`. It then appears in the Add menu, gets a generated
-inspector, presets, mixer strip, and sequencing for free. `fmsynth.js` is the
-template: a complete instrument in ~150 lines.
+**New effect:** one file in `src/engine/effects/`. Call `defineEffect({...})`
+with a param schema and presets, subclass `BaseEffect`, build your graph
+between `this.wetIn` and `this.wetOut`, implement `applyParam`, and import the
+file from `effects/index.js`. It then shows up in every *+ insert* menu, gets a
+generated inspector, bypass and presets, and plays in both live and offline
+render. Optionally implement `paramNode(key)` to hand automation a real
+AudioParam. `eq3.js` is the template.
 
-New effect: follow `effects/delay.js` (an input/output node pair), add it to
-the engine's bus wiring, and surface params via `store.setFx`.
+**New instrument:** one file in `src/engine/instruments/`, subclass
+`BaseInstrument`, `defineInstrument({...})` with a param schema, import it from
+`instruments/index.js`. `fmsynth.js` is the template.
 
-New editor or panel: subscribe to bus events, render from the store, call store
-actions on input. Nothing else to hook up.
+**New shortcut or drag modifier:** add a named action (or gesture) to
+`core/keymap.js` with a default binding, and handle it in `app.js` (keys) or
+`keymap.gesture(name, e)` (drags). Never test `e.shiftKey` or `e.code` in UI
+code directly; that's what makes schemes possible.
 
-Project format: plain JSON, versioned (`version: 1`), shape defined in
-`core/schema.js`.
+**Project format:** plain JSON, `version: 2`, shape documented at the top of
+`core/schema.js`. Older files are migrated on load.
 
 ## Verifying
 
 ```sh
-node test/smoke.mjs      # zero-dep: import graph, store, scheduler math,
-                         # every API command headless, plugin integrity
-node test/e2e-mcp.mjs    # full chain: real MCP stdio -> sidecar -> WS ->
-                         # headless Chromium running the app
-                         # (needs playwright-core + CHROME_BIN)
+node test/smoke.mjs        # import graph, store, scheduler, every catalog
+                           # command headless, OSC routing, plugin integrity
+node test/keymap.mjs       # every scheme binding, with its citation
+node test/automation.mjs   # envelope grammar, shapes, scheduling
+node test/ear.mjs          # measurements against synthetic ground truth
+node test/timedtext.mjs    # SRT / VTT / JSON round trips
+node test/stretch.mjs      # phase vocoder pitch and length
+node test/fx-*.mjs         # one per effect
+node test/e2e-mcp.mjs      # MCP stdio -> sidecar -> WS -> headless Chromium
+                           # (needs playwright-core + CHROME_BIN)
 ```
 
-UI pixels and audio output are exercised in the browser; the suites cover
-everything below that line, including the entire MCP path.
+UI gestures are verified by driving a headless Chrome over the DevTools
+protocol and reading project state back; commit messages carry the numbers.
+
+## Known gaps
+
+- **Arrangement editing isn't in the catalog yet.** Clips, lanes, markers,
+  cycle, automation, effects and transcripts are UI-only. Claude can open and
+  save arrangement projects over MCP but can't edit them. This breaks the
+  catalog-first rule in `AGENTS.md` and is the first thing to fix.
+- Automation UI only draws lane gain. The engine also handles pan, master,
+  effect params and clip envelopes, with linear, hold and exponential curves.
+- Patterns and arrangements are separate models. v3 unifies them (see
+  `ROADMAP.md`).
+- The limiter is a sample-peak ceiling, not true-peak. The gate's hold is
+  approximated by its release.
+- Marker names use the browser's prompt dialog for now.
 
 ## Where it's going
 
-The synth is the reference instrument. The direction is to make the bridge
-underneath it do more, while the larger DAW parts bolt on as they earn their
-place.
-
-Already shipped:
-
-- MIDI input: plug in a MIDI controller, enable MIDI from the transport bar,
-  and play the selected track. Record-arm captures the notes (or drum steps)
-  quantized to the grid, and you can map knobs to instrument params. Incoming
-  velocity is shaped in software so stiff mini-keys still play loud: set a floor
-  (the loudness of the softest press), a curve (gamma; below 1 makes soft
-  presses more sensitive), or an optional fixed velocity that ignores the
-  controller entirely. A velocity monitor reports the raw values you play back
-  (last, min, max, count, and the recent run) so you can match the curve to
-  your controller by feel. Only one tab owns the hardware at a time: enable
-  MIDI in one tab and a second tab defers, offering a "Take over" control that
-  claims ownership for itself. Autosave is per-tab keyed now, so two open tabs
-  no longer clobber each other's work in localStorage. Also drivable through
-  the `midi` command (`set` takes floor/curve/fixed, `monitor` reads the raw
-  spread, and `claim` takes MIDI ownership for the current tab) and the
-  `/oscine/midi/*` OSC addresses (including `/oscine/midi/floor` and
-  `/oscine/midi/curve`).
-
-  MIDI over OSC (works where WebMIDI is blocked): some surfaces deny the WebMIDI
-  permission outright (the Claude Code preview is one), so there is a second
-  path in. `npm run midi-bridge` (after a one-time `npm i @julusian/midi`) reads
-  a connected controller and forwards its raw messages to Oscine over OSC at
-  `/oscine/midi/in <status> <d1> [d2]`. Those bytes feed the same input pipeline
-  WebMIDI uses, so velocity shaping (floor/curve/fixed), the velocity monitor,
-  record-arm, and drum-lane mapping all apply identically. The bridge takes
-  `--list` to print available input ports, `--device <substring>` to pick one
-  by name, and `--host`/`--port` to target a sidecar elsewhere (default
-  `127.0.0.1:7340`, the OSC gateway). `@julusian/midi` is an optional install,
-  not a runtime dependency: the app and sidecar stay zero-dependency, and the
-  bridge prints an install hint if the module is absent. Any OSC source can
-  play Oscine the same way by sending `/oscine/midi/in`, so a controller on any
-  surface, including a phone over the local network, becomes an input.
-
-- Performance ledger: an always-on, bounded log of what you play live (on-screen
-  keys, computer keyboard, drum pads, and hardware/OSC MIDI). It records even
-  when the transport is stopped (free play), wall-clock time-stamping each event
-  and adding the musical beat when the transport is running. The `ledger` command
-  reads it back, with a derived view that pairs note-ons with note-offs into
-  played notes and lists drum hits, so an agent can transcribe a phrase straight
-  into `set_notes`/`set_steps`. Agent auditions (`preview`) are not recorded,
-  only your own play. This is the observer half of the agent surface that makes
-  the jam loop real.
-
-Planned, roughly in order of effort (see `ROADMAP.md` for the full picture):
-
-- Song arrangement: a timeline view that sequences slot patterns into a song.
-  The transport already segments scheduling windows; an arrangement is a map of
-  bar -> slot per track.
-- Per-step locks, probability, ratchets: a step-schema extension plus scheduler
-  support, and a new vocabulary for an agent to drive.
-- Per-track insert effects and automation: the channel strip is already a node
-  chain; inserts are an array between gain and panner, and automation lanes are
-  time-indexed param events scheduled in the same windows as notes.
-- Audio/sample tracks: a new instrument kind whose patterns hold clip
-  references; `decodeAudioData` + `AudioBufferSourceNode` slots into the
-  existing channel strip unchanged.
-- Worker clock and OSC timetag scheduling: move the timer into a Worker so
-  background tabs keep steady time, and honor OSC bundle timetags for
-  sample-tight external sequencing.
-
-New features land as catalog commands first, UI second; OSC, MCP, and MIDI then
-consume them for free.
+`docs/north-star.md` is the short version: Oscine is the persistent side of a
+voice. `ROADMAP.md` has the ordered list. `CHANGELOG.md` has what shipped when.
+The DAW research behind recent decisions (manuals, format specs, and three
+reports) lives in the cog workspace under `.cog/mem/semantic/research/daw/`.
 
 ## Notes
 
-- Param knob tweaks are intentionally outside undo history; structural edits
-  (notes, steps, tracks, slots, presets) are undoable.
-- Shortening a slot's bar count keeps note/step data beyond the loop end in the
-  file; it just does not play until you lengthen the loop again.
-- Chrome, Firefox, and Safari current versions all work. Safari needs one
-  interaction before sound starts (autoplay policy), same as the others, and
-  has no WebMIDI (use the OSC bridge for hardware there).
+- Param knob tweaks are outside undo history; structural edits are undoable,
+  one step per gesture.
+- Current Chrome, Firefox and Safari work. Safari has no WebMIDI (use the OSC
+  bridge) and can't reach a local sidecar from the hosted page.

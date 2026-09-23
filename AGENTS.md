@@ -2,9 +2,9 @@
 
 Guidance for AI agents and humans working in the Oscine codebase. Oscine
 is itself agent-controllable at runtime (MCP + OSC); this file is about
-editing its *source*. Read `README.md` for what the app is, `ROADMAP.md`
-for what's planned next (and what's already shipped), and
-`docs/landscape.md` for the competitive research behind those calls.
+editing its *source*. Read `README.md` for what the app is,
+`docs/north-star.md` for what it's for, `ROADMAP.md` for what's next, and
+`CHANGELOG.md` for what shipped when.
 
 ## The one rule that matters
 
@@ -23,6 +23,11 @@ JSON Schema), implement `cmd_<name>` in `src/api/api.js`. It then surfaces
 automatically as an `oscine_<name>` MCP tool and, if you add a route, in
 `plugin/server/osc-gateway.js`. The smoke tests fail if a catalog command
 has no handler.
+
+**Known debt:** the arrangement side (clips, lanes, markers, cycle, inserts,
+automation, transcripts) was built UI-first in v2.0 and v2.1 and has no
+catalog commands yet. Don't add to that debt: new arrangement features get a
+command. Paying it back is the first item in `ROADMAP.md`.
 
 ## Architecture invariants
 
@@ -64,18 +69,34 @@ edit files under `plugin/app/` directly; edit the real sources and resync.
 ## Tests (run before committing)
 
 ```sh
-node test/smoke.mjs      # zero-dep: import graph, store, scheduler math,
-                         # every API command headless, OSC codec+routing,
-                         # plugin bundle integrity
-node test/e2e-mcp.mjs    # full chain: real MCP stdio -> sidecar -> WS ->
-                         # OSC UDP -> headless Chromium running the app.
-                         # Needs playwright-core + CHROME_BIN; skips
-                         # cleanly if absent.
+node test/smoke.mjs        # zero-dep: import graph, store, scheduler math,
+                           # every API command headless, OSC codec+routing,
+                           # plugin bundle integrity
+node test/keymap.mjs       # scheme bindings (each cites its manual page)
+node test/automation.mjs   # envelope grammar, shapes, scheduling math
+node test/ear.mjs          # analysis vs synthetic ground truth
+node test/timedtext.mjs    # transcript formats round-trip
+node test/stretch.mjs      # phase vocoder
+node test/fx-<name>.mjs    # one per effect (shared fake AudioContext in
+                           # test/fx-fake-ctx.mjs)
+node test/e2e-mcp.mjs      # full chain: real MCP stdio -> sidecar -> WS ->
+                           # OSC UDP -> headless Chromium running the app.
+                           # Needs playwright-core + CHROME_BIN; skips
+                           # cleanly if absent.
 ```
 
 Add coverage when you add behavior. The smoke suite is the contract guard:
 new commands get a headless execution check, new OSC addresses get a
 routing-table entry.
+
+**UI changes are verified by gesture, not by parse.** Drive a headless
+Chrome over the DevTools protocol against the dev sidecar
+(`scripts/dev-sidecar.sh`), dispatch real mouse and key events at
+coordinates computed from `window.oscine.app.timeline` geometry, and read
+the result back from `window.oscine.store.project`. For audio behavior,
+render with `render.js` in the page and measure (RMS in a window is usually
+enough). Undo after mutating tests, and never save the user's project from a
+test. Put the numbers in the commit message.
 
 ## Automation that enforces this
 
@@ -101,10 +122,12 @@ routing-table entry.
 
 ## Conventions
 
-- **Versioning**: bump `plugin/.claude-plugin/plugin.json` and
-  `SERVER_VERSION` in `plugin/server/oscine-mcp.mjs` on any plugin/sidecar
-  change, then resync and repackage
-  (`cd plugin && zip -r oscine.plugin . -x "*.DS_Store"`).
+- **Versioning**: bump `version` in `package.json`,
+  `plugin/.claude-plugin/plugin.json`, and `SERVER_VERSION` in
+  `plugin/server/oscine-mcp.mjs` together, add a `CHANGELOG.md` entry,
+  then resync and repackage
+  (`cd plugin && zip -r ../oscine.plugin . -x "*.DS_Store"`). Tag releases
+  `vX.Y.Z`.
 - **Releasing**: after a version bump merges to `main`, update the local
   install with `npm run release:local` (refreshes the marketplace and runs
   `claude plugin update oscine`). The repo root is itself a plugin
@@ -120,6 +143,23 @@ routing-table entry.
   `BaseInstrument`, `defineInstrument({...})` with a param schema, import
   it from `instruments/index.js`. It then gets an inspector, presets,
   mixer strip, sequencing, and full API/MCP/OSC control for free.
+- **Effects**: one file in `src/engine/effects/`, `defineEffect({...})`
+  with a param schema and at least five presets, subclass `BaseEffect`,
+  build between `wetIn` and `wetOut`, implement `applyParam` with short
+  `setTargetAtTime` ramps, call `applyAll()` last in the constructor, and
+  import it from `effects/index.js`. Implement `paramNode(key)` when a param
+  maps to a real AudioParam so automation can schedule it exactly. Add
+  `test/fx-<type>.mjs`.
+- **Keys and drag modifiers live in `core/keymap.js`.** UI code asks
+  `keymap.action(e, scopes)` or `keymap.gesture(name, e)`; it never tests
+  `e.code`, `e.shiftKey` and friends directly. Scheme bindings for other DAWs
+  cite the manual page they came from, or say they're not in that DAW.
+- **Arrangement time is seconds.** Placements, markers, the cycle and
+  lane automation are in song seconds; clip envelopes are in clip-local
+  seconds so they travel with the clip; asset words are in source seconds.
+  Pattern notes stay in beats.
+- **Clip gain and clip automation stack.** An envelope is relative to the
+  clip's own `gainDb`, as in every major DAW.
 - **Zero runtime dependencies.** The app ships no bundler and no npm deps;
   the sidecar uses only node built-ins. Keep it that way. Dev-only tools
   (playwright for e2e) are fine but must never be required to run.
