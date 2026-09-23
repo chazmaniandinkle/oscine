@@ -25,7 +25,8 @@ const AUTO_H = 44;   // automation sub-lane height
 const PT_R = 4;      // automation point radius
 const LANE_COLORS = { bed: '#7aa2ff', vocal: '#5ce0a8', carl: '#ff8a4c' };
 // Gutter hit zones (x from left), shared by paint + hit-test.
-const BTN = { m: [GUTTER_W - 60, 22], s: [GUTTER_W - 34, 22], a: [GUTTER_W - 86, 22] }; // [x, w]
+const BTN_Y = 31, BTN_H = 16; // A/M/S sit on the second row, right of the dB readout
+const BTN = { a: [GUTTER_W - 72, 20], m: [GUTTER_W - 50, 20], s: [GUTTER_W - 28, 20] }; // [x, w]
 const GAIN_Y = 40; // baseline of the dB readout; vertical drag over it sets gain
 
 function cssVar(name, fallback) {
@@ -525,7 +526,7 @@ export class Timeline {
       const li = this.laneIndexAt(y), lane = this.lanes()[li];
       if (!lane) return;
       const ly = y - this.laneY(li);
-      const inBtn = (b) => x >= b[0] && x <= b[0] + b[1] && ly >= 8 && ly <= 26;
+      const inBtn = (b) => x >= b[0] && x <= b[0] + b[1] && ly >= BTN_Y - 2 && ly <= BTN_Y + BTN_H + 2;
       if (inBtn(BTN.a)) {
         // Toggle the automation sub-lane (gain envelope) for this lane.
         this.autoOpen ??= new Set();
@@ -762,7 +763,7 @@ export class Timeline {
       // Gutter: pointer over M/S/+lane, ns-resize over the gain bar.
       if (x < GUTTER_W && y >= RULER_H) {
         const li = this.laneIndexAt(y), ly = y - this.laneY(li);
-        const overBtn = li < this.lanes().length && ly >= 8 && ly <= 26 && [BTN.a, BTN.m, BTN.s].some(b => x >= b[0] && x <= b[0] + b[1]);
+        const overBtn = li < this.lanes().length && ly >= BTN_Y - 2 && ly <= BTN_Y + BTN_H + 2 && [BTN.a, BTN.m, BTN.s].some(b => x >= b[0] && x <= b[0] + b[1]);
         const overGain = li < this.lanes().length && ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12;
         const overAdd = li === this.lanes().length && ly <= 28;
         this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd) ? 'pointer' : li < this.lanes().length ? 'grab' : 'default';
@@ -1119,19 +1120,19 @@ export class Timeline {
       if (lane.id === this.selectedLane) { g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(0.5, y + 0.5, GUTTER_W - 1, LANE_H - 2); }
       g.fillStyle = col; g.globalAlpha = audible ? 1 : 0.35; g.fillRect(0, y, 3, LANE_H - 1); g.globalAlpha = 1;
       g.fillStyle = audible ? text : faint; g.font = '12px system-ui, sans-serif';
-      // Name: ellipsize to the space left of the A/M/S buttons.
+      // Name: row 1, the full gutter width (ellipsized only if it truly won't fit).
       {
-        const maxW = BTN.a[0] - 10 - 6, full = lane.name || lane.id;
+        const maxW = GUTTER_W - 10 - 8, full = lane.name || lane.id;
         let s = full;
         if (g.measureText(s).width > maxW) { while (s.length > 1 && g.measureText(s + '…').width > maxW) s = s.slice(0, -1); s += '…'; }
         g.fillText(s, 10, y + 17);
       }
-      // M / S buttons
+      // A / M / S buttons: row 2, right of the dB readout
       const btn = (b, label, on, onCol) => {
-        g.fillStyle = on ? onCol : cssVar('--bg-2', '#171b26'); g.fillRect(b[0], y + 8, b[1], 18);
-        g.strokeStyle = on ? onCol : line; g.strokeRect(b[0] + 0.5, y + 8.5, b[1] - 1, 17);
-        g.fillStyle = on ? '#0b0d12' : text; g.font = 'bold 11px system-ui, sans-serif';
-        g.fillText(label, b[0] + 7, y + 17);
+        g.fillStyle = on ? onCol : cssVar('--bg-2', '#171b26'); g.fillRect(b[0], y + BTN_Y, b[1], BTN_H);
+        g.strokeStyle = on ? onCol : line; g.strokeRect(b[0] + 0.5, y + BTN_Y + 0.5, b[1] - 1, BTN_H - 1);
+        g.fillStyle = on ? '#0b0d12' : text; g.font = 'bold 10px system-ui, sans-serif';
+        g.textAlign = 'center'; g.fillText(label, b[0] + b[1] / 2, y + BTN_Y + BTN_H / 2 + 0.5); g.textAlign = 'left';
       };
       btn(BTN.a, 'A', !!this.autoOpen?.has(lane.id), col);
       btn(BTN.m, 'M', !!lane.mute, '#e3a13a');

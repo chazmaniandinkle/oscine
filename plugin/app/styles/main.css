@@ -87,8 +87,19 @@ html, body {
 .lyr-break { color: var(--line); padding: 0 4px; }
 
 /* ---------- mixer: lane strips + inserts ---------- */
-.lane-strip { min-width: 172px; }
-.lane-strip .strip-name { white-space: normal; line-height: 1.15; max-height: 2.4em; overflow: hidden; font-size: 11px; }
+.lane-strip { min-width: 150px; }
+.arr-master { border-color: var(--accent-soft, #3a2b30); background: color-mix(in srgb, var(--bg-2) 85%, #e33a41 15%); }
+.arr-master .strip-name { letter-spacing: 0.1em; text-transform: uppercase; }
+.lane-strip .strip-name { max-width: 136px; font-size: 10.5px; min-height: 13px; flex: none; }
+/* Keep a strip inside the mixer body: the fader flexes, the rest is fixed. */
+.mixer.open .mixer-body .strip { height: 100%; box-sizing: border-box; min-height: 0; }
+.mixer.open .mixer-body .strip .strip-fade { flex: 1 1 auto; min-height: 40px; height: auto; }
+.mixer.open .mixer-body .strip .fader { min-height: 0; }
+.mixer.open .mixer-body .strip > :not(.strip-fade) { flex: none; }
+/* Pan knob is a small inline control on lane strips, not a 53 px block. */
+.lane-strip .strip-knobs { transform: scale(0.8); transform-origin: top center; margin-bottom: -10px; }
+.lane-strip .strip-knobs .knob-label { display: none; }
+.lane-strip .inserts { margin: 2px 0; }
 .strip-db { font-family: var(--mono, ui-monospace, monospace); font-size: 10px; color: var(--dim); text-align: center; margin-top: 2px; }
 .inserts { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; min-height: 22px; }
 .insert-row { display: flex; align-items: center; gap: 2px; }

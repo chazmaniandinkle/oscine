@@ -224,19 +224,23 @@ export class Mixer {
     const { store, app } = this;
     const arr = store.project.arrangement;
     arr.master = arr.master ?? { inserts: [] };
-    const strip = el('div', 'strip master-strip');
+    const strip = el('div', 'strip lane-strip arr-master');
     strip.appendChild(el('div', 'strip-name', 'Master'));
     strip.appendChild(this.buildInserts(arr.master, 'Master'));
     const fadeWrap = el('div', 'strip-fade');
+    const dbOut = el('div', 'strip-db', '');
+    const showDb = (v) => { const g = v * 1.2; dbOut.textContent = g > 0 ? `${(20 * Math.log10(g)).toFixed(1)} dB` : '−∞ dB'; };
     const fader = Fader({
       value: store.project.masterVolume / 1.2, default: 0.85 / 1.2,
-      onInput: v => store.setSetting('masterVolume', v * 1.2),
+      onInput: v => { store.setSetting('masterVolume', v * 1.2); showDb(v); },
     });
-    this.widgets.set('masterVolume', { set: v => fader.set(v / 1.2) });
+    this.widgets.set('masterVolume', { set: v => { fader.set(v / 1.2); showDb(v / 1.2); } });
     const meter = Meter();
     this.meters.set('master', meter);
     fadeWrap.append(fader.root, meter.root);
     strip.appendChild(fadeWrap);
+    showDb(store.project.masterVolume / 1.2);
+    strip.appendChild(dbOut);
     return strip;
   }
 
