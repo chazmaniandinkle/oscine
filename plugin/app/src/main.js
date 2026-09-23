@@ -7,6 +7,7 @@ import { EventBus } from './core/bus.js';
 import { Store } from './core/store.js';
 import { loadInitialProject, attachAutosave } from './core/persist.js';
 import { AssetCache } from './core/assets.js';
+import { EarClient } from './engine/ear.js';
 import { getCtx, ensureRunning } from './engine/context.js';
 import { AudioEngine } from './engine/engine.js';
 import { Transport } from './engine/transport.js';
@@ -30,6 +31,11 @@ const transport = new Transport(getCtx(), store, bus);
 // (playback) both read arrangement assets, and the bytes should decode once.
 const assetCache = new AssetCache(getCtx());
 transport.assetCache = assetCache;
+// The ear runs in a worker so measurement never blocks the UI. Every asset
+// gets profiled (pitch/level/tone tracks) once it's decoded, in the
+// background, so range queries can be answered from cache.
+const ear = new EarClient();
+assetCache.onDecoded = (assetId, buffer) => { ear.profile(assetId, buffer).then(() => bus.emit('ear:profiled', { assetId })).catch(() => {}); };
 attachAutosave(store, bus, tabId);
 
 // Same-origin cross-tab coordination: presence roster + exclusive ownership
@@ -50,7 +56,7 @@ bridge.start();
 // rather than the autosaved one. Bad/foreign fragments are ignored.
 await maybeLoadSharedSong(store);
 
-const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab, assetCache });
+const app = new App(document.getElementById('app'), { store, bus, engine, transport, api, crosstab, assetCache, ear });
 
 // Reopen the last project document on reload (?p=<rel> in the URL wins, then
 // localStorage). Quiet, after the UI exists so the timeline routes. A share

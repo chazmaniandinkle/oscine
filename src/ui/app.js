@@ -34,9 +34,10 @@ const MOBILE_PANELS = [
 ];
 
 export class App {
-  constructor(rootEl, { store, bus, engine, transport, api, crosstab, assetCache }) {
+  constructor(rootEl, { store, bus, engine, transport, api, crosstab, assetCache, ear }) {
     this.store = store;
     this.bus = bus;
+    this.ear = ear ?? null;
     this.engine = engine;
     this.transport = transport;
     this.api = api;

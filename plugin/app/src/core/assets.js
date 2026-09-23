@@ -57,6 +57,9 @@ export class AssetCache {
       const buffer = await this.ctx.decodeAudioData(arrayBuffer);
       this.buffers.set(sha256, buffer);
       this.inFlight.delete(sha256);
+      // Hook for background work on freshly decoded bytes (the ear profiles
+      // every asset here). Keyed by assetId so callers can look it up.
+      try { this.onDecoded?.(assetId, buffer); } catch {}
       return buffer;
     })();
     this.inFlight.set(sha256, promise);

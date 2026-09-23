@@ -8,7 +8,7 @@
 import { el, NumberDrag, Btn } from './widgets.js';
 import { wordsFor } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
-import { analyzeSpan, compareSpans, describe, describeDelta } from '../engine/ear.js';
+import { analyzeSpan, compareSpans, describe, describeDelta, summarizeTracks } from '../engine/ear.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
 const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}`;
@@ -206,42 +206,66 @@ export class RangeInspector {
     host.appendChild(body);
     const key = `${sel.laneId}:${sel.range.a.toFixed(3)}:${sel.range.b.toFixed(3)}`;
     this.pending = key;
-    this.bounceSpan(sel).then(({ x, sr, words }) => {
+    this.measure(sel).then(r => {
       if (this.pending !== key) return;
-      const r = analyzeSpan(x, sr, { words });
-      body.textContent = '';
-      const lines = el('div', 'ear-lines');
-      for (const l of describe(r, 'range')) lines.appendChild(el('div', 'ear-line', l));
-      body.appendChild(lines);
-      if (r.pace?.text) { const t = el('div', 'ear-text', r.pace.text); t.title = 'words the source transcript places in this range'; body.appendChild(t); }
-      // pitch contour sparkline
-      if (r.pitch?.track?.length) {
-        const cv = el('canvas', 'ear-spark'); cv.width = 300; cv.height = 48; body.appendChild(cv);
-        const g = cv.getContext('2d'); g.fillStyle = '#11141c'; g.fillRect(0, 0, 300, 48);
-        const v = r.pitch.track.filter(p => p.hz && p.clarity > 0.6);
-        if (v.length) {
-          const lo = r.pitch.lowMidi - 2, hi = r.pitch.highMidi + 2;
-          g.fillStyle = lane?.color || '#5ce0a8';
-          for (const p of r.pitch.track) {
-            if (!p.hz || p.clarity <= 0.6) continue;
-            const m = 69 + 12 * Math.log2(p.hz / 440);
-            g.fillRect(p.t / r.duration * 300, 48 - (m - lo) / (hi - lo) * 48, 2, 2);
-          }
-          g.fillStyle = '#8891a5'; g.font = '9px system-ui'; g.fillText(r.pitch.high, 2, 9); g.fillText(r.pitch.low, 2, 46);
-        }
-      }
-      const acts = el('div', 'clip-actions');
-      acts.appendChild(Btn(this.pinned ? 'Pin as A (replace)' : 'Pin as A', () => { this.pinned = { label: title.textContent, result: r }; this.render(); }));
-      if (this.pinned) acts.appendChild(Btn('Clear A', () => { this.pinned = null; this.render(); }));
-      body.appendChild(acts);
-      if (this.pinned && this.pinned.label !== title.textContent) {
-        const d = compareSpans(this.pinned.result, r);
-        const cmp = el('div', 'insp-group'); cmp.appendChild(el('div', 'insp-group-title', `vs A · ${this.pinned.label}`));
-        for (const l of describeDelta(d, 'A', 'this')) cmp.appendChild(el('div', 'ear-line', l));
-        body.appendChild(cmp);
-      }
+      this.paint(body, title, lane, r);
     }).catch(err => { body.textContent = ''; body.appendChild(el('div', 'clip-hint', 'ear: ' + err.message)); });
     return true;
+  }
+
+  // Fast path: the range lies within ONE placement with no stretch/rate AND
+  // that source's profile is already cached -> slice it (no sample work).
+  // Otherwise bounce the exact audio and analyze it in the worker. Never
+  // wait on a background profile: those run serially and can take minutes
+  // for a whole album's worth of stems.
+  async measure(sel) {
+    const ear = this.app.ear, arr = this.store.project.arrangement, proj = this.store.project;
+    if (ear && sel.indices.length === 1) {
+      const p = arr.placements[sel.indices[0]], c = proj.clips[p.clip];
+      const sp = (c.stretch ?? 1) / (c.rate ?? 1);
+      if (c && Math.abs(sp - 1) < 1e-6 && sel.range.a >= p.at && sel.range.b <= p.at + (c.out - c.in) && ear.hasProfile(c.sourceOf)) {
+        const prof = await ear.profile(c.sourceOf);
+        const a = c.in + (sel.range.a - p.at), b = c.in + (sel.range.b - p.at);
+        const words = wordsFor(proj, c).map(w => ({ start: p.at + w.start - sel.range.a, end: p.at + w.end - sel.range.a, word: w.word }));
+        return summarizeTracks(prof, a, b, { words, gainDb: c.gainDb || 0 });
+      }
+    }
+    const { x, sr, words } = await this.bounceSpan(sel);
+    if (ear) return ear.analyze(x, sr, words);
+    return analyzeSpan(x, sr, { words });
+  }
+
+  paint(body, title, lane, r) {
+    body.textContent = '';
+    const lines = el('div', 'ear-lines');
+    for (const l of describe(r, r.cached ? 'range (cached)' : 'range')) lines.appendChild(el('div', 'ear-line', l));
+    body.appendChild(lines);
+    if (r.pace?.text) { const t = el('div', 'ear-text', r.pace.text); t.title = 'words the source transcript places in this range'; body.appendChild(t); }
+    if (r.pitch?.track?.length) {
+      const cv = el('canvas', 'ear-spark'); cv.width = 300; cv.height = 48; body.appendChild(cv);
+      const g = cv.getContext('2d'); g.fillStyle = '#11141c'; g.fillRect(0, 0, 300, 48);
+      const v = r.pitch.track.filter(p => p.hz && p.clarity > 0.6);
+      if (v.length) {
+        const lo = r.pitch.lowMidi - 2, hi = r.pitch.highMidi + 2;
+        g.fillStyle = lane?.color || '#5ce0a8';
+        for (const p of r.pitch.track) {
+          if (!p.hz || p.clarity <= 0.6) continue;
+          const m = 69 + 12 * Math.log2(p.hz / 440);
+          g.fillRect(p.t / r.duration * 300, 48 - (m - lo) / (hi - lo) * 48, 2, 2);
+        }
+        g.fillStyle = '#8891a5'; g.font = '9px system-ui'; g.fillText(r.pitch.high, 2, 9); g.fillText(r.pitch.low, 2, 46);
+      }
+    }
+    const acts = el('div', 'clip-actions');
+    acts.appendChild(Btn(this.pinned ? 'Pin as A (replace)' : 'Pin as A', () => { this.pinned = { label: title.textContent, result: r }; this.render(); }));
+    if (this.pinned) acts.appendChild(Btn('Clear A', () => { this.pinned = null; this.render(); }));
+    body.appendChild(acts);
+    if (this.pinned && this.pinned.label !== title.textContent) {
+      const d = compareSpans(this.pinned.result, r);
+      const cmp = el('div', 'insp-group'); cmp.appendChild(el('div', 'insp-group-title', `vs A · ${this.pinned.label}`));
+      for (const l of describeDelta(d, 'A', 'this')) cmp.appendChild(el('div', 'ear-line', l));
+      body.appendChild(cmp);
+    }
   }
 }
 

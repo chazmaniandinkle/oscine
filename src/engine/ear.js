@@ -116,6 +116,87 @@ export function pitchTrack(x, sr, { win = 2048, hop = 512, fmin = 60, fmax = 120
 function median(arr) { if (!arr.length) return null; const s = [...arr].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 function quantile(arr, q) { if (!arr.length) return null; const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; }
 
+// Summarize pre-computed tracks over [a, b) seconds -- the cached path.
+// Same output shape as analyzeSpan, minus peak/crest (not in the tracks).
+export function summarizeTracks(profile, a, b, { words = null, gainDb = 0 } = {}) {
+  const inR = t => t.t >= a && t.t < b;
+  const lv = profile.level.filter(inR).map(l => l.db + gainDb).filter(d => d > -80);
+  const ct = profile.tone.filter(inR).map(c => c.hz).filter(h => h > 0);
+  const pt = profile.pitch.filter(inR);
+  const voiced = pt.filter(p => p.hz && p.clarity > 0.6);
+  const midis = voiced.map(p => hzToMidi(p.hz));
+  const dur = b - a;
+  const rmsDb = lv.length ? dB(Math.sqrt(lv.reduce((s, d) => s + Math.pow(10, d / 10), 0) / lv.length)) : -100;
+  const out = {
+    duration: dur, cached: true,
+    level: { rmsDb, peakDb: quantile(lv, 1) ?? -100, medianDb: median(lv), loudestDb: quantile(lv, 0.95), quietestDb: quantile(lv, 0.05) },
+    tone: { centroidHz: median(ct) },
+    pitch: {
+      voicedPct: pt.length ? Math.round(100 * voiced.length / pt.length) : 0,
+      medianMidi: median(midis), lowMidi: quantile(midis, 0.05), highMidi: quantile(midis, 0.95),
+      track: pt.map(p => ({ t: p.t - a, hz: p.hz, clarity: p.clarity })),
+    },
+  };
+  out.level.crestDb = out.level.peakDb - out.level.rmsDb;
+  if (out.pitch.medianMidi != null) {
+    out.pitch.median = midiToName(out.pitch.medianMidi); out.pitch.low = midiToName(out.pitch.lowMidi); out.pitch.high = midiToName(out.pitch.highMidi);
+    out.pitch.rangeSemitones = Math.round(out.pitch.highMidi - out.pitch.lowMidi);
+  }
+  if (words?.length) out.pace = paceOf(words, dur);
+  return out;
+}
+
+// Main-thread client for ear-worker.js. TWO workers: one for interactive
+// queries (analyze), one for background profiling -- so a range query never
+// queues behind a 4-minute stem being profiled.
+export class EarClient {
+  constructor(url = new URL('./ear-worker.js', import.meta.url)) {
+    const mk = () => typeof Worker !== 'undefined' ? new Worker(url, { type: 'module' }) : null;
+    this.worker = mk(); this.bgWorker = mk();
+    this.pending = new Map(); this.seq = 0;
+    this.profiles = new Map(); // assetId -> profile | Promise
+    const onmsg = (ev) => {
+      const { id, result, profile, error } = ev.data, p = this.pending.get(id);
+      if (!p) return; this.pending.delete(id);
+      error ? p.reject(new Error(error)) : p.resolve(result ?? profile);
+    };
+    if (this.worker) this.worker.onmessage = onmsg;
+    if (this.bgWorker) this.bgWorker.onmessage = onmsg;
+  }
+  _send(msg, transfer = [], worker = this.worker) {
+    if (!worker) return Promise.reject(new Error('no Worker'));
+    const id = ++this.seq;
+    return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); worker.postMessage({ id, ...msg }, transfer); });
+  }
+  analyze(x, sr, words = null) { return this._send({ cmd: 'analyze', x, sr, words }, [x.buffer]); }
+  // Mono-sum a buffer to a fresh Float32Array (transferable).
+  static mono(buffer) {
+    const n = buffer.length, ch = buffer.numberOfChannels, out = new Float32Array(n);
+    for (let c = 0; c < ch; c++) { const d = buffer.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / ch; }
+    return out;
+  }
+  profile(assetId, buffer) {
+    if (this.profiles.has(assetId)) return Promise.resolve(this.profiles.get(assetId));
+    if (!buffer) return Promise.reject(new Error('no buffer to profile'));
+    const x = EarClient.mono(buffer);
+    const p = this._send({ cmd: 'profile', x, sr: buffer.sampleRate }, [x.buffer], this.bgWorker).then(pr => { this.profiles.set(assetId, pr); return pr; });
+    this.profiles.set(assetId, p);
+    return p;
+  }
+  hasProfile(assetId) { const p = this.profiles.get(assetId); return !!p && !(p instanceof Promise); }
+}
+function paceOf(words, dur) {
+  const inSpan = words.filter(w => w.end > 0 && w.start < dur);
+  const sung = inSpan.reduce((s, w) => s + Math.max(0, Math.min(w.end, dur) - Math.max(w.start, 0)), 0);
+  return {
+    words: inSpan.length,
+    wordsPerSec: +(inSpan.length / Math.max(0.1, dur)).toFixed(2),
+    wordsPerSecSung: +(inSpan.length / Math.max(0.1, sung)).toFixed(2),
+    longest: inSpan.slice().sort((a, b) => (b.end - b.start) - (a.end - a.start))[0] ?? null,
+    text: inSpan.map(w => w.word).join(' '),
+  };
+}
+
 // Everything about one span of mono samples. `words` are {start,end,word}
 // already offset to the span (seconds from span start), optional.
 export function analyzeSpan(x, sr, { words = null, pitch = true } = {}) {
