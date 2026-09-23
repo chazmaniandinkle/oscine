@@ -63,6 +63,29 @@ export class AssetCache {
     return promise;
   }
 
+  // Derived variant: the same bytes put through a transform (time-stretch /
+  // pitch-shift). Cached by content hash + params -- the tier-3 cache key --
+  // so two clips asking for the same stretch of the same source share one
+  // render, and a clip that goes back to 1.0 hits the plain decode again.
+  async getDerived(project, assetId, variantName = null, params = {}, baseUrl = project.baseUrl ?? '') {
+    const asset = project.assets[assetId];
+    if (!asset) throw new Error(`no such asset ${assetId}`);
+    const { sha256 } = pickVariant(asset, variantName);
+    const { derivedKey, stretchBuffer } = await import('../engine/stretch.js');
+    const key = derivedKey(sha256, params);
+    if (this.buffers.has(key)) return this.buffers.get(key);
+    if (this.inFlight.has(key)) return this.inFlight.get(key);
+    const promise = (async () => {
+      const src = await this.getBuffer(project, assetId, variantName, baseUrl);
+      const out = stretchBuffer(this.ctx, src, params);
+      this.buffers.set(key, out);
+      this.inFlight.delete(key);
+      return out;
+    })();
+    this.inFlight.set(key, promise);
+    return promise;
+  }
+
   // Max-abs per bin, mono-summed across channels — cheap waveform data for
   // drawing without re-walking the full buffer on every repaint/zoom.
   // Memoized per (sha256, bins) since a given buffer is usually redrawn at

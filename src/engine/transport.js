@@ -43,6 +43,9 @@ export class Transport {
       // the engine rebuilds its channels off the same event.
       this.setBpm(store.project.bpm);
     });
+    // Lane mix edits (gain/mute/solo) apply to the running clip player
+    // immediately; clip moves/trims take effect on the next play().
+    bus.on('lanes:changed', () => { this.clipPlayer?.applyLanes(); });
   }
 
   // -- beat/time math ----------------------------------------------------

@@ -27,10 +27,16 @@ export class ClipPlayer {
 
     // One GainNode per track ("lane") so per-track mixing (mute/volume) has
     // a single node to act on later, without touching per-source gains.
+    // Initial value comes from arrangement.lanes[].gainDb / .mute (solo wins).
     this.laneGains = { ...laneGains };
+    const lanes = project.arrangement?.lanes ?? [];
+    const anySolo = lanes.some(l => l.solo);
     for (const p of project.arrangement?.placements ?? []) {
       if (!this.laneGains[p.track]) {
         const g = ctx.createGain();
+        const lane = lanes.find(l => l.id === p.track);
+        const audible = lane ? (anySolo ? !!lane.solo : !lane.mute) : true;
+        g.gain.value = audible ? dbToGain(lane?.gainDb ?? 0) : 0;
         g.connect(this.destination);
         this.laneGains[p.track] = g;
       }
@@ -42,16 +48,27 @@ export class ClipPlayer {
 
   // Decode every buffer a placement's clip needs before start() can run
   // without an audible gap. representation === null means "default variant"
-  // (see schema.js createClip).
+  // (see schema.js createClip). Clips with a decoupled stretch/semitones
+  // get a *derived* buffer (phase vocoder), cached on the AssetCache by
+  // content hash + params so repeated plays don't re-render.
   async prepare() {
     const placements = this.project.arrangement?.placements ?? [];
     const jobs = placements.map(async (p) => {
       const clip = this.project.clips[p.clip];
       if (!clip || this.buffers.has(clip.id)) return;
-      const buffer = await this.assetCache.getBuffer(this.project, clip.sourceOf, clip.representation);
+      let buffer = await this.assetCache.getBuffer(this.project, clip.sourceOf, clip.representation);
+      const st = clip.stretch ?? 1, semi = clip.semitones ?? 0;
+      if (Math.abs(st - 1) > 1e-4 || Math.abs(semi) > 1e-4) {
+        buffer = await this.assetCache.getDerived(this.project, clip.sourceOf, clip.representation, { stretch: st, semitones: semi });
+      }
       this.buffers.set(clip.id, buffer);
     });
     await Promise.all(jobs);
+  }
+
+  // Seconds a placement occupies on the timeline, after stretch/rate.
+  static placedDuration(clip) {
+    return (clip.out - clip.in) * (clip.stretch ?? 1) / (clip.rate ?? 1);
   }
 
   // Schedule every placement overlapping [fromSeconds, +inf) to start at
@@ -65,12 +82,17 @@ export class ClipPlayer {
       const buffer = this.buffers.get(clip.id);
       if (!buffer) continue; // not decoded (prepare() wasn't awaited for it)
 
-      const clipDur = clip.out - clip.in;
+      // Derived (vocoder) buffers are already stretched: in/out map through
+      // `stretch`. `rate` is the cheap tape-style path on the node itself
+      // (speed and pitch move together); `detune` (cents) rides with it.
+      const st = clip.stretch ?? 1, rate = clip.rate ?? 1;
+      const srcIn = clip.in * st, srcOut = clip.out * st;
+      const clipDur = (srcOut - srcIn) / rate;
       const placementEnd = p.at + clipDur;
       if (placementEnd <= fromSeconds) continue; // fully in the past
 
       const skip = Math.max(0, fromSeconds - p.at); // seconds trimmed off the front
-      const offset = clip.in + skip;
+      const offset = srcIn + skip * rate;
       const duration = clipDur - skip;
       if (duration <= 0) continue;
 
@@ -78,6 +100,8 @@ export class ClipPlayer {
 
       const source = this.ctx.createBufferSource();
       source.buffer = buffer;
+      if (rate !== 1) source.playbackRate.value = rate;
+      if (clip.detune) source.detune.value = clip.detune;
 
       const gain = this.ctx.createGain();
       const base = dbToGain(clip.gainDb || 0);
@@ -95,7 +119,7 @@ export class ClipPlayer {
 
       const lane = this.laneGains[p.track] ?? this.destination;
       source.connect(gain).connect(lane);
-      source.start(startAt, offset, duration);
+      source.start(startAt, offset, duration * rate);
 
       this.liveNodes.push({ source, gain });
     }
@@ -113,6 +137,22 @@ export class ClipPlayer {
     this.liveNodes = [];
   }
 
+  // Live mix update: re-read lanes[].gainDb/mute/solo and ramp each lane's
+  // GainNode over ~30 ms so a fader move during playback doesn't click.
+  applyLanes() {
+    const lanes = this.project.arrangement?.lanes ?? [];
+    const anySolo = lanes.some(l => l.solo);
+    const t = this.ctx.currentTime;
+    for (const [id, g] of Object.entries(this.laneGains)) {
+      const lane = lanes.find(l => l.id === id);
+      const audible = lane ? (anySolo ? !!lane.solo : !lane.mute) : true;
+      const target = audible ? dbToGain(lane?.gainDb ?? 0) : 0;
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(target, t + 0.03);
+    }
+  }
+
   // Arrangement length in seconds: explicit length wins, else the end of
   // the last placement.
   static duration(project) {
@@ -123,7 +163,7 @@ export class ClipPlayer {
     for (const p of arr.placements) {
       const clip = project.clips[p.clip];
       if (!clip) continue;
-      end = Math.max(end, p.at + (clip.out - clip.in));
+      end = Math.max(end, p.at + ClipPlayer.placedDuration(clip));
     }
     return end;
   }

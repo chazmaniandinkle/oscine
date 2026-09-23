@@ -202,6 +202,16 @@ export class App {
         this.transport.toggle();
         return;
       }
+      // Timeline editing keys (only when the arrangement view is showing).
+      if (this.timeline.active && !typing && !e.metaKey && !e.ctrlKey) {
+        if (e.code === 'KeyS') { e.preventDefault(); this.timeline.splitAtPlayhead(); return; }
+        if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+          e.preventDefault();
+          this.timeline.nudgeSelected(e.code === 'BracketRight' ? 1 : -1, e.shiftKey ? 'gainDb' : 'semitones');
+          return;
+        }
+        if (e.code === 'Backspace' || e.code === 'Delete') { e.preventDefault(); this.timeline.deleteSelected(); return; }
+      }
       if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ' && !typing) {
         e.preventDefault();
         e.shiftKey ? this.store.redo() : this.store.undo();

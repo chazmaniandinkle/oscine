@@ -13,9 +13,12 @@ import { AssetCache } from '../core/assets.js';
 
 const RULER_H = 22;
 const LANE_H = 64;
-const GUTTER_W = 110;
+const GUTTER_W = 150;
 const EDGE_PX = 6;
 const LANE_COLORS = { bed: '#7aa2ff', vocal: '#5ce0a8', carl: '#ff8a4c' };
+// Gutter hit zones (x from left), shared by paint + hit-test.
+const BTN = { m: [GUTTER_W - 60, 22], s: [GUTTER_W - 34, 22] }; // [x, w]
+const GAIN_Y = 40; // baseline of the dB readout; vertical drag over it sets gain
 
 function cssVar(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -25,6 +28,8 @@ function fmtTime(s) {
   const m = Math.floor(s / 60), r = Math.floor(s % 60);
   return `${m}:${String(r).padStart(2, '0')}`;
 }
+// Seconds a clip occupies on the timeline (mirrors ClipPlayer.placedDuration).
+function placedDur(clip) { return (clip.out - clip.in) * (clip.stretch ?? 1) / (clip.rate ?? 1); }
 
 export class Timeline {
   constructor(host, app) {
@@ -80,7 +85,25 @@ export class Timeline {
     return seen;
   }
 
-  laneColor(id) { return LANE_COLORS[id] || cssVar('--accent', '#e33a41'); }
+  laneColor(lane) {
+    if (typeof lane === 'string') lane = this.lanes().find(l => l.id === lane) || { id: lane };
+    return lane.color || LANE_COLORS[lane.id] || cssVar('--accent', '#e33a41');
+  }
+
+  // Lane mix state lives on arrangement.lanes[] (persisted with the doc).
+  // Lanes discovered from placements (no lanes[] entry) get one created on
+  // first edit so the change has somewhere to live.
+  laneRecord(id) {
+    const arr = this.arrangement;
+    if (!arr.lanes) arr.lanes = this.lanes().map(l => ({ ...l }));
+    let l = arr.lanes.find(x => x.id === id);
+    if (!l) { l = { id, name: id }; arr.lanes.push(l); }
+    return l;
+  }
+  laneAudible(lane) {
+    const anySolo = this.lanes().some(l => l.solo);
+    return anySolo ? !!lane.solo : !lane.mute;
+  }
 
   bufferKey(clip) { return `${clip.sourceOf}:${clip.representation ?? ''}`; }
 
@@ -150,7 +173,7 @@ export class Timeline {
       if (p.track !== lane.id) continue;
       const clip = this.project.clips[p.clip];
       if (!clip) continue;
-      const x0 = this.x(p.at), x1 = this.x(p.at + clip.out - clip.in);
+      const x0 = this.x(p.at), x1 = this.x(p.at + placedDur(clip));
       if (px >= x0 - EDGE_PX && px <= x1 + EDGE_PX) {
         const edge = px <= x0 + EDGE_PX ? 'left' : px >= x1 - EDGE_PX ? 'right' : 'body';
         return { index: i, placement: p, clip, edge };
@@ -159,12 +182,81 @@ export class Timeline {
     return null;
   }
 
+  // Split the selected clip at the playhead into two virtual clips that
+  // reference the same source. Nothing is copied; both halves keep their
+  // stretch/pitch. Registered on the S key by app.js.
+  splitAtPlayhead() {
+    const arr = this.arrangement;
+    if (!arr || this.selected == null) return false;
+    const p = arr.placements[this.selected];
+    const clip = this.project.clips[p.clip];
+    const t = this.app.transport.getPosition().sec ?? this.app.transport.songPos;
+    const dur = placedDur(clip);
+    if (t <= p.at + 0.02 || t >= p.at + dur - 0.02) return false;
+    this.store.checkpoint();
+    const frac = (t - p.at) / dur;
+    const cut = clip.in + (clip.out - clip.in) * frac;
+    const right = { ...clip, id: `${clip.id}~${Math.random().toString(36).slice(2, 7)}`, in: cut, fadeIn: 0, name: (clip.name || clip.id) + ' ·b' };
+    clip.out = cut; clip.fadeOut = 0;
+    this.project.clips[right.id] = right;
+    arr.placements.splice(this.selected + 1, 0, { track: p.track, clip: right.id, at: t });
+    this.peaks.clear();
+    this.app.bus.emit('arrangement:changed', {});
+    this.dirty = true;
+    return true;
+  }
+
   // -- interaction ----------------------------------------------------------
+
+  // Keyboard edits on the selected clip. `semitones` is a decoupled pitch
+  // shift (vocoder, length unchanged); `gainDb` is per-clip trim.
+  nudgeSelected(delta, field) {
+    if (this.selected == null) return;
+    const clip = this.project.clips[this.arrangement.placements[this.selected].clip];
+    if (!clip) return;
+    this.store.checkpoint();
+    const v = Math.round(((clip[field] ?? 0) + delta) * 10) / 10;
+    if (Math.abs(v) < 1e-6) delete clip[field]; else clip[field] = v;
+    this.app.bus.emit('arrangement:changed', {});
+    this.dirty = true;
+  }
+
+  deleteSelected() {
+    if (this.selected == null) return;
+    this.store.checkpoint();
+    this.arrangement.placements.splice(this.selected, 1); // clip record stays; it's a reference
+    this.selected = null;
+    this.app.bus.emit('arrangement:changed', {});
+    this.dirty = true;
+  }
 
   pos(e) { const r = this.canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
 
   onDown(e) {
     const { x, y } = this.pos(e);
+    // Gutter: M / S buttons and the gain readout (vertical drag).
+    if (x < GUTTER_W && y >= RULER_H) {
+      const li = Math.floor((y - RULER_H) / LANE_H), lane = this.lanes()[li];
+      if (!lane) return;
+      const ly = y - this.laneY(li);
+      const inBtn = (b) => x >= b[0] && x <= b[0] + b[1] && ly >= 8 && ly <= 26;
+      if (inBtn(BTN.m) || inBtn(BTN.s)) {
+        this.store.checkpoint();
+        const rec = this.laneRecord(lane.id);
+        if (inBtn(BTN.m)) rec.mute = !rec.mute; else rec.solo = !rec.solo;
+        this.app.bus.emit('lanes:changed', {});
+        this.dirty = true;
+        return;
+      }
+      if (ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12) {
+        this.canvas.setPointerCapture(e.pointerId);
+        this.store.checkpoint();
+        const rec = this.laneRecord(lane.id);
+        this.drag = { edge: 'gain', lane: rec, startY: y, g0: rec.gainDb ?? 0 };
+        return;
+      }
+      return;
+    }
     const h = this.hit(x, y);
     if (!h) {
       this.selected = null;
@@ -175,7 +267,9 @@ export class Timeline {
     this.canvas.setPointerCapture(e.pointerId);
     this.store.checkpoint();
     this.selected = h.index;
-    this.drag = { ...h, startX: x, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out };
+    // ⌥ on the right edge = time-stretch (pitch preserved) instead of trim.
+    const edge = (h.edge === 'right' && e.altKey) ? 'stretch' : h.edge;
+    this.drag = { ...h, edge, startX: x, at0: h.placement.at, in0: h.clip.in, out0: h.clip.out, st0: h.clip.stretch ?? 1 };
     this.dirty = true;
   }
 
@@ -183,14 +277,28 @@ export class Timeline {
     const { x, y } = this.pos(e);
     if (!this.drag) {
       const h = this.hit(x, y);
-      this.canvas.style.cursor = !h ? 'default' : h.edge === 'body' ? 'grab' : 'ew-resize';
+      this.canvas.style.cursor = !h ? 'default' : h.edge === 'body' ? 'grab' : (h.edge === 'right' && e.altKey) ? 'col-resize' : 'ew-resize';
       return;
     }
     const d = this.drag, ds = (x - d.startX) / this.pxPerSec;
+    if (d.edge === 'gain') {
+      // 1 px = 0.25 dB, up is louder; range -60..+12. Live-applied.
+      const g = Math.max(-60, Math.min(12, d.g0 + (d.startY - y) * 0.25));
+      d.lane.gainDb = Math.round(g * 10) / 10;
+      this.app.bus.emit('lanes:changed', {});
+      this.dirty = true;
+      return;
+    }
     const asset = this.project.assets[d.clip.sourceOf];
     const maxOut = asset?.duration ?? Infinity;
     if (d.edge === 'body') {
       d.placement.at = Math.max(0, d.at0 + ds);
+    } else if (d.edge === 'stretch') {
+      // New placed length / source length = stretch. Clamp 0.25x..4x.
+      const srcLen = d.out0 - d.in0, want = srcLen * d.st0 + ds;
+      d.clip.stretch = Math.round(Math.max(0.25, Math.min(4, want / srcLen)) * 1000) / 1000;
+      if (Math.abs(d.clip.stretch - 1) < 0.005) delete d.clip.stretch;
+      this.peaks.clear();
     } else if (d.edge === 'left') {
       // Trim in-point; keep the right edge fixed in song time.
       const nin = Math.min(Math.max(0, d.in0 + ds), d.out0 - 0.05);
@@ -205,8 +313,9 @@ export class Timeline {
   onUp(e) {
     if (!this.drag) return;
     try { this.canvas.releasePointerCapture(e.pointerId); } catch {}
+    const wasGain = this.drag.edge === 'gain';
     this.drag = null;
-    this.app.bus.emit('arrangement:changed', {});
+    this.app.bus.emit(wasGain ? 'lanes:changed' : 'arrangement:changed', {});
     this.dirty = true;
   }
 
@@ -263,10 +372,31 @@ export class Timeline {
     // lanes
     lanes.forEach((lane, i) => {
       const y = this.laneY(i);
+      const audible = this.laneAudible(lane);
+      const col = this.laneColor(lane);
       g.fillStyle = line; g.fillRect(0, y + LANE_H - 1, w, 1);
       g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y, GUTTER_W, LANE_H - 1);
-      g.fillStyle = this.laneColor(lane.id); g.fillRect(0, y, 3, LANE_H - 1);
-      g.fillStyle = text; g.font = '12px system-ui, sans-serif'; g.fillText(lane.name || lane.id, 10, y + LANE_H / 2);
+      g.fillStyle = col; g.globalAlpha = audible ? 1 : 0.35; g.fillRect(0, y, 3, LANE_H - 1); g.globalAlpha = 1;
+      g.fillStyle = audible ? text : faint; g.font = '12px system-ui, sans-serif';
+      g.fillText(lane.name || lane.id, 10, y + 17);
+      // M / S buttons
+      const btn = (b, label, on, onCol) => {
+        g.fillStyle = on ? onCol : cssVar('--bg-2', '#171b26'); g.fillRect(b[0], y + 8, b[1], 18);
+        g.strokeStyle = on ? onCol : line; g.strokeRect(b[0] + 0.5, y + 8.5, b[1] - 1, 17);
+        g.fillStyle = on ? '#0b0d12' : text; g.font = 'bold 11px system-ui, sans-serif';
+        g.fillText(label, b[0] + 7, y + 17);
+      };
+      btn(BTN.m, 'M', !!lane.mute, '#e3a13a');
+      btn(BTN.s, 'S', !!lane.solo, '#5ce0a8');
+      // gain readout (drag vertically)
+      const db = lane.gainDb ?? 0;
+      g.fillStyle = faint; g.font = '11px system-ui, sans-serif';
+      g.fillText(`${db > 0 ? '+' : ''}${db.toFixed(1)} dB`, 10, y + GAIN_Y + 4);
+      const meterW = GUTTER_W - 20, frac = Math.max(0, Math.min(1, (db + 60) / 72));
+      g.fillStyle = line; g.fillRect(10, y + GAIN_Y + 12, meterW, 3);
+      g.fillStyle = col; g.fillRect(10, y + GAIN_Y + 12, meterW * frac, 3);
+      // dim the whole lane's clip area when inaudible
+      if (!audible) { g.fillStyle = 'rgba(11,13,18,0.55)'; g.fillRect(GUTTER_W, y, w - GUTTER_W, LANE_H - 1); }
     });
 
     // clips
@@ -277,21 +407,28 @@ export class Timeline {
         const clip = this.project.clips[p.clip];
         if (li < 0 || !clip) return;
         const y = this.laneY(li) + 4, ch = LANE_H - 9;
-        const x0 = this.x(p.at), x1 = this.x(p.at + clip.out - clip.in);
+        const x0 = this.x(p.at), x1 = this.x(p.at + placedDur(clip));
         if (x1 < GUTTER_W || x0 > w) return;
-        const col = this.laneColor(p.track);
-        g.fillStyle = col; g.globalAlpha = 0.28; g.fillRect(x0, y, x1 - x0, ch);
+        const col = this.laneColor(lanes[li]);
+        const audible = this.laneAudible(lanes[li]);
+        g.fillStyle = col; g.globalAlpha = audible ? 0.28 : 0.12; g.fillRect(x0, y, x1 - x0, ch);
         g.globalAlpha = 1;
         const pk = this.peaksFor(clip, Math.max(1, Math.round(x1 - x0)));
         if (pk) {
-          g.fillStyle = col; const mid = y + ch / 2, amp = ch / 2 - 2;
+          g.fillStyle = col; g.globalAlpha = audible ? 1 : 0.4; const mid = y + ch / 2, amp = ch / 2 - 2;
           for (let i = 0; i < pk.length; i++) { const v = pk[i] * amp; g.fillRect(x0 + i, mid - v, 1, Math.max(1, v * 2)); }
+          g.globalAlpha = 1;
         }
         g.strokeStyle = idx === this.selected ? '#ffffff' : col; g.lineWidth = idx === this.selected ? 2 : 1;
         g.strokeRect(x0 + 0.5, y + 0.5, x1 - x0 - 1, ch - 1);
         g.fillStyle = text; g.font = '11px system-ui, sans-serif';
         g.save(); g.beginPath(); g.rect(x0, y, Math.max(0, x1 - x0), ch); g.clip();
-        g.fillText(clip.name || clip.id, x0 + 5, y + 9); g.restore();
+        const tags = [];
+        if (clip.stretch && Math.abs(clip.stretch - 1) > 0.005) tags.push(`×${clip.stretch.toFixed(2)}`);
+        if (clip.semitones) tags.push(`${clip.semitones > 0 ? '+' : ''}${clip.semitones}st`);
+        if (clip.rate && clip.rate !== 1) tags.push(`rate ${clip.rate.toFixed(2)}`);
+        if (clip.gainDb) tags.push(`${clip.gainDb > 0 ? '+' : ''}${clip.gainDb}dB`);
+        g.fillText((clip.name || clip.id) + (tags.length ? '  ' + tags.join(' ') : ''), x0 + 5, y + 9); g.restore();
       });
       g.restore();
     }
