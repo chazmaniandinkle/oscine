@@ -50,8 +50,14 @@ export function resizeDrumPattern(pattern, bars) {
 //                       supersededBy? } }, words?: [{s,e,t}] }
 //   clips[id]       = { id, sourceOf, in, out, representation, fadeIn,
 //                       fadeOut, materializedAs, supersededBy, verified? }
-//   arrangement     = { length, placements: [{track, clip, at}],
+//   arrangement     = { length, lanes: [{id, name, color, gainDb, mute, solo,
+//                       pan?, inserts?: [{type, params, bypass}]}],
+//                       master?: { inserts: [...] },
+//                       placements: [{track, clip, at}],
 //                       automation: [{track, param, points:[[t,v],...]}] }
+//   inserts are effect specs (engine/effects/registry.js): type names a
+//   registered effect; params is a partial map over its schema; bypass
+//   keeps the node in the chain but routes around it.
 //
 // Containment among clips is COMPUTED from in/out ranges, never stored —
 // storing it lets a trim silently drift a contained range while it still
@@ -93,7 +99,11 @@ export function clipContains(outer, inner) {
 }
 
 export function createArrangement(length = 0) {
-  return { length, placements: [], automation: [] };
+  return { length, lanes: [], master: { inserts: [] }, placements: [], automation: [] };
+}
+// An insert spec for a lane or master chain.
+export function createInsert(type, params = {}) {
+  return { type, params, bypass: false };
 }
 
 export function createTrack(instrumentType, name, colorIndex = 0) {

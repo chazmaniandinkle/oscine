@@ -1,8 +1,12 @@
 // Bottom panel: one strip per track (fader, meter, pan, sends, mute/solo)
 // plus a master section with the shared FX controls. Collapsible.
 
-import { el, Knob, Fader, Meter, Select } from './widgets.js';
+import { el, Knob, Fader, Meter, Select, openMenu } from './widgets.js';
 import { DELAY_DIVISIONS } from '../engine/effects/delay.js';
+import { listEffectDefs, getEffectDef } from '../engine/effects/index.js';
+import { createInsert } from '../core/schema.js';
+
+const fmtDb = v => `${v > 0 ? '+' : ''}${Number(v).toFixed(1)} dB`;
 
 export class Mixer {
   constructor(host, app) {
@@ -26,9 +30,20 @@ export class Mixer {
     this.widgets = new Map();  // `${trackId}:${key}` -> widget
 
     const { bus } = app;
-    for (const type of ['track:added', 'track:removed', 'track:changed', 'project:replaced', 'ui:selection']) {
+    for (const type of ['track:added', 'track:removed', 'track:changed', 'project:replaced', 'ui:selection', 'lane:selected']) {
       bus.on(type, () => this.render());
     }
+    // Lane gutter edits (gain/M/S in the timeline) reflect here without a rebuild.
+    bus.on('lanes:changed', () => {
+      if (!this.store.project.arrangement?.placements?.length) return;
+      for (const lane of this.store.project.arrangement.lanes ?? []) {
+        const strip = this.body.querySelector(`[data-strip="${lane.id}"]`); if (!strip) continue;
+        this.faders.get(lane.id)?.set(Math.max(0, Math.min(1, ((lane.gainDb ?? 0) + 60) / 72)));
+        strip.querySelector('.strip-db') && (strip.querySelector('.strip-db').textContent = fmtDb(lane.gainDb ?? 0));
+        strip.querySelector('.ms-m')?.classList.toggle('on-warn', !!lane.mute);
+        strip.querySelector('.ms-s')?.classList.toggle('on-accent', !!lane.solo);
+      }
+    });
     bus.on('channel:changed', ({ trackId, key }) => {
       const t = this.store.getTrack(trackId);
       if (!t) return;
@@ -66,10 +81,131 @@ export class Mixer {
     this.faders.clear();
     this.widgets.clear();
 
+    if (store.project.arrangement?.placements?.length) {
+      // Arrangement: one strip per lane + master, each with an insert chain.
+      for (const lane of store.project.arrangement.lanes ?? []) this.body.appendChild(this.buildLaneStrip(lane));
+      this.body.appendChild(this.buildArrMaster());
+      return;
+    }
     for (const track of store.project.tracks) {
       this.body.appendChild(this.buildStrip(track));
     }
     this.body.appendChild(this.buildMaster());
+  }
+
+  // -- arrangement strips ---------------------------------------------------
+
+  // Insert chain UI shared by lane and master strips: one row per effect
+  // (name, bypass, remove; click name -> inspector edits its params) and an
+  // "+ insert" menu from the registry. Edits are one undo step each.
+  buildInserts(owner, ownerLabel) {
+    const { store, app } = this;
+    const commit = () => { app.bus.emit('inserts:changed', { owner: ownerLabel }); app.bus.emit('arrangement:changed', {}); };
+    const box = el('div', 'inserts');
+    const paint = () => {
+      box.textContent = '';
+      (owner.inserts ?? []).forEach((ins, i) => {
+        const row = el('div', 'insert-row' + (ins.bypass ? ' byp' : ''));
+        let def = null; try { def = getEffectDef(ins.type); } catch {}
+        const name = el('button', 'insert-name', def?.label ?? ins.type);
+        name.type = 'button'; name.title = 'Edit parameters';
+        name.addEventListener('click', () => app.bus.emit('insert:selected', { owner, ownerLabel, index: i }));
+        const byp = el('button', 'btn mini insert-byp' + (ins.bypass ? ' on-warn' : ''), '⏻');
+        byp.type = 'button'; byp.title = ins.bypass ? 'Bypassed — click to enable' : 'Enabled — click to bypass';
+        byp.addEventListener('click', () => { store.checkpoint(); ins.bypass = !ins.bypass; commit(); paint(); });
+        const up = el('button', 'btn mini', '↑'); up.type = 'button'; up.title = 'Move earlier'; up.disabled = i === 0;
+        up.addEventListener('click', () => { store.checkpoint(); const a = owner.inserts; [a[i - 1], a[i]] = [a[i], a[i - 1]]; commit(); paint(); });
+        const rm = el('button', 'btn mini insert-rm', '×'); rm.type = 'button'; rm.title = 'Remove';
+        rm.addEventListener('click', () => { store.checkpoint(); owner.inserts.splice(i, 1); commit(); paint(); app.bus.emit('insert:selected', { owner: null }); });
+        row.append(name, byp, up, rm);
+        box.appendChild(row);
+      });
+      const add = el('button', 'btn mini insert-add', '+ insert'); add.type = 'button';
+      add.addEventListener('click', () => {
+        const groups = {};
+        for (const d of listEffectDefs()) (groups[d.group] ||= []).push(d);
+        const items = [];
+        for (const [g, defs] of Object.entries(groups)) {
+          items.push({ label: g.toUpperCase(), disabled: true });
+          for (const d of defs) items.push({ label: '  ' + d.label, onPick: () => { store.checkpoint(); owner.inserts = owner.inserts ?? []; owner.inserts.push(createInsert(d.type, {})); commit(); paint(); app.bus.emit('insert:selected', { owner, ownerLabel, index: owner.inserts.length - 1 }); } });
+        }
+        openMenu(add, items);
+      });
+      box.appendChild(add);
+    };
+    paint();
+    return box;
+  }
+
+  buildLaneStrip(lane) {
+    const { store, app } = this;
+    const strip = el('div', 'strip lane-strip');
+    strip.dataset.strip = lane.id;
+    strip.classList.toggle('selected', lane.id === app.timeline?.selectedLane);
+    const name = el('div', 'strip-name', lane.name || lane.id);
+    name.style.color = lane.color || '';
+    name.title = lane.name || lane.id;
+    name.addEventListener('click', () => app.timeline?.selectLane(lane.id));
+    strip.appendChild(name);
+
+    const commitLanes = () => { app.bus.emit('lanes:changed', {}); app.timeline && (app.timeline.dirty = true); };
+    const knobRow = el('div', 'strip-knobs');
+    const pan = Knob({
+      label: 'Pan', min: -1, max: 1, value: lane.pan ?? 0, default: 0, small: true, color: lane.color,
+      format: v => Math.abs(v) < 0.01 ? 'C' : (v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`),
+      onInput: v => { lane.pan = v; app.bus.emit('inserts:changed', {}); },
+      onCommit: () => { store.checkpoint(); app.bus.emit('arrangement:changed', {}); },
+    });
+    this.widgets.set(`${lane.id}:pan`, pan);
+    knobRow.appendChild(pan.root);
+    strip.appendChild(knobRow);
+
+    strip.appendChild(this.buildInserts(lane, lane.name || lane.id));
+
+    const fadeWrap = el('div', 'strip-fade');
+    // Fader in dB: 0..1 maps -60..+12 with unity at ~0.83.
+    const toF = db => Math.max(0, Math.min(1, (db + 60) / 72)), toDb = f => f * 72 - 60;
+    const fader = Fader({
+      value: toF(lane.gainDb ?? 0), default: toF(0),
+      onInput: v => { lane.gainDb = Math.round(toDb(v) * 10) / 10; commitLanes(); dbLbl.textContent = fmtDb(lane.gainDb); },
+    });
+    this.faders.set(lane.id, fader);
+    const meter = Meter();
+    this.meters.set(lane.id, meter);
+    fadeWrap.appendChild(fader.root);
+    fadeWrap.appendChild(meter.root);
+    strip.appendChild(fadeWrap);
+    const dbLbl = el('div', 'strip-db', fmtDb(lane.gainDb ?? 0));
+    strip.appendChild(dbLbl);
+
+    const ms = el('div', 'strip-ms');
+    const m = el('button', 'btn mini ms-m' + (lane.mute ? ' on-warn' : ''), 'M');
+    m.addEventListener('click', () => { store.checkpoint(); lane.mute = !lane.mute; m.classList.toggle('on-warn', lane.mute); commitLanes(); });
+    const s = el('button', 'btn mini ms-s' + (lane.solo ? ' on-accent' : ''), 'S');
+    s.addEventListener('click', () => { store.checkpoint(); lane.solo = !lane.solo; s.classList.toggle('on-accent', lane.solo); commitLanes(); });
+    ms.append(m, s);
+    strip.appendChild(ms);
+    return strip;
+  }
+
+  buildArrMaster() {
+    const { store, app } = this;
+    const arr = store.project.arrangement;
+    arr.master = arr.master ?? { inserts: [] };
+    const strip = el('div', 'strip master-strip');
+    strip.appendChild(el('div', 'strip-name', 'Master'));
+    strip.appendChild(this.buildInserts(arr.master, 'Master'));
+    const fadeWrap = el('div', 'strip-fade');
+    const fader = Fader({
+      value: store.project.masterVolume / 1.2, default: 0.85 / 1.2,
+      onInput: v => store.setSetting('masterVolume', v * 1.2),
+    });
+    this.widgets.set('masterVolume', { set: v => fader.set(v / 1.2) });
+    const meter = Meter();
+    this.meters.set('master', meter);
+    fadeWrap.append(fader.root, meter.root);
+    strip.appendChild(fadeWrap);
+    return strip;
   }
 
   buildStrip(track) {
@@ -196,9 +332,11 @@ export class Mixer {
 
   onFrame() {
     if (!this.store.ui.mixerOpen) return;
-    const { engine } = this.app;
+    const { engine, transport } = this.app;
+    const player = transport.clipPlayer;
     for (const [id, meter] of this.meters) {
-      meter.set(engine.getLevel(id));
+      if (player?.strips?.[id]) { this.meterBuf ||= new Float32Array(512); meter.set(player.laneLevel(id, this.meterBuf)); }
+      else meter.set(engine.getLevel(id));
     }
   }
 }

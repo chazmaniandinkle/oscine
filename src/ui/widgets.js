@@ -299,8 +299,9 @@ export function openMenu(anchor, items) {
   closeMenus();
   const menu = el('div', 'menu');
   for (const item of items) {
-    const row = el('button', 'menu-item', item.label);
+    const row = el('button', 'menu-item' + (item.disabled ? ' menu-head' : ''), item.label);
     row.type = 'button';
+    if (item.disabled) { row.disabled = true; menu.appendChild(row); continue; }
     row.addEventListener('click', () => {
       closeMenus();
       item.onPick();

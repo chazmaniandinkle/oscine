@@ -5,9 +5,10 @@
 // place, exactly like a timeline drag does, then emits the same events so
 // the timeline repaints and the transport picks it up on next play.
 
-import { el, NumberDrag, Btn } from './widgets.js';
+import { el, NumberDrag, Btn, Knob, Select } from './widgets.js';
 import { wordsFor } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
+import { getEffectDef } from '../engine/effects/index.js';
 import { analyzeSpan, compareSpans, describe, describeDelta, summarizeTracks } from '../engine/ear.js';
 
 const fmt = (d = 2) => v => Number(v).toFixed(d);
@@ -266,6 +267,77 @@ export class RangeInspector {
       for (const l of describeDelta(d, 'A', 'this')) cmp.appendChild(el('div', 'ear-line', l));
       body.appendChild(cmp);
     }
+  }
+}
+
+// Insert (effect) inspector: the selected effect's params rendered from its
+// registry schema -- knobs and selects, presets, bypass. Same widget
+// vocabulary as the instrument inspector, so a new effect needs no UI.
+export class InsertInspector {
+  constructor(host, app) {
+    this.app = app; this.store = app.store; this.host = host;
+    this.sel = null; // { owner, ownerLabel, index }
+    app.bus.on('insert:selected', (s) => { this.sel = s?.owner ? s : null; app.inspector?.render(); });
+    app.bus.on('project:replaced', () => { this.sel = null; });
+  }
+  get selection() {
+    const s = this.sel; if (!s || !this.app.timeline?.active) return null;
+    const ins = s.owner.inserts?.[s.index]; if (!ins) return null;
+    let def = null; try { def = getEffectDef(ins.type); } catch { return null; }
+    return { ...s, ins, def };
+  }
+  render() {
+    const sel = this.selection; if (!sel) return false;
+    const { host, store, app } = this;
+    const { ins, def, ownerLabel } = sel;
+    host.textContent = '';
+    const live = () => { app.bus.emit('inserts:changed', {}); };
+    const commit = () => { app.bus.emit('arrangement:changed', {}); };
+
+    const head = el('div', 'panel-head');
+    head.appendChild(el('div', 'panel-title', def.label));
+    host.appendChild(head);
+    const meta = el('div', 'clip-meta');
+    meta.appendChild(el('div', 'clip-meta-row', `on ${ownerLabel} · ${def.group}`));
+    host.appendChild(meta);
+
+    const top = el('div', 'clip-actions');
+    const byp = Btn(ins.bypass ? 'Bypassed' : 'Enabled', () => { store.checkpoint(); ins.bypass = !ins.bypass; live(); commit(); this.render(); app.mixer?.render(); }, ins.bypass ? 'on-warn' : 'on-accent');
+    top.appendChild(byp);
+    if (def.presets && Object.keys(def.presets).length) {
+      const sel2 = Select({
+        options: [{ value: '', label: 'Preset…' }, ...Object.keys(def.presets).map(k => ({ value: k, label: k }))],
+        value: '',
+        onChange: v => { if (!v) return; store.checkpoint(); ins.params = { ...ins.params, ...def.presets[v] }; live(); commit(); this.render(); },
+      });
+      top.appendChild(sel2.root);
+    }
+    host.appendChild(top);
+
+    // Params grouped by p.group.
+    const groups = {};
+    for (const p of def.params) (groups[p.group || 'params'] ||= []).push(p);
+    let armed = false;
+    for (const [g, ps] of Object.entries(groups)) {
+      const box = el('div', 'insp-group'); box.appendChild(el('div', 'insp-group-title', g));
+      const row = el('div', 'insp-grid');
+      for (const p of ps) {
+        const cur = ins.params?.[p.key] ?? p.default;
+        if (p.type === 'select') {
+          const w = Select({ label: p.label, options: (p.options || []).map(o => typeof o === 'object' ? o : { value: o, label: String(o) }), value: cur,
+            onChange: v => { store.checkpoint(); ins.params = { ...ins.params, [p.key]: isNaN(+v) || typeof p.default === 'string' ? v : +v }; live(); commit(); } });
+          const cell = el('div', 'insp-select'); cell.appendChild(w.root); row.appendChild(cell);
+        } else {
+          const w = Knob({ label: p.label, min: p.min, max: p.max, value: cur, default: p.default, unit: p.unit, curve: p.curve, step: p.step, small: true,
+            onInput: v => { if (!armed) { store.checkpoint(); armed = true; } ins.params = { ...ins.params, [p.key]: v }; live(); },
+            onCommit: () => { armed = false; commit(); } });
+          row.appendChild(w.root);
+        }
+      }
+      box.appendChild(row); host.appendChild(box);
+    }
+    if (def.latencySamples) host.appendChild(el('div', 'clip-hint', `adds ${def.latencySamples} samples of latency`));
+    return true;
   }
 }
 

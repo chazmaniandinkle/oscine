@@ -10,6 +10,7 @@
 // of moving a shared playhead.
 
 import { AssetCache } from '../core/assets.js';
+import { InsertChain } from './effects/index.js';
 
 // Decibels -> linear gain. Small enough that duplicating it beats a shared
 // util for one line; -Infinity dB (silence) must map to exactly 0, not a
@@ -25,25 +26,56 @@ export class ClipPlayer {
     this.assetCache = assetCache ?? new AssetCache(ctx);
     this.destination = destination ?? ctx.destination;
 
-    // One GainNode per track ("lane") so per-track mixing (mute/volume) has
-    // a single node to act on later, without touching per-source gains.
-    // Initial value comes from arrangement.lanes[].gainDb / .mute (solo wins).
+    // Per-lane strip: gain (fader/mute/solo) -> inserts -> pan -> analyser
+    // -> master bus. Master bus: inserts -> destination. Inserts come from
+    // arrangement.lanes[].inserts / arrangement.master.inserts
+    // ([{type, params, bypass}]) and are rebuilt via syncInserts() on change.
+    // Works on live and offline contexts alike (effects are node-only).
     this.laneGains = { ...laneGains };
+    this.strips = {};  // laneId -> { gain, chain, pan, analyser }
+    this.masterChain = new InsertChain(ctx);
+    this.masterChain.sync(project.arrangement?.master?.inserts ?? []);
+    this.masterChain.output.connect(this.destination);
     const lanes = project.arrangement?.lanes ?? [];
     const anySolo = lanes.some(l => l.solo);
     for (const p of project.arrangement?.placements ?? []) {
       if (!this.laneGains[p.track]) {
-        const g = ctx.createGain();
         const lane = lanes.find(l => l.id === p.track);
+        const g = ctx.createGain();
         const audible = lane ? (anySolo ? !!lane.solo : !lane.mute) : true;
         g.gain.value = audible ? dbToGain(lane?.gainDb ?? 0) : 0;
-        g.connect(this.destination);
+        const chain = new InsertChain(ctx);
+        chain.sync(lane?.inserts ?? []);
+        const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
+        if (pan.pan) pan.pan.value = lane?.pan ?? 0;
+        const analyser = ctx.createAnalyser(); analyser.fftSize = 512;
+        g.connect(chain.input); chain.output.connect(pan); pan.connect(analyser); analyser.connect(this.masterChain.input);
         this.laneGains[p.track] = g;
+        this.strips[p.track] = { gain: g, chain, pan, analyser };
       }
     }
 
     this.buffers = new Map(); // clip.id -> AudioBuffer
     this.liveNodes = [];      // { source, gain } currently scheduled/playing
+  }
+
+  // Rebuild insert chains from the project (after an inserts edit). Cheap:
+  // InsertChain.sync reuses instances whose type matches at the same index.
+  syncInserts() {
+    const arr = this.project.arrangement;
+    this.masterChain.sync(arr?.master?.inserts ?? []);
+    for (const [id, s] of Object.entries(this.strips)) {
+      const lane = arr?.lanes?.find(l => l.id === id);
+      s.chain.sync(lane?.inserts ?? []);
+      if (s.pan.pan) s.pan.pan.setTargetAtTime(lane?.pan ?? 0, this.ctx.currentTime, 0.01);
+    }
+  }
+  // Peak level (0..1) of a lane's post-insert signal, for meters.
+  laneLevel(id, buf) {
+    const s = this.strips[id]; if (!s) return 0;
+    s.analyser.getFloatTimeDomainData(buf);
+    let p = 0; for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i]); if (v > p) p = v; }
+    return p;
   }
 
   // Decode every buffer a placement's clip needs before start() can run
@@ -135,6 +167,10 @@ export class ClipPlayer {
       gain.disconnect();
     }
     this.liveNodes = [];
+    // Tear down strips + chains too, else each play() leaks a chain of
+    // effect nodes (reverb convolvers are not free).
+    for (const s of Object.values(this.strips)) { s.chain.dispose(); for (const n of [s.gain, s.pan, s.analyser]) { try { n.disconnect(); } catch {} } }
+    this.masterChain.dispose();
   }
 
   // Live mix update: re-read lanes[].gainDb/mute/solo and ramp each lane's

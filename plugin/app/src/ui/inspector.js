@@ -5,7 +5,7 @@
 
 import { el, Knob, Select } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
-import { ClipInspector, LaneInspector, AssetInspector, OverlapInspector, RangeInspector } from './clipinspector.js';
+import { ClipInspector, LaneInspector, AssetInspector, OverlapInspector, RangeInspector, InsertInspector } from './clipinspector.js';
 
 export class Inspector {
   constructor(host, app) {
@@ -21,6 +21,7 @@ export class Inspector {
     this.assetInspector = new AssetInspector(host, app);
     this.overlapInspector = new OverlapInspector(host, app);
     this.rangeInspector = new RangeInspector(host, app);
+    this.insertInspector = new InsertInspector(host, app);
 
     const { bus } = app;
     bus.on('ui:selection', () => this.render());
@@ -52,6 +53,7 @@ export class Inspector {
 
     // A selected timeline clip, lane, or source owns the panel. A range
     // selection on a lane (multi) is the ear.
+    if (this.insertInspector.render()) return;
     if (this.rangeInspector.render()) return;
     if (this.clipInspector.render()) return;
     if (this.overlapInspector.render()) return;
