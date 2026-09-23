@@ -11,15 +11,18 @@
 import { el } from './widgets.js';
 import { AssetCache } from '../core/assets.js';
 import { keymap } from '../core/keymap.js';
+import { ensureEnvelope, findEnvelope, targetOf, addPoint, movePoint, removePoint, valueAt } from '../engine/automation.js';
 
 const RULER_H = 22;
 const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
 const SNAP_PX = 8;
+const AUTO_H = 44;   // automation sub-lane height
+const PT_R = 4;      // automation point radius
 const LANE_COLORS = { bed: '#7aa2ff', vocal: '#5ce0a8', carl: '#ff8a4c' };
 // Gutter hit zones (x from left), shared by paint + hit-test.
-const BTN = { m: [GUTTER_W - 60, 22], s: [GUTTER_W - 34, 22] }; // [x, w]
+const BTN = { m: [GUTTER_W - 60, 22], s: [GUTTER_W - 34, 22], a: [GUTTER_W - 86, 22] }; // [x, w]
 const GAIN_Y = 40; // baseline of the dB readout; vertical drag over it sets gain
 
 function cssVar(name, fallback) {
@@ -248,12 +251,31 @@ export class Timeline {
     this.snapHit = bestD < tol ? best : null;
     return Math.max(0, best);
   }
-  laneY(i) { return RULER_H + i * LANE_H; }
+  // -- layout: lanes are LANE_H tall, plus AUTO_H when their automation
+  // sub-lane is open (this.autoOpen has the lane id). laneY/laneIndexAt
+  // are the only geometry anyone should use.
+  laneY(i) {
+    let y = RULER_H;
+    const ls = this.lanes();
+    for (let k = 0; k < i && k < ls.length; k++) y += LANE_H + (this.autoOpen?.has(ls[k].id) ? AUTO_H : 0);
+    return y;
+  }
+  laneH(lane) { return LANE_H + (this.autoOpen?.has(lane.id) ? AUTO_H : 0); }
+  // Index of the lane whose ROW (clip part + automation part) contains py.
+  laneIndexAt(py) {
+    if (py < RULER_H) return -1;
+    let y = RULER_H;
+    const ls = this.lanes();
+    for (let i = 0; i < ls.length; i++) { const h = this.laneH(ls[i]); if (py < y + h) return i; y += h; }
+    return ls.length; // below the last lane
+  }
+  // Is py inside lane i's automation sub-lane?
+  inAutoPart(i, py) { const ls = this.lanes(); const l = ls[i]; return !!l && this.autoOpen?.has(l.id) && py >= this.laneY(i) + LANE_H; }
 
   // Lane under a canvas point (any x), for drops from the asset bin.
   laneAt(px, py) {
     if (py < RULER_H) return null;
-    const i = Math.floor((py - RULER_H) / LANE_H);
+    const i = this.laneIndexAt(py);
     const lane = this.lanes()[i];
     return lane ? { lane, index: i } : null;
   }
@@ -290,12 +312,15 @@ export class Timeline {
     this.dirty = true;
   }
 
+  // y of an automation value inside lane i's sub-lane (dB scale -60..+12).
+  autoY(y0, v) { return y0 + 4 + (1 - (v + 60) / 72) * (AUTO_H - 8); }
+
   hit(px, py) {
     const arr = this.arrangement;
     if (!arr || py < RULER_H || px < GUTTER_W) return null;
-    const laneIdx = Math.floor((py - RULER_H) / LANE_H);
+    const laneIdx = this.laneIndexAt(py);
     const lane = this.lanes()[laneIdx];
-    if (!lane) return null;
+    if (!lane || this.inAutoPart(laneIdx, py)) return null;
     // Two passes: bodies first (the clip the pointer is actually over), then
     // edges. Without this, the EDGE_PX halo of clip B stole the right edge
     // of an adjacent clip A when the two were < 2*EDGE_PX apart and B was
@@ -445,10 +470,17 @@ export class Timeline {
     // Gutter: M / S buttons, the gain readout (vertical drag), or the lane
     // name (select the lane -> inspector shows its properties).
     if (x < GUTTER_W && y >= RULER_H) {
-      const li = Math.floor((y - RULER_H) / LANE_H), lane = this.lanes()[li];
+      const li = this.laneIndexAt(y), lane = this.lanes()[li];
       if (!lane) return;
       const ly = y - this.laneY(li);
       const inBtn = (b) => x >= b[0] && x <= b[0] + b[1] && ly >= 8 && ly <= 26;
+      if (inBtn(BTN.a)) {
+        // Toggle the automation sub-lane (gain envelope) for this lane.
+        this.autoOpen ??= new Set();
+        this.autoOpen.has(lane.id) ? this.autoOpen.delete(lane.id) : this.autoOpen.add(lane.id);
+        this.dirty = true;
+        return;
+      }
       if (inBtn(BTN.m) || inBtn(BTN.s)) {
         this.store.checkpoint();
         const rec = this.laneRecord(lane.id);
@@ -472,6 +504,25 @@ export class Timeline {
     if (x < GUTTER_W && y >= this.laneY(this.lanes().length) && y <= this.laneY(this.lanes().length) + 28) {
       this.app.assetBin?.newLane();
       return;
+    }
+    // Automation sub-lane: click adds a point (snapped), drag moves one,
+    // ⌥-click removes. Values are dB on a -60..+12 vertical scale.
+    if (x >= GUTTER_W) {
+      const li = this.laneIndexAt(y), lane = this.lanes()[li];
+      if (lane && this.inAutoPart(li, y)) {
+        this.canvas.setPointerCapture(e.pointerId);
+        const env = ensureEnvelope(this.arrangement, targetOf('lane', lane.id, 'gainDb'));
+        const y0 = this.laneY(li) + LANE_H;
+        const vOf = (py) => { const f = 1 - Math.max(0, Math.min(1, (py - y0 - 4) / (AUTO_H - 8))); return Math.round((-60 + f * 72) * 10) / 10; };
+        const hitIdx = env.points.findIndex(p => Math.hypot(this.x(p.t) - x, this.autoY(y0, p.v) - y) <= PT_R + 3);
+        this.store.checkpoint();
+        if (hitIdx >= 0 && e.altKey) { removePoint(env, hitIdx); this.app.bus.emit('arrangement:changed', {}); this.dirty = true; return; }
+        let idx = hitIdx;
+        if (idx < 0) { const pt = addPoint(env, this.snapTime(this.sec(x), { e }), vOf(y)); idx = env.points.indexOf(pt); }
+        this.drag = { edge: 'auto', env, idx, li, y0, vOf, armed: true };
+        this.dirty = true;
+        return;
+      }
     }
     const h = this.hit(x, y);
     // An overlap region is its own target: clicking inside the shared span
@@ -615,8 +666,8 @@ export class Timeline {
       if (this.range) this.dirty = true;
       // Gutter: pointer over M/S/+lane, ns-resize over the gain bar.
       if (x < GUTTER_W && y >= RULER_H) {
-        const li = Math.floor((y - RULER_H) / LANE_H), ly = y - this.laneY(li);
-        const overBtn = li < this.lanes().length && ly >= 8 && ly <= 26 && ((x >= BTN.m[0] && x <= BTN.m[0] + BTN.m[1]) || (x >= BTN.s[0] && x <= BTN.s[0] + BTN.s[1]));
+        const li = this.laneIndexAt(y), ly = y - this.laneY(li);
+        const overBtn = li < this.lanes().length && ly >= 8 && ly <= 26 && [BTN.a, BTN.m, BTN.s].some(b => x >= b[0] && x <= b[0] + b[1]);
         const overGain = li < this.lanes().length && ly >= GAIN_Y - 10 && ly <= GAIN_Y + 12;
         const overAdd = li === this.lanes().length && ly <= 28;
         this.canvas.style.cursor = overGain ? 'ns-resize' : (overBtn || overAdd || li < this.lanes().length) ? 'pointer' : 'default';
@@ -640,6 +691,11 @@ export class Timeline {
     }
     if (d.edge === 'scrub') {
       this.app.transport.songPos = this.snapTime(Math.max(0, this.sec(x)), { e });
+      this.dirty = true;
+      return;
+    }
+    if (d.edge === 'auto') {
+      movePoint(d.env, d.idx, this.snapTime(this.sec(x), { e }), d.vOf(y));
       this.dirty = true;
       return;
     }
@@ -807,6 +863,7 @@ export class Timeline {
         g.fillStyle = on ? '#0b0d12' : text; g.font = 'bold 11px system-ui, sans-serif';
         g.fillText(label, b[0] + 7, y + 17);
       };
+      btn(BTN.a, 'A', !!this.autoOpen?.has(lane.id), col);
       btn(BTN.m, 'M', !!lane.mute, '#e3a13a');
       btn(BTN.s, 'S', !!lane.solo, '#5ce0a8');
       // gain readout (drag vertically)
@@ -818,6 +875,35 @@ export class Timeline {
       g.fillStyle = col; g.fillRect(10, y + GAIN_Y + 12, meterW * frac, 3);
       // dim the whole lane's clip area when inaudible
       if (!audible) { g.fillStyle = 'rgba(11,13,18,0.55)'; g.fillRect(GUTTER_W, y, w - GUTTER_W, LANE_H - 1); }
+      // automation sub-lane: gain envelope (dB, -60..+12), points + line
+      if (this.autoOpen?.has(lane.id)) {
+        const y0 = y + LANE_H;
+        g.fillStyle = cssVar('--bg-0', '#0b0d12'); g.fillRect(0, y0, w, AUTO_H);
+        g.fillStyle = cssVar('--bg-1', '#11141c'); g.fillRect(0, y0, GUTTER_W, AUTO_H);
+        g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('gain', 10, y0 + 14);
+        g.fillText('+12', 10, y0 + 26); g.fillText('−60', 10, y0 + AUTO_H - 4);
+        g.fillStyle = line; g.fillRect(0, y0 + AUTO_H - 1, w, 1);
+        const zeroY = this.autoY(y0, 0);
+        g.strokeStyle = 'rgba(255,255,255,0.12)'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(GUTTER_W, zeroY); g.lineTo(w, zeroY); g.stroke(); g.setLineDash([]);
+        const env = findEnvelope(arr, targetOf('lane', lane.id, 'gainDb'));
+        g.save(); g.beginPath(); g.rect(GUTTER_W, y0, w - GUTTER_W, AUTO_H); g.clip();
+        if (env?.points?.length) {
+          g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath();
+          const t0 = this.sec(GUTTER_W), t1 = this.sec(w);
+          g.moveTo(GUTTER_W, this.autoY(y0, valueAt(env, t0)));
+          for (const p of env.points) g.lineTo(this.x(p.t), this.autoY(y0, p.v));
+          g.lineTo(w, this.autoY(y0, valueAt(env, t1)));
+          g.stroke();
+          for (const p of env.points) {
+            const px = this.x(p.t), py = this.autoY(y0, p.v);
+            g.fillStyle = cssVar('--bg-0', '#0b0d12'); g.beginPath(); g.arc(px, py, PT_R + 1, 0, Math.PI * 2); g.fill();
+            g.fillStyle = col; g.beginPath(); g.arc(px, py, PT_R, 0, Math.PI * 2); g.fill();
+          }
+        } else {
+          g.fillStyle = faint; g.font = '10px system-ui, sans-serif'; g.fillText('click to add a point · drag to move · ⌥-click removes', GUTTER_W + 8, y0 + 14);
+        }
+        g.restore();
+      }
     });
     // "+ lane" affordance under the last lane
     {

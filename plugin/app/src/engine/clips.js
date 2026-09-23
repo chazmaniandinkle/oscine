@@ -11,6 +11,7 @@
 
 import { AssetCache } from '../core/assets.js';
 import { InsertChain } from './effects/index.js';
+import { scheduleAll, findEnvelope, targetOf } from './automation.js';
 
 // Decibels -> linear gain. Small enough that duplicating it beats a shared
 // util for one line; -Infinity dB (silence) must map to exactly 0, not a
@@ -108,6 +109,9 @@ export class ClipPlayer {
   // that start before fromSeconds are trimmed in from the middle (seek).
   start(atCtxTime = this.ctx.currentTime, fromSeconds = 0) {
     const placements = this.project.arrangement?.placements ?? [];
+    // Automation envelopes for this play span (gain/pan on lanes, master).
+    const span = Math.max(0, ClipPlayer.duration(this.project) - fromSeconds) + 1;
+    scheduleAll(this, { at: atCtxTime, from: fromSeconds, span });
     for (const p of placements) {
       const clip = this.project.clips[p.clip];
       if (!clip) continue;
@@ -182,6 +186,8 @@ export class ClipPlayer {
     for (const [id, g] of Object.entries(this.laneGains)) {
       const lane = lanes.find(l => l.id === id);
       const audible = lane ? (anySolo ? !!lane.solo : !lane.mute) : true;
+      // A gain envelope owns this node while playing; don't stomp its curve.
+      if (audible && findEnvelope(this.project.arrangement, targetOf('lane', id, 'gainDb'))?.points?.length) continue;
       const target = audible ? dbToGain(lane?.gainDb ?? 0) : 0;
       g.gain.cancelScheduledValues(t);
       g.gain.setValueAtTime(g.gain.value, t);
