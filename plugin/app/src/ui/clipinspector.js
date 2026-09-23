@@ -34,7 +34,8 @@ export class LaneInspector {
 
   refresh() {
     const sel = this.selection;
-    if (!sel || this.renderedFor !== sel.lane.id) return this.render();
+    if (!sel) return; // not ours to draw; the parent Inspector owns the host
+    if (this.renderedFor !== sel.lane.id) return this.render();
     this.gainW?.set(sel.lane.gainDb ?? 0);
     this.muteB?.classList.toggle('on', !!sel.lane.mute);
     this.soloB?.classList.toggle('on', !!sel.lane.solo);
@@ -42,10 +43,10 @@ export class LaneInspector {
 
   render() {
     const { host, store } = this;
-    host.textContent = '';
     const sel = this.selection;
     this.renderedFor = sel?.lane.id ?? null;
     if (!sel) return false;
+    host.textContent = '';
     const { lane, placements } = sel;
     const tl = this.app.timeline;
     const color = tl.laneColor(lane);
@@ -141,7 +142,7 @@ export class ClipInspector {
   // without rebuilding the DOM, so a drag doesn't fight the panel.
   refresh() {
     const sel = this.selection;
-    if (!sel) return this.render();
+    if (!sel) return; // not ours to draw; the parent Inspector owns the host
     if (this.renderedFor !== sel.clip.id) return this.render();
     for (const [key, w] of this.widgets) {
       const v = key === 'at' ? sel.placement.at : sel.clip[key];
@@ -157,11 +158,11 @@ export class ClipInspector {
 
   render() {
     const { host } = this;
-    host.textContent = '';
-    this.widgets.clear();
     const sel = this.selection;
     this.renderedFor = sel?.clip.id ?? null;
     if (!sel) return false;
+    host.textContent = '';
+    this.widgets.clear();
     const { placement, clip, asset } = sel;
     const { store } = this;
 
