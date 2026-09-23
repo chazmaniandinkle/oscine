@@ -20,7 +20,8 @@ with the analysis panel closing the loop).
 Underneath, everything is one command catalog. The UI, the browser console,
 the bundled Claude plugin over MCP, an OSC gateway, and live MIDI are five
 consumers of that catalog, so an agent drives the same surface you do. (The
-arrangement features are the exception for now; see "Known gaps".)
+arrangement side is in the catalog now, but its UI still edits the project
+directly rather than through those commands; see "Known gaps".)
 
 ## Run it
 
@@ -319,12 +320,20 @@ protocol and reading project state back; commit messages carry the numbers.
 
 ## Known gaps
 
-- **Arrangement editing isn't in the catalog yet.** Clips, lanes, markers,
-  cycle, automation, effects and transcripts are UI-only. Claude can open and
-  save arrangement projects over MCP but can't edit them. This breaks the
-  catalog-first rule in `AGENTS.md` and is the first thing to fix.
-- Master-gain and clip-gain envelopes play but have no UI yet; lane gain, pan
-  and insert params do.
+- **The arrangement UI doesn't call the arrangement commands yet.** The
+  catalog now covers the arrangement side: `arrangement` (get), `clip`
+  (get/set/split/duplicate/move/remove/place), `lane`
+  (add/remove/rename/set/reorder), `marker` (list/add/move/rename/remove),
+  `cycle` (get/set/clear), `range` (cut/ripple_delete), `insert`
+  (list/add/set/remove/move), `automation`
+  (list/set_points/add_point/remove_point/clear) and `words` (get/set). The
+  edits live in `src/core/arrangement.js` behind store actions, so Claude can
+  edit a song over MCP. The timeline, mixer and inspectors still mutate the
+  project themselves; rewiring them to the same store actions is the
+  remaining step.
+- Master-gain and clip-gain envelopes play but have no drawing UI yet; lane
+  gain, pan and insert params do. (All of them can be written with the
+  `automation` command.)
 - Patterns and arrangements are separate models. v3 unifies them (see
   `ROADMAP.md`).
 - The limiter is a sample-peak ceiling, not true-peak. The gate's hold is

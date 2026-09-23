@@ -34,7 +34,14 @@ Oscine is a live browser app. Tools act on the user's actual session: they hear 
 ## Caveats
 
 - If a tool errors with "Oscine isn't open", use `oscine_open_app` — never tell the user it failed without trying that first.
-- Two kinds of project exist. Pattern projects (tracks, slots A-D) are what every `oscine_*` composing tool edits. Arrangement projects (audio clips on lanes, from `*.oscine.json` files) can be opened with `oscine_project_open_file` and saved with `oscine_project_save_file`, but their clips, lanes, markers, effects, automation and transcripts are edited in the UI; there are no tools for them yet. Don't try to fake arrangement edits through the pattern tools. Tell the user what to do in the UI, or edit the project JSON and reopen it.
+- Two kinds of project exist. Pattern projects (tracks, slots A-D) are edited with the pattern tools (`set_notes`, `set_steps`, `slots`...). Arrangement projects (audio clips on lanes, from `*.oscine.json` files, opened with `oscine_project_open_file`, saved with `oscine_project_save_file`) are edited with the arrangement tools: `oscine_arrangement` (get), `oscine_clip` (get/set/split/duplicate/move/remove/place), `oscine_lane` (add/remove/rename/set/reorder), `oscine_marker` (list/add/move/rename/remove), `oscine_cycle` (get/set/clear), `oscine_range` (cut/ripple_delete), `oscine_insert` (list/add/set/remove/move on a lane or 'master'), `oscine_automation` (list/set_points/add_point/remove_point/clear) and `oscine_words` (get/set transcripts). Arrangement time is seconds, not beats. On a pattern project they return a "no arrangement" error; don't fake arrangement edits through the pattern tools.
+- Editing an arrangement:
+  1. `oscine_arrangement action:"get"` for lanes, placement indexes, markers, cycle, automation targets.
+  2. Find the spot: `oscine_marker action:"list"` for sections, `oscine_words action:"get" clip:<id>` to locate a lyric.
+  3. Act with one tool call per edit (e.g. `oscine_clip action:"split" index:2 t:31.5`, `oscine_lane action:"set" lane:"Vocal" gainDb:-2`, `oscine_automation action:"set_points" target:"lane:Vocal:gainDb" points:[...]`).
+  4. Placement indexes shift after split/duplicate/remove/cut: re-run `oscine_arrangement` before the next index-based edit.
+  5. Verify: re-read with `oscine_arrangement` (or `oscine_clip action:"get"`) and check the numbers you meant to change.
+  6. Every edit is one undo step (`oscine_project action:"undo"`); save with `oscine_project_save_file` only when the user asks.
 - On a pattern project, `oscine_transport action:play` loops the active slot from its top. Arrangement projects play through to the end (or loop the cycle region if it's on).
 - Param tweaks are not in undo history (matches the UI); patterns, tracks, slots, and presets are.
 - Hardware MIDI input exists: a plugged-in controller plays the selected track, record-arm captures quantized notes/steps, and knobs map to params. The `midi` command (`status`, `enable`, `disable`, `select`, `set`, `monitor`, `map`, `learn`, `clear_map`, `claim`, `input`) controls it; the device binding happens in the browser tab.

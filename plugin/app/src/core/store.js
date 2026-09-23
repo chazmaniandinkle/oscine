@@ -13,6 +13,7 @@ import {
   TRACK_COLORS, FORMAT_VERSION,
 } from './schema.js';
 import { getInstrumentDef, presetParams, defaultParams } from '../engine/instruments/index.js';
+import * as A from './arrangement.js';
 
 const HISTORY_LIMIT = 100;
 
@@ -427,6 +428,57 @@ export class Store {
     this.ui.ledger.events = [];
     this.emit('ledger:cleared', {});
   }
+
+  // -- arrangement (v2) ------------------------------------------------------
+  // Each action is one undo step: validate by dry-running on a clone (so a
+  // bad call leaves no empty history entry), then checkpoint, mutate via the
+  // pure function in core/arrangement.js, and emit the same bus events the
+  // timeline/mixer UI emits for that change.
+
+  arrangementEdit(fn, events = ['arrangement:changed']) {
+    A.requireArrangement(this.project);
+    fn(deepClone(this.project)); // throws on bad input before touching history
+    this.checkpoint();
+    const out = fn(this.project);
+    for (const ev of events) this.emit(ev, ev === 'loop:changed' ? { ...(this.project.arrangement.loop ?? {}) } : {});
+    return out;
+  }
+
+  clipSet(ref, fields) { return this.arrangementEdit(p => A.clipSet(p, ref, fields)); }
+  clipSplit(index, t) { return this.arrangementEdit(p => A.splitPlacement(p, index, t)); }
+  clipDuplicate(index, opts) { return this.arrangementEdit(p => A.duplicatePlacement(p, index, opts)); }
+  clipMove(index, opts) { return this.arrangementEdit(p => A.movePlacement(p, index, opts)); }
+  clipRemove(index) { return this.arrangementEdit(p => A.removePlacement(p, index)); }
+  clipPlace(opts) { return this.arrangementEdit(p => A.placeClip(p, opts)); }
+
+  laneAdd(opts) { return this.arrangementEdit(p => A.addLane(p, opts), ['lanes:changed', 'arrangement:changed']); }
+  laneRemove(ref) { return this.arrangementEdit(p => A.removeLane(p, ref), ['lanes:changed', 'inserts:changed', 'arrangement:changed']); }
+  laneRename(ref, name) { return this.arrangementEdit(p => A.renameLane(p, ref, name), ['lanes:changed', 'arrangement:changed']); }
+  laneSet(ref, fields) { return this.arrangementEdit(p => A.setLane(p, ref, fields), ['lanes:changed', 'inserts:changed', 'arrangement:changed']); }
+  laneReorder(ref, index) { return this.arrangementEdit(p => A.reorderLane(p, ref, index), ['lanes:changed', 'arrangement:changed']); }
+
+  markerAdd(t, name) { return this.arrangementEdit(p => A.addMarker(p, t, name)); }
+  markerMove(ref, t) { return this.arrangementEdit(p => A.moveMarker(p, ref, t)); }
+  markerRename(ref, name) { return this.arrangementEdit(p => A.renameMarker(p, ref, name)); }
+  markerRemove(ref) { return this.arrangementEdit(p => A.removeMarker(p, ref)); }
+
+  cycleSet(opts) { return this.arrangementEdit(p => A.setCycle(p, opts), ['loop:changed', 'arrangement:changed']); }
+  cycleClear() { return this.arrangementEdit(p => A.clearCycle(p), ['loop:changed', 'arrangement:changed']); }
+
+  rangeCut(a, b, lanes) { return this.arrangementEdit(p => A.cutRange(p, a, b, lanes), ['arrangement:changed', 'range:changed']); }
+  rangeRippleDelete(a, b) { return this.arrangementEdit(p => A.rippleDelete(p, a, b), ['arrangement:changed', 'loop:changed', 'range:changed']); }
+
+  insertAdd(lane, type, params) { return this.arrangementEdit(p => A.addInsert(p, lane, type, params), ['inserts:changed', 'arrangement:changed']); }
+  insertSet(lane, index, opts) { return this.arrangementEdit(p => A.setInsert(p, lane, index, opts), ['inserts:changed', 'arrangement:changed']); }
+  insertRemove(lane, index) { return this.arrangementEdit(p => A.removeInsert(p, lane, index), ['inserts:changed', 'arrangement:changed']); }
+  insertMove(lane, index, to) { return this.arrangementEdit(p => A.moveInsert(p, lane, index, to), ['inserts:changed', 'arrangement:changed']); }
+
+  automationSetPoints(target, points) { return this.arrangementEdit(p => A.setAutomationPoints(p, target, points)); }
+  automationAddPoint(target, pt) { return this.arrangementEdit(p => A.addAutomationPoint(p, target, pt)); }
+  automationRemovePoint(target, which) { return this.arrangementEdit(p => A.removeAutomationPoint(p, target, which)); }
+  automationClear(target) { return this.arrangementEdit(p => A.clearAutomation(p, target)); }
+
+  wordsSet(asset, words) { return this.arrangementEdit(p => A.setWords(p, asset, words)); }
 
   // -- serialization -------------------------------------------------------------------
 

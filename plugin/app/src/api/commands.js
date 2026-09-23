@@ -288,6 +288,173 @@ export const COMMANDS = [
       },
     },
   },
+  // -- arrangement (v2) -------------------------------------------------------
+  // Song time is SECONDS here (not beats). Placements are addressed by their
+  // index in arrangement.placements (see arrangement get). Lanes resolve by id
+  // or name. Every mutating action is one undo step (project action 'undo').
+  // In a pattern project (no arrangement) these return an error saying so.
+  {
+    name: 'arrangement',
+    description: "Compact summary of the open arrangement (the audio-clip song side, times in seconds): lanes (id, name, gainDb, pan, mute, solo, insert types), master inserts, placements (index, lane, clip id, at, end), markers, the cycle, song length, automation targets with point counts, and assets with word counts. Call this first before editing an arrangement; placement indexes it returns are what 'clip' actions take. Errors if the project is pattern-only.",
+    readOnly: true,
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get'], default: 'get' },
+      },
+    },
+  },
+  {
+    name: 'clip',
+    description: "Edit clips and their placements on the arrangement timeline (seconds). 'get' returns a clip's fields (by 'clip' id/name, or by placement 'index'); 'set' changes clip fields (in/out are source seconds; gainDb; fadeIn/fadeOut seconds; stretch = length multiplier; pitch = semitones; name); 'split' cuts placement 'index' at song time 't' into two clips; 'duplicate' copies placement 'index' (with its own clip copy) to 'at' (default right after it) and optional 'lane'; 'move' sets placement 'index' to 'at' and/or 'lane'; 'remove' deletes placement 'index' (the clip record stays); 'place' puts a clip ('clip') or a whole asset ('asset') on 'lane' at 'at'. Placement indexes can shift after split/duplicate/remove, so re-read with arrangement get.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set', 'split', 'duplicate', 'move', 'remove', 'place'] },
+        index: { type: 'integer', minimum: 0, description: 'Placement index from arrangement get.' },
+        clip: { type: 'string', description: "Clip id or name (for get/set/place)." },
+        asset: { type: 'string', description: "For 'place': asset id; makes a new clip over the whole asset." },
+        lane: { type: 'string', description: 'Lane id or name (for move/duplicate/place).' },
+        at: { type: 'number', minimum: 0, description: 'Song time in seconds where the placement starts.' },
+        t: { type: 'number', minimum: 0, description: "For 'split': song time in seconds, strictly inside the placement." },
+        in: { type: 'number', minimum: 0, description: "For 'set': clip start in source seconds." },
+        out: { type: 'number', minimum: 0, description: "For 'set': clip end in source seconds." },
+        gainDb: { type: 'number', minimum: -60, maximum: 24 },
+        fadeIn: { type: 'number', minimum: 0, description: 'Seconds.' },
+        fadeOut: { type: 'number', minimum: 0, description: 'Seconds.' },
+        stretch: { type: 'number', exclusiveMinimum: 0, description: 'Time-stretch factor; 1 = original length, 1.1 = 10% longer.' },
+        pitch: { type: 'number', minimum: -24, maximum: 24, description: 'Pitch shift in semitones (length unchanged).' },
+        name: { type: 'string' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'lane',
+    description: "Arrangement lanes (audio tracks of the timeline). 'add' creates a lane ('name', optional 'color'); 'remove' deletes a lane with its placements and lane automation; 'rename' sets 'name'; 'set' changes gainDb (-60..12), pan (-1..1), mute, solo, color; 'reorder' moves a lane to position 'index' (0 = top). 'lane' is a lane id or name.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['add', 'remove', 'rename', 'set', 'reorder'] },
+        lane: { type: 'string', description: 'Lane id or name.' },
+        name: { type: 'string' },
+        color: { type: 'string', description: "CSS color, e.g. '#5ce0a8'." },
+        gainDb: { type: 'number', minimum: -60, maximum: 12 },
+        pan: { type: 'number', minimum: -1, maximum: 1 },
+        mute: { type: 'boolean' },
+        solo: { type: 'boolean' },
+        index: { type: 'integer', minimum: 0, description: "For 'reorder': target position." },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'marker',
+    description: "Song markers (named flags in seconds; a marker's section runs to the next one). 'list'; 'add' at 't' with optional 'name'; 'move' marker to 't'; 'rename' to 'name'; 'remove'. 'marker' is a marker id (m1, m2...) or its name.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'add', 'move', 'rename', 'remove'] },
+        marker: { type: 'string', description: 'Marker id or name.' },
+        t: { type: 'number', minimum: 0, description: 'Song time in seconds.' },
+        name: { type: 'string' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'cycle',
+    description: "The arrangement cycle (loop region, seconds). 'get'; 'set' with 'a'/'b' (both needed if none exists yet) and/or 'on'; 'clear' removes it.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set', 'clear'] },
+        a: { type: 'number', minimum: 0, description: 'Cycle start, seconds.' },
+        b: { type: 'number', minimum: 0, description: 'Cycle end, seconds (at least 0.05 after a).' },
+        on: { type: 'boolean', description: 'Whether playback loops the cycle.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'range',
+    description: "Edit a time range [a, b] (song seconds) across the arrangement. 'cut' removes the slice from placements (all lanes, or only 'lanes'), leaving a gap. 'ripple_delete' removes the slice from every lane and closes the gap: placements, markers, the cycle and lane/master automation after b move left by b - a (clip envelopes travel with their clips).",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['cut', 'ripple_delete'] },
+        a: { type: 'number', minimum: 0 },
+        b: { type: 'number', minimum: 0 },
+        lanes: { type: 'array', items: { type: 'string' }, description: "For 'cut': lane ids/names to restrict to. Omit for all lanes." },
+      },
+      required: ['action', 'a', 'b'],
+    },
+  },
+  {
+    name: 'insert',
+    description: "Effect inserts on a lane or the master chain. 'lane' is a lane id/name, or 'master' (the default). 'list' shows the chain and the available effect types; 'add' appends 'type' with optional partial 'params'; 'set' updates insert 'index' params (merged, validated and clamped against the effect schema) and/or 'bypass'; 'remove' deletes insert 'index'; 'move' moves insert 'index' to position 'to'.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'add', 'set', 'remove', 'move'] },
+        lane: { type: 'string', description: "Lane id or name, or 'master'. Default master." },
+        type: { type: 'string', description: "Effect type, e.g. 'eq3', 'compressor', 'algoreverb' (see list)." },
+        params: { type: 'object', additionalProperties: { type: ['number', 'string', 'boolean'] }, description: 'Partial param map over the effect schema.' },
+        index: { type: 'integer', minimum: 0 },
+        to: { type: 'integer', minimum: 0 },
+        bypass: { type: 'boolean' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'automation',
+    description: "Breakpoint automation envelopes. Targets: 'lane:<lane>:gainDb' (dB -60..12), 'lane:<lane>:pan' (-1..1), 'master:gainDb', 'lane:<lane>:insert:<n>:<param>' (effect param of insert n), 'clip:<clipId>:gainDb' (clip-local seconds, stacks on clip gain). Lane refs may be names. Points are {t (seconds), v, shape?: 'linear'|'hold'|'exp'}; values clamp to the target's range. 'list' (all envelopes, or one 'target' with its range); 'set_points' replaces a target's points; 'add_point' adds/replaces one point at t; 'remove_point' by 'index' or nearest 't'; 'clear' deletes the envelope.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'set_points', 'add_point', 'remove_point', 'clear'] },
+        target: { type: 'string', description: "e.g. 'lane:Vocal:gainDb'." },
+        points: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { t: { type: 'number', minimum: 0 }, v: { type: 'number' }, shape: { type: 'string', enum: ['linear', 'hold', 'exp'] } },
+            required: ['t', 'v'],
+          },
+        },
+        t: { type: 'number', minimum: 0 },
+        v: { type: 'number' },
+        shape: { type: 'string', enum: ['linear', 'hold', 'exp'] },
+        index: { type: 'integer', minimum: 0 },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'words',
+    description: "Word-level transcripts on assets (source seconds). 'get' returns words for an 'asset', or for a 'clip' (only the words inside its in/out window), optionally narrowed to 'from'/'to' source seconds and capped at 'limit'; includes the joined text. 'set' replaces an asset's words with [{s, e, t}].",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set'] },
+        asset: { type: 'string', description: 'Asset id.' },
+        clip: { type: 'string', description: "For 'get': clip id or name." },
+        from: { type: 'number', minimum: 0 },
+        to: { type: 'number', minimum: 0 },
+        limit: { type: 'integer', minimum: 1, maximum: 5000, default: 200 },
+        words: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { s: { type: 'number' }, e: { type: 'number' }, t: { type: 'string' } },
+            required: ['s', 'e', 't'],
+          },
+        },
+      },
+      required: ['action'],
+    },
+  },
 ];
 
 export function getCommand(name) {
