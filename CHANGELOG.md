@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased · Suno sources
+## 2.3.0 · 2026-09-23 · "Where it came from"
+Every edit in the UI now goes through the same store actions as Claude's (one undo per gesture; the "+ lane" row clicks again), and assets can link to the Suno song they came from.
 
 - Assets can say where they came from: `asset.source` is a Suno song (id, link, created, title, style, model, task, cover, lyrics, what Oscine sent, with the source of each field) or `derived` from another asset. See `docs/sources.md`.
 - Several files per asset: variants record origin, file name, codec, sample rate, channels, length and when they were added; `asset.preferred` picks the one that plays. Add your own file to a Suno song at any time; clips follow the preferred file and one undo switches back.
