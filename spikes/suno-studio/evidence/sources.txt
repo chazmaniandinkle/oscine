@@ -1,0 +1,49 @@
+https://suno.com/studio
+https://help.suno.com/en/categories/2701953-studio-2-0
+https://help.suno.com/en/categories/2702145-studio-archive
+https://help.suno.com/en/articles/10625089
+https://help.suno.com/en/articles/13670529
+https://help.suno.com/en/articles/13670593
+https://help.suno.com/en/articles/13670657
+https://help.suno.com/en/articles/13670721
+https://help.suno.com/en/articles/13670785
+https://help.suno.com/en/articles/13670849
+https://help.suno.com/en/articles/13670913
+https://help.suno.com/en/articles/13670977
+https://help.suno.com/en/articles/13671041
+https://help.suno.com/en/articles/13671105
+https://help.suno.com/en/articles/13674305
+https://help.suno.com/en/articles/13680385
+https://help.suno.com/en/articles/7940161
+https://help.suno.com/en/articles/7975809
+https://help.suno.com/en/articles/8041473
+https://help.suno.com/en/articles/8082241
+https://help.suno.com/en/articles/8121281
+https://help.suno.com/en/articles/8128193
+https://help.suno.com/en/articles/8333825
+https://help.suno.com/en/articles/8363457
+https://help.suno.com/en/articles/8640385
+https://help.suno.com/en/articles/8935873
+https://help.suno.com/en/articles/8936897
+https://help.suno.com/en/articles/8967489
+https://help.suno.com/en/articles/9819905
+https://www.youtube.com/watch?v=35AzcYYucHs
+https://www.youtube.com/watch?v=59rEQZmGF24
+https://www.youtube.com/watch?v=G-3G0-fE8Eg
+https://www.youtube.com/watch?v=GZHp3WFc9Ps
+https://www.youtube.com/watch?v=GmZTKZWv1BA
+https://www.youtube.com/watch?v=N2HJUmWIbvc
+https://www.youtube.com/watch?v=lGvyrEkZ6ZU
+https://www.youtube.com/watch?v=GZHp3WFc9Ps (comments: evidence/comments/)
+https://www.youtube.com/watch?v=GmZTKZWv1BA (comments)
+https://www.youtube.com/watch?v=35AzcYYucHs (comments)
+https://www.reddit.com/r/SunoAI/search.json?q=studio+2.0 (FAILED: returned HTML block page; no Reddit evidence used)
+help H13671105, H13670593 in evidence/help/; H13925185, H13925249 reused from ../suno/002-public-surface/evidence/help_*.txt
+NOTE: evidence/chaz-screens/ provenance not verified in this pass; not cited.
+https://www.reddit.com/r/SunoAI/search.json?q=studio%202.0&restrict_sr=1&sort=top&t=year&limit=25
+https://old.reddit.com/r/SunoAI/search.json?q=studio&restrict_sr=on&sort=top&t=year&limit=25
+https://old.reddit.com/r/SunoAI/search.json?q=studio (blocked: login wall HTML, saved as reddit_blocked_page.html)
+YouTube comments via yt-dlp --write-comments: GZHp3WFc9Ps, 35AzcYYucHs (subs/*.info.json, top 150 each)
+Chaz's logged-in screenshots (primary): chaz-screens/01..05-*.png
+Prior public-surface evidence reused: ../suno/002-public-surface/evidence/help_12702337, help_13925185, help_13925249, help_13926081, song_538ab4ae-...clip.json
+evidence/playlist.txt (official Suno Studio 2.0 playlist, provided by Chaz)
