@@ -25,7 +25,7 @@ const LANE_H = 64;
 const GUTTER_W = 150;
 const EDGE_PX = 6;
 const SNAP_PX = 8; // default; the live value is the snap.distancePx setting
-import { prefs } from '../core/prefs.js';
+import { prefs } from '../core/prefs/index.js';
 // The noSnap modifier may be held ON TOP of the range gesture (⇧⌘-drag =
 // unsnapped range) without breaking its exact modifier match. Scoped to range
 // selection only: a general rule leaks (REAPER's noSnap is ⇧, so ⌥⇧ would

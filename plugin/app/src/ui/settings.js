@@ -3,7 +3,7 @@
 // Open with the ⚙ toolbar button or ⌘, ; Esc or a click outside closes it.
 // Also lists the active key scheme's bindings, so shortcuts are findable.
 import { el } from './widgets.js';
-import { PREFS, SECTIONS } from '../core/prefs.js';
+import { listPrefDefs, listSections, getPrefDef, prefOptions } from '../core/prefs/index.js';
 import { keymap, ACTIONS } from '../core/keymap.js';
 
 export class SettingsPanel {
@@ -44,8 +44,8 @@ export class SettingsPanel {
     head.append(x);
     panel.append(head);
     const body = el('div', 'settings-body');
-    for (const sec of SECTIONS) {
-      const keys = Object.keys(PREFS).filter(k => PREFS[k].section === sec.id);
+    for (const sec of listSections()) {
+      const keys = listPrefDefs().filter(d => d.section === sec.id).map(d => d.key);
       if (!keys.length) continue;
       const box = el('section', 'settings-section');
       box.append(el('h3', 'settings-h', sec.label));
@@ -62,7 +62,7 @@ export class SettingsPanel {
   }
 
   row(key) {
-    const d = PREFS[key], v = this.prefs.get(key);
+    const d = getPrefDef(key), v = this.prefs.get(key), opts = prefOptions(d);
     const row = el('label', 'settings-row');
     row.dataset.key = key;
     const text = el('div', 'settings-text');
@@ -71,12 +71,12 @@ export class SettingsPanel {
     if (d.type === 'boolean') {
       ctl = el('input'); ctl.type = 'checkbox'; ctl.checked = v;
       ctl.addEventListener('change', () => this.prefs.set(key, ctl.checked));
-    } else if (d.options) {
+    } else if (opts) {
       ctl = el('select', 'select');
-      for (const o of d.options) { const op = el('option', null, o.label); op.value = String(o.value); ctl.append(op); }
+      for (const o of opts) { const op = el('option', null, o.label); op.value = String(o.value); ctl.append(op); }
       ctl.value = String(v);
       ctl.addEventListener('change', () => {
-        const o = d.options.find(o => String(o.value) === ctl.value);
+        const o = opts.find(o => String(o.value) === ctl.value);
         this.prefs.set(key, o ? o.value : ctl.value);
       });
     } else if (d.type === 'number') {

@@ -14,7 +14,7 @@ import { encodeWav } from '../core/wav.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 import * as Arr from '../core/arrangement.js';
 import * as Src from '../core/sources.js';
-import { prefs } from '../core/prefs.js';
+import { prefs } from '../core/prefs/index.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {

@@ -15,7 +15,7 @@ import { Timeline } from './timeline.js';
 import { AssetBin } from './assetbin.js';
 import { Toolbar } from './toolbar.js';
 import { LyricsBar } from './lyricsbar.js';
-import { prefs } from '../core/prefs.js';
+import { prefs } from '../core/prefs/index.js';
 import { SettingsPanel } from './settings.js';
 import { StatusBar } from './statusbar.js';
 import { saveProjectPath, revealProjectFolder } from './fileops.js';
@@ -119,7 +119,6 @@ export class App {
       else if (key === 'keys.scheme') { if (keymap.scheme !== v) { keymap.use(v); bus.emit('keymap:changed', {}); } }
       if (this.timeline) this.timeline.dirty = true;
     };
-    prefs.setOptions('keys.scheme', keymap.schemes().map(s => ({ value: s.id, label: s.label })));
     // The keymap persisted its own scheme before prefs existed: adopt it once.
     if (prefs.get('keys.scheme') !== keymap.scheme && !('keys.scheme' in prefs.values)) prefs.set('keys.scheme', keymap.scheme);
     for (const { key, value } of prefs.all()) applyPref(key, value);
