@@ -1,0 +1,13 @@
+import { session, OUT } from './drive.mjs';
+import { readFileSync } from 'node:fs';
+const s = await session(7417);
+s.page.on('console', m => { if (/error|warn/i.test(m.type())) console.log('PAGE', m.type(), m.text().slice(0, 200)); });
+await s.call('project', { action: 'load', project: JSON.parse(readFileSync(`${OUT}/second-pass.oscine.json`, 'utf8')) });
+let t0 = Date.now();
+const a = await s.call('listen', { slot: 'C' });
+console.log('listen slot C', Date.now() - t0, 'ms', JSON.stringify(a).slice(0, 300));
+t0 = Date.now();
+const b = await s.page.evaluate(() => window.oscine.api.execute('listen', { slot: 'B' }).then(r => ({ ok: true, peak: r.peakDb }), e => ({ err: String(e) })));
+console.log('direct api listen slot B', Date.now() - t0, 'ms', JSON.stringify(b));
+console.log('errors', s.errs);
+await s.close();
