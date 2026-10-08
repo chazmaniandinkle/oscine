@@ -436,6 +436,30 @@ async function serveStatic(req, res) {
   // the project root) in the OS file manager: Finder on macOS (`open -R`
   // selects the file), the default handler elsewhere. Local-only: the page
   // must be same-origin with the sidecar, and the path can't escape the root.
+  // POST /render-save  body = WAV bytes, header X-Path = '<rel>.wav' under PROJECT_ROOT.
+  // Lets `listen {save}` hand a render to external ears. Same-origin, root-guarded,
+  // .wav only, 200 MB cap, parent dirs created.
+  if (urlPath === '/render-save' && req.method === 'POST') {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const rel = String(req.headers['x-path'] || '');
+    if (!/\.wav$/i.test(rel)) { res.writeHead(400); res.end('X-Path must end in .wav'); return; }
+    const projectRoot = resolve(PROJECT_ROOT);
+    const target = resolve(projectRoot, rel);
+    if (!target.startsWith(projectRoot + '/')) { res.writeHead(400); res.end('path escapes the project root'); return; }
+    const chunks = []; let n = 0;
+    for await (const c of req) { n += c.length; if (n > 200 * 1024 * 1024) { res.writeHead(413); res.end('too large'); return; } chunks.push(c); }
+    try {
+      const { mkdir, writeFile } = await import('node:fs/promises');
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, Buffer.concat(chunks));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, path: target.slice(projectRoot.length + 1), bytes: n }));
+    } catch (err) { res.writeHead(500); res.end(String(err?.message || err)); }
+    return;
+  }
   if (urlPath === '/reveal' && req.method === 'POST') {
     const o = req.headers.origin;
     let local = !o;
@@ -863,7 +887,10 @@ async function dispatchTool(name, args) {
       hint: 'The Oscine app is not open. Call oscine_open_app to launch it, then retry.',
     };
   }
-  const result = await callApp(cmdName, forwardArgs, 15000, selector);
+  // Renders (listen, export_wav) scale with song length x instruments: a 110 s,
+  // 6-synth song took > 15 s offline. Give them 3 minutes; everything else keeps 15 s.
+  const timeout = cmdName === 'listen' || cmdName === 'export_wav' ? 180000 : 15000;
+  const result = await callApp(cmdName, forwardArgs, timeout, selector);
   if (cmdName === 'status' && result && typeof result === 'object') {
     result.osc = gateway?.info(); // udp control surface: port + subscriber count
     result.sessions = registry.list();

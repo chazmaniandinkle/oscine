@@ -11,7 +11,7 @@ import { defaultParams, presetParams, getInstrumentDef } from '../engine/instrum
 
 export const FORMAT_VERSION = 2;
 export const SLOT_NAMES = ['A', 'B', 'C', 'D'];
-export const BAR_CHOICES = [1, 2, 4, 8];
+export const BAR_CHOICES = [1, 2, 4, 8, 16, 32];
 export const MIDI_MIN = 24;   // C1
 export const MIDI_MAX = 107;  // B7
 
@@ -159,6 +159,12 @@ export function validateProject(p) {
   if (!p.assets) p.assets = {};
   if (!p.clips) p.clips = {};
   if (p.arrangement === undefined) p.arrangement = null;
+  // Song mode (optional): slot indexes in play order. Drop anything invalid.
+  if (p.song !== undefined) {
+    p.song = Array.isArray(p.song) ? p.song.filter(i => Number.isInteger(i) && i >= 0 && i < p.slots.length) : [];
+    if (!p.song.length) delete p.song;
+  }
+  for (const s of p.slots) if (!BAR_CHOICES.includes(s.bars)) s.bars = 2;
   // baseUrl is a load-time fact (where the document was opened from), set by
   // the sidecar's open_file so relative asset refs resolve. Keep it if present;
   // it's stripped again on save (see persist / save_file).

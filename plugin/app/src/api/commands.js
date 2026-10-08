@@ -27,11 +27,13 @@ const NOTE_ITEM = {
   type: 'object',
   properties: {
     start: { type: 'number', minimum: 0, description: 'Start position in beats from loop start (0 = the 1). 16th note = 0.25.' },
-    pitch: { type: 'integer', minimum: 24, maximum: 107, description: 'MIDI note number (60 = C4, 69 = A4).' },
+    pitch: { type: 'integer', minimum: 24, maximum: 107, description: 'MIDI note number (60 = C4, 69 = A4). Or give chord instead.' },
+    chord: { type: 'string', description: "Instead of pitch: a chord symbol expanded to several notes, e.g. 'Fm9', 'Dbmaj7', 'Eb6/9', 'Csus4', 'G7b9', 'Am/E'. Root voiced in 'octave' (default 3), tones stacked upward." },
+    octave: { type: 'integer', minimum: 1, maximum: 7, description: 'For chord: octave of the root (C4 = middle C). Default 3.' },
     dur: { type: 'number', exclusiveMinimum: 0, default: 0.25, description: 'Length in beats.' },
     vel: { type: 'number', minimum: 0, maximum: 1, default: 0.85, description: 'Velocity 0-1 (drives loudness and filter).' },
   },
-  required: ['start', 'pitch'],
+  required: ['start'],
 };
 
 export const COMMANDS = [
@@ -162,14 +164,22 @@ export const COMMANDS = [
   },
   {
     name: 'set_notes',
-    description: "Write the melodic pattern of a synth track (undoable). mode 'replace' sets the whole pattern (the usual way to compose), 'add' appends notes, 'remove' deletes by id, 'clear' empties it. Notes use beats/MIDI/velocity per the note schema.",
+    description: "Write the melodic pattern of a synth track (undoable). mode 'replace' sets the whole pattern (the usual way to compose), 'add' appends notes, 'remove' deletes by id, 'clear' empties it, 'transform' edits existing notes in place (all, or 'ids', or those with start in ['from','to') beats): transpose (semitones), shift (beats), velScale, velSet, durScale, quantize (grid in beats). Notes may use 'chord' instead of 'pitch'.",
     input: {
       type: 'object',
       properties: {
         track: TRACK,
-        mode: { type: 'string', enum: ['replace', 'add', 'remove', 'clear'] },
+        mode: { type: 'string', enum: ['replace', 'add', 'remove', 'clear', 'transform'] },
         notes: { type: 'array', items: NOTE_ITEM, description: "For 'replace'/'add'." },
-        ids: { type: 'array', items: { type: 'string' }, description: "For 'remove': note ids from get_notes." },
+        ids: { type: 'array', items: { type: 'string' }, description: "For 'remove', or to limit 'transform': note ids from get_notes." },
+        from: { type: 'number', minimum: 0, description: "For 'transform': only notes starting at or after this beat." },
+        to: { type: 'number', minimum: 0, description: "For 'transform': only notes starting before this beat." },
+        transpose: { type: 'integer', minimum: -48, maximum: 48 },
+        shift: { type: 'number', description: 'Beats; notes pushed before 0 are dropped.' },
+        velScale: { type: 'number', minimum: 0, maximum: 4 },
+        velSet: { type: 'number', minimum: 0, maximum: 1 },
+        durScale: { type: 'number', exclusiveMinimum: 0, maximum: 16 },
+        quantize: { type: 'number', exclusiveMinimum: 0, description: 'Snap starts to this grid in beats (0.25 = 16ths).' },
         slot: SLOT,
       },
       required: ['track', 'mode'],
@@ -201,15 +211,16 @@ export const COMMANDS = [
   },
   {
     name: 'slots',
-    description: "Pattern slots A-D are four scenes sharing the same tracks. 'list' shows each slot's bars and content; 'select' switches the playing slot (while playing, the switch queues and lands at the next loop boundary); 'set_bars' changes a slot's loop length (1/2/4/8 bars); 'copy' duplicates one slot's patterns into another.",
+    description: "Pattern slots A-D are four scenes sharing the same tracks. 'list' shows each slot's bars and content; 'select' switches the playing slot (while playing, the switch queues and lands at the next loop boundary); 'set_bars' changes a slot's loop length (1/2/4/8/16/32 bars); 'copy' duplicates one slot's patterns into another, or only one 'track' when given.",
     input: {
       type: 'object',
       properties: {
         action: { type: 'string', enum: ['list', 'select', 'set_bars', 'copy'] },
         slot: SLOT,
-        bars: { type: 'integer', enum: [1, 2, 4, 8], description: "For 'set_bars'." },
+        bars: { type: 'integer', enum: [1, 2, 4, 8, 16, 32], description: "For 'set_bars'." },
         from: SLOT,
         to: SLOT,
+        track: { ...TRACK, description: "For 'copy': copy only this track's pattern; other tracks in 'to' stay." },
       },
       required: ['action'],
     },
@@ -236,6 +247,35 @@ export const COMMANDS = [
     },
   },
   {
+    name: 'listen',
+    description: "Hear the song without a speaker: render offline (nothing is downloaded, nothing changes) and return what an engineer would read off meters. Renders one 'slot' (loops times), or the song sequence when song:true, optionally with only 'solo' tracks audible. Returns peakDb, rmsDb, crestDb, clipped samples, dc offset, energy share per band (sub <60, bass 60-250, lowmid 250-800, mid 800-4k, high 4k+), grid fit at the project tempo (onOffRatio: onset energy on 16ths vs between them; >1.5 is tight), plain-language notes for problems, and per-section numbers in song mode. save:'<rel path>.wav' also writes the render under the project root for external ears.",
+    readOnly: true,
+    input: {
+      type: 'object',
+      properties: {
+        slot: SLOT,
+        loops: { type: 'integer', minimum: 1, maximum: 16, default: 1 },
+        song: { type: 'boolean', description: 'Render the song sequence (see the song command) instead of one slot.' },
+        solo: { type: 'array', items: { type: 'string' }, description: 'Track names/ids to hear alone (others muted for this render only).' },
+        from: { type: 'number', minimum: 0, description: 'Measure from this many seconds in.' },
+        to: { type: 'number', minimum: 0, description: 'Measure up to this many seconds.' },
+        save: { type: 'string', description: "Also write the render as a WAV under the project root, e.g. 'renders/drop.wav'." },
+      },
+    },
+  },
+  {
+    name: 'song',
+    description: "Song mode for the pattern side: an ordered list of slots that plays and renders as one song (a slot may repeat, e.g. ['A','B','B','C','B','D']). 'get' returns the sequence with each section's start/length in bars and seconds; 'set' replaces it; 'clear' removes it. export_wav and listen take song:true to render it.",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set', 'clear'] },
+        sequence: { type: 'array', items: SLOT, description: "For 'set': slots in play order." },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'preview',
     description: 'Audition a sound immediately on the user\'s speakers without touching any pattern: a pitch on a synth track, or a lane hit on a drum track. Useful to check a patch before composing.',
     input: {
@@ -257,6 +297,7 @@ export const COMMANDS = [
       type: 'object',
       properties: {
         slot: SLOT,
+        song: { type: 'boolean', description: 'Bounce the song sequence (song command) instead of one slot.' },
         loops: { type: 'integer', minimum: 1, maximum: 16, default: 2, description: 'How many times to repeat the slot loop.' },
         tailSeconds: { type: 'number', minimum: 0, maximum: 12, description: 'Extra time after the last note for FX to decay. Defaults to reverb size + 1.5s.' },
         sampleRate: { type: 'integer', enum: [44100, 48000], default: 44100, description: 'Output sample rate.' },

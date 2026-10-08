@@ -55,7 +55,7 @@ const { listInstrumentDefs } = await import(`${ROOT}/src/engine/instruments/inde
 
 {
   const defs = listInstrumentDefs();
-  check('instrument registry has 3 built-ins', defs.length === 3, `got ${defs.length}`);
+  check('instrument registry has 6 built-ins (poly fm drums reese breaks atmos)', defs.length === 6 && ['poly','fm','drums','reese','breaks','atmos'].every(t => defs.some(d => d.type === t)), `got ${defs.map(d => d.type)}`);
 
   const demo = demoProject();
   check('demo project validates', !!validateProject(JSON.parse(JSON.stringify(demo))));
@@ -311,7 +311,8 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Count guard: the arrangement nouns (arrangement, clip, lane, marker, cycle,
   // range, insert, automation, words) took the count from 21 to 30. The e2e
   // tool-count check is derived from COMMANDS.length, so it tracks this.
-  check('catalog command count is 33', COMMANDS.length === 33, `got ${COMMANDS.length}`);
+  // 2026-10-08 fitting pass: + listen, song.
+  check('catalog command count is 35', COMMANDS.length === 35, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -328,7 +329,7 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
 
   const inst = await api.execute('list_instruments');
   check('list_instruments exposes schemas + presets',
-    inst.instruments.length === 3 &&
+    inst.instruments.length === 6 &&
     inst.instruments.every(d => d.params.length > 0) &&
     inst.instruments.find(d => d.type === 'poly').presets.includes('Acid Bass'));
 

@@ -11,6 +11,7 @@ import { SLOT_NAMES, BAR_CHOICES, demoProject, createProject, validateProject } 
 import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/instruments/index.js';
 import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
 import { encodeWav } from '../core/wav.js';
+import { chordPitches } from '../core/chords.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 import * as Arr from '../core/arrangement.js';
 import * as Src from '../core/sources.js';
@@ -356,9 +357,18 @@ export class CommandAPI {
 
   validateNotes(notes, loopBeats) {
     let beyondLoop = 0;
-    const out = notes.map((n, i) => {
+    // Chord notes expand first: {start, chord:'Fm9', octave, dur, vel} -> one note per tone.
+    const flat = [];
+    notes.forEach((n, i) => {
+      if (n.chord !== undefined && n.chord !== null) {
+        let ps;
+        try { ps = chordPitches(n.chord, n.octave ?? 3); } catch (e) { throw new Error(`notes[${i}]: ${e.message}`); }
+        for (const pitch of ps) flat.push({ ...n, pitch, chord: undefined });
+      } else flat.push(n);
+    });
+    const out = flat.map((n, i) => {
       if (n.start === undefined || n.pitch === undefined) {
-        throw new Error(`notes[${i}] needs at least 'start' and 'pitch'.`);
+        throw new Error(`notes[${i}] needs 'start' and either 'pitch' or 'chord'.`);
       }
       const start = Math.max(0, Number(n.start));
       if (start >= loopBeats) beyondLoop++;
@@ -372,7 +382,7 @@ export class CommandAPI {
     return { out, beyondLoop };
   }
 
-  cmd_set_notes({ track, mode, notes, ids, slot }) {
+  cmd_set_notes({ track, mode, notes, ids, slot, from, to, transpose, shift, velScale, velSet, durScale, quantize }) {
     const t = this.resolveTrack(track);
     this.requireKind(t, 'synth', 'set_steps');
     const slotIdx = this.resolveSlot(slot);
@@ -381,6 +391,31 @@ export class CommandAPI {
 
     store.checkpoint();
     let warning;
+    if (mode === 'transform') {
+      const cur = store.getPattern(t.id, slotIdx).notes;
+      const idset = Array.isArray(ids) && ids.length ? new Set(ids) : null;
+      const hit = n => (!idset || idset.has(n.id)) && (from === undefined || n.start >= from) && (to === undefined || n.start < to);
+      let changed = 0, dropped = 0;
+      const next = [];
+      for (const n0 of cur) {
+        if (!hit(n0)) { next.push(n0); continue; }
+        const n = { ...n0 };
+        if (transpose) n.pitch = clamp(n.pitch + Math.round(transpose), 24, 107);
+        if (shift) n.start = n.start + Number(shift);
+        if (quantize) n.start = Math.round(n.start / quantize) * quantize;
+        if (velScale !== undefined) n.vel = clamp(n.vel * velScale, 0.05, 1);
+        if (velSet !== undefined) n.vel = clamp(velSet, 0.05, 1);
+        if (durScale) n.dur = Math.max(0.02, n.dur * durScale);
+        if (n.start < 0) { dropped++; continue; }
+        if (n.start >= loopBeats) warning = 'Some notes now start at/after the loop end; lengthen the slot to hear them.';
+        next.push(n); changed++;
+      }
+      store.setNotes(t.id, next, slotIdx);
+      const result = this.cmd_get_notes({ track: t.id, slot: slotIdx });
+      result.transformed = changed; if (dropped) result.dropped = dropped;
+      if (warning) result.warning = warning;
+      return result;
+    }
     if (mode === 'replace' || mode === 'add') {
       if (!Array.isArray(notes)) throw new Error(`mode '${mode}' needs a 'notes' array.`);
       const { out, beyondLoop } = this.validateNotes(notes, loopBeats);
@@ -443,7 +478,7 @@ export class CommandAPI {
     return this.cmd_get_steps({ track: t.id, slot: slotIdx });
   }
 
-  cmd_slots({ action, slot, bars, from, to }) {
+  cmd_slots({ action, slot, bars, from, to, track }) {
     const { store, transport } = this;
     switch (action) {
       case 'list':
@@ -468,6 +503,19 @@ export class CommandAPI {
         const f = this.resolveSlot(from, false);
         const tt = this.resolveSlot(to, false);
         if (f === tt) throw new Error('from and to are the same slot.');
+        if (track !== undefined && track !== null) {
+          const t = this.resolveTrack(track);
+          store.checkpoint();
+          const src = store.project.slots[f].patterns[t.id];
+          const dst = store.project.slots[tt];
+          const copy = src ? deepClone(src) : null;
+          if (copy && this.kindOf(t) === 'drums' && dst.bars !== store.project.slots[f].bars) {
+            for (const k of Object.keys(copy.steps || {})) { const a = copy.steps[k].slice(0, dst.bars * 16); while (a.length < dst.bars * 16) a.push(0); copy.steps[k] = a; }
+          }
+          if (copy) dst.patterns[t.id] = copy; else delete dst.patterns[t.id];
+          store.emit(this.kindOf(t) === 'drums' ? 'steps:changed' : 'notes:changed', { trackId: t.id });
+          return { copied: `${t.name}: ${SLOT_NAMES[f]} -> ${SLOT_NAMES[tt]}`, slots: store.project.slots.map((_, i) => this.slotSummary(i)) };
+        }
         store.copySlot(f, tt);
         return { copied: `${SLOT_NAMES[f]} -> ${SLOT_NAMES[tt]}`, slots: store.project.slots.map((_, i) => this.slotSummary(i)) };
       }
@@ -650,13 +698,98 @@ export class CommandAPI {
     return this.store.project.name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'song';
   }
 
-  async cmd_export_wav({ slot, loops = 2, tailSeconds, sampleRate = 44100 }) {
+  // -- song mode + listen (2026-10-08 fitting pass) ----------------------------
+  // project.song = [slotIndex, ...]; absent = no song. Stored on the project so
+  // it saves, shares and undoes like any other edit.
+
+  songSequence(required = false) {
+    const seq = this.store.project.song;
+    if (!Array.isArray(seq) || !seq.length) {
+      if (required) throw new Error("No song sequence. Set one with song {action:'set', sequence:['A','B',...]}.");
+      return null;
+    }
+    return seq;
+  }
+
+  songLayout(seq) {
+    const p = this.store.project, spb = 60 / p.bpm;
+    let at = 0;
+    return seq.map((i, n) => {
+      const bars = p.slots[i].bars, sec = bars * 4 * spb;
+      const row = { index: n, slot: SLOT_NAMES[i], bars, startSec: Math.round(at * 1000) / 1000, seconds: Math.round(sec * 1000) / 1000 };
+      at += sec; return row;
+    });
+  }
+
+  cmd_song({ action, sequence }) {
+    const { store } = this;
+    if (action === 'get') {
+      const seq = this.songSequence();
+      if (!seq) return { sequence: [], note: 'No song yet; renders use one slot.' };
+      const sections = this.songLayout(seq);
+      const last = sections[sections.length - 1];
+      return { sequence: seq.map(i => SLOT_NAMES[i]), sections, totalSec: Math.round((last.startSec + last.seconds) * 1000) / 1000 };
+    }
+    if (action === 'set') {
+      if (!Array.isArray(sequence) || !sequence.length) throw new Error("action 'set' needs a non-empty 'sequence' of slots.");
+      const seq = sequence.map(s => this.resolveSlot(s, false));
+      store.checkpoint();
+      store.project.song = seq;
+      store.emit('song:changed', { sequence: seq });
+      return this.cmd_song({ action: 'get' });
+    }
+    if (action === 'clear') {
+      store.checkpoint();
+      delete store.project.song;
+      store.emit('song:changed', { sequence: [] });
+      return { sequence: [] };
+    }
+    throw new Error(`Bad action '${action}'. Use get, set or clear.`);
+  }
+
+  async cmd_listen({ slot, loops = 1, song = false, solo, from, to, save }) {
+    const { measure } = await import('../engine/listen.js');
+    const p = deepClone(this.store.project);
+    if (Array.isArray(solo) && solo.length) {
+      const keep = new Set(solo.map(r => this.resolveTrack(r).id));
+      for (const t of p.tracks) { t.channel.solo = false; t.channel.mute = !keep.has(t.id); }
+    }
+    const slotIdx = this.resolveSlot(slot);
+    const sequence = song ? this.songSequence(true) : null;
+    const { renderProjectToBuffer } = await import('../engine/render.js');
+    const { buffer } = await renderProjectToBuffer(p, {
+      slotIndex: slotIdx, loops: clamp(Math.round(loops), 1, 16), sequence, tailSeconds: 0.25,
+    });
+    const chans = []; for (let c = 0; c < buffer.numberOfChannels; c++) chans.push(buffer.getChannelData(c));
+    const sr = buffer.sampleRate;
+    const out = {
+      rendered: song ? 'song' : `slot ${SLOT_NAMES[slotIdx]} x${loops}`,
+      solo: Array.isArray(solo) && solo.length ? solo : undefined,
+      bpm: p.bpm,
+      ...measure(chans, sr, { bpm: p.bpm, from, to }),
+    };
+    if (song) {
+      out.sections = this.songLayout(sequence).map(s => {
+        const m = measure(chans, sr, { from: s.startSec, to: s.startSec + s.seconds });
+        return { slot: s.slot, startSec: s.startSec, peakDb: m.peakDb, rmsDb: m.rmsDb, bands: m.bands };
+      });
+    }
+    if (save) {
+      const bytes = encodeWav(chans, sr);
+      const res = await fetch('/render-save', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Path': save }, body: bytes });
+      out.saved = res.ok ? (await res.json()).path : `not saved: ${await res.text()}`;
+    }
+    return out;
+  }
+
+  async cmd_export_wav({ slot, loops = 2, tailSeconds, sampleRate = 44100, song = false }) {
     const slotIdx = this.resolveSlot(slot);
     const loopCount = clamp(Math.round(loops), 1, 16);
     if (![44100, 48000].includes(sampleRate)) throw new Error('sampleRate must be 44100 or 48000.');
+    const sequence = song ? this.songSequence(true) : null;
 
     const { buffer } = await this.engine.renderToBuffer({
-      slotIndex: slotIdx, loops: loopCount, tailSeconds, sampleRate,
+      slotIndex: slotIdx, loops: loopCount, tailSeconds, sampleRate, sequence,
     });
 
     const channels = [];
