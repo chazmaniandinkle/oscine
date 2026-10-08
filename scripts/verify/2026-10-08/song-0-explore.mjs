@@ -1,0 +1,11 @@
+import { session, OUT } from './drive.mjs';
+import { writeFileSync, mkdirSync } from 'node:fs';
+mkdirSync(OUT, { recursive: true });
+const s = await session(7401);
+const inst = await s.call('list_instruments');
+writeFileSync(`${OUT}/instruments.json`, JSON.stringify(inst, null, 1));
+const summary = (inst.instruments ?? inst).map?.(i => ({ type: i.type ?? i.id, presets: (i.presets || []).map(p => p.name ?? p), lanes: i.lanes ?? i.drumLanes, params: Object.keys(i.params ?? i.schema ?? {}).length })) ?? inst;
+console.log(JSON.stringify(summary, null, 1).slice(0, 3000));
+console.log('status:', JSON.stringify(await s.call('status')).slice(0, 800));
+console.log('errors', s.errs);
+await s.close();
