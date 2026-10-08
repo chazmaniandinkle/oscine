@@ -12,6 +12,14 @@ class FMSynth extends BaseInstrument {
     super(ctx, params, def);
     this.voices = [];
     this.held = new Map();
+    // Integer ratios put a sideband at f - n*f = 0 Hz: ratio 1 (E-Piano, FM Bass)
+    // emits DC (measured: mean -0.07 on an E-Piano chord part, enough to clip the
+    // master). Voices feed a sub-audio high-pass before the shared output.
+    this.dcBlock = ctx.createBiquadFilter();
+    this.dcBlock.type = 'highpass';
+    this.dcBlock.frequency.value = 12;
+    this.dcBlock.Q.value = 0.707;
+    this.dcBlock.connect(this.output);
   }
 
   pruneVoices() {
@@ -54,7 +62,7 @@ class FMSynth extends BaseInstrument {
     vca.gain.setValueAtTime(0, time);
     vca.gain.setTargetAtTime(peak, time, a / 3);
     vca.gain.setTargetAtTime(p.sustain * peak, time + a, Math.max(p.decay, 0.01) / 3);
-    carrier.connect(vca).connect(this.output);
+    carrier.connect(vca).connect(this.dcBlock);
 
     carrier.start(time);
     mod.start(time);
