@@ -4,5 +4,8 @@
 import './polysynth.js';
 import './fmsynth.js';
 import './drumkit.js';
+import './reese.js';
+import './breaks.js';
+import './atmos.js';
 
 export * from './registry.js';
