@@ -32,6 +32,7 @@ export async function renderProjectToBuffer(project, {
   loops = 2,
   tailSeconds,
   sampleRate = 44100,
+  sequence = null,   // song mode: slot indexes played in order, e.g. [0,1,2,2,3]
 } = {}) {
   const OfflineCtx = (typeof OfflineAudioContext !== 'undefined' && OfflineAudioContext) ||
     (typeof webkitOfflineAudioContext !== 'undefined' && webkitOfflineAudioContext);
@@ -39,11 +40,14 @@ export async function renderProjectToBuffer(project, {
 
   const slot = project.slots[slotIndex];
   if (!slot) throw new Error(`No slot at index ${slotIndex}.`);
+  const seq = Array.isArray(sequence) && sequence.length ? sequence : null;
+  if (seq) for (const i of seq) if (!project.slots[i]) throw new Error(`No slot at index ${i} in sequence.`);
 
   const bpm = project.bpm;
   const secPerBeat = 60 / bpm;
   const loopBeats = slot.bars * 4;
   const loopSec = loopBeats * secPerBeat;
+  const seqSec = seq ? seq.reduce((a, i) => a + project.slots[i].bars * 4 * secPerBeat, 0) : 0;
   const tail = tailSeconds ?? Math.max(project.fx.verbSize ?? 0, 1) + 1.5;
   // An arrangement (v2 clips) defines the song length in seconds; the
   // pattern loop then plays under it only if a caller asks (loops > 0 and
@@ -51,7 +55,8 @@ export async function renderProjectToBuffer(project, {
   const hasArrangement = !!project.arrangement?.placements?.length;
   const { ClipPlayer } = hasArrangement ? await import('./clips.js') : {};
   const arrSec = hasArrangement ? ClipPlayer.duration(project) : 0;
-  const totalSec = Math.max(loopSec * (hasArrangement ? 0 : loops), arrSec) + tail;
+  const patSec = seq ? seqSec : loopSec * (hasArrangement ? 0 : loops);
+  const totalSec = Math.max(patSec, arrSec) + tail;
   const length = Math.max(1, Math.ceil(totalSec * sampleRate));
 
   const ctx = new OfflineCtx(2, length, sampleRate);
@@ -117,33 +122,54 @@ export async function renderProjectToBuffer(project, {
   // build their channels above so the graph matches playback if a later
   // version mixes both.
   const passes = hasArrangement ? 0 : loops;
+  // Song mode: one pass per sequence entry, each at its own slot's length.
+  // Otherwise: `passes` repeats of the chosen slot.
+  const plan = [];
+  if (seq) { let at = 0; for (const i of seq) { plan.push({ s: project.slots[i], at }); at += project.slots[i].bars * 4 * secPerBeat; } }
+  else for (let pass = 0; pass < passes; pass++) plan.push({ s: slot, at: pass * loopSec });
+  // Notes are collected first and scheduled just in time: every 2 s of song
+  // the offline render suspends and builds only the next window's voices.
+  // Building all voices up front made render time grow faster than song
+  // length (a 22 s section took 13 s; the 110 s song didn't finish in 7 min),
+  // because every future node sits in the graph from frame 0.
+  const events = [];
   for (const { track, instrument } of channels.values()) {
     const def = getInstrumentDef(track.instrument.type);
-    const pattern = slot.patterns[track.id];
-    if (!pattern) continue;
-
-    for (let pass = 0; pass < passes; pass++) {
-      const passStart = pass * loopSec;
+    for (const { s, at: passStart } of plan) {
+      const pattern = s.patterns[track.id];
+      if (!pattern) continue;
+      const lb = s.bars * 4;
       if (def.kind === 'drums') {
-        const stepsPerLoop = slot.bars * 16;
+        const stepsPerLoop = s.bars * 16;
         for (let idx = 0; idx < stepsPerLoop; idx++) {
           const localBeat = idx / 4;
           for (const lane of def.lanes) {
             const vel = pattern.steps?.[lane.id]?.[idx] || 0;
             if (vel > 0) {
               const time = passStart + localBeat * secPerBeat + swingOffsetSec(localBeat, project.swing, secPerBeat);
-              instrument.trigger(lane.id, time, vel);
+              events.push({ time, run: () => instrument.trigger(lane.id, time, vel) });
             }
           }
         }
       } else {
         for (const note of pattern.notes ?? []) {
-          if (note.start >= loopBeats - 1e-9) continue; // beyond the loop: silent
+          if (note.start >= lb - 1e-9) continue; // beyond the loop: silent
           const time = passStart + note.start * secPerBeat + swingOffsetSec(note.start, project.swing, secPerBeat);
-          instrument.noteOn(time, note.pitch, note.vel, note.dur * secPerBeat);
+          events.push({ time, run: () => instrument.noteOn(time, note.pitch, note.vel, note.dur * secPerBeat) });
         }
       }
     }
+  }
+  events.sort((a, b) => a.time - b.time);
+  const WINDOW = 2, LEAD = 0.25;
+  let ei = 0;
+  const scheduleUntil = (end) => { while (ei < events.length && events[ei].time < end) events[ei++].run(); };
+  scheduleUntil(WINDOW);
+  for (let k = 1; k * WINDOW - LEAD < totalSec && ei < events.length; k++) {
+    const end = (k + 1) * WINDOW;
+    // suspend() needs a render-quantum boundary (128 frames)
+    const at = Math.floor((k * WINDOW - LEAD) * sampleRate / 128) * 128 / sampleRate;
+    ctx.suspend(at).then(() => { scheduleUntil(end); ctx.resume(); });
   }
 
   // -- arrangement clips: decode into THIS context and schedule from 0 --
