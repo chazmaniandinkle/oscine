@@ -114,6 +114,20 @@ render, keymap), Mod³ as the realtime voice, Oscine as the persistent editor.
   config, not song data.
 - Pattern-to-code export (Strudel), as an experiment.
 
+## Later: instruments (2026-10-08, from composing "Ledger" via MCP)
+
+The June instrument set (poly, 2-op fm, 8-lane kit) is the oldest code in the app and sounds
+like it. The rebuild should go ear-first: every instrument gets a render test and a spectral
+check, not just a param schema.
+- Fixed already: FM DC offset from integer ratios (3191734).
+- Drums: per-lane tune/decay/level/tone. Layers (sample + synth) for kicks.
+- Pattern-track inserts, reusing the arrangement's effect registry (14 types).
+- Game Boy APU (vroku has an export from the Zelda work): 2 pulse (duty, envelope, sweep),
+  wave (32×4-bit table), noise (15/7-bit LFSR). Verify against hardware renders by ear.
+- Era FM: Genesis 4-op (YM2612 algorithms) + PSG squares, for FieldEngine/MonEngine music.
+- A sampler instrument (one-shots and multisamples from assets), so the arrangement's
+  assets can be played from patterns.
+
 ## Decision gates
 
 Questions that need an answer before the work they block. Decided ones are
