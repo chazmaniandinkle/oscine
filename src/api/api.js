@@ -12,6 +12,9 @@ import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/in
 import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
 import { encodeWav } from '../core/wav.js';
 import { chordPitches } from '../core/chords.js';
+import { validateEffectParams } from '../core/arrangement.js';
+import { resolvePatternTarget } from '../engine/patternmix.js';
+import { getEffectDef, listEffectDefs } from '../engine/effects/index.js';
 import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core/share.js';
 import * as Arr from '../core/arrangement.js';
 import * as Src from '../core/sources.js';
@@ -73,7 +76,7 @@ export class CommandAPI {
     if (typeof ref === 'number' && ref >= 0 && ref < SLOT_NAMES.length) return Math.floor(ref);
     const i = SLOT_NAMES.indexOf(String(ref).toUpperCase());
     if (i >= 0) return i;
-    throw new Error(`Bad slot '${ref}'. Use 'A'-'D' or 0-3.`);
+    throw new Error(`Bad slot '${ref}'. Use 'A'-'${SLOT_NAMES[SLOT_NAMES.length - 1]}' or 0-${SLOT_NAMES.length - 1}.`);
   }
 
   kindOf(track) {
@@ -1050,7 +1053,104 @@ export class CommandAPI {
     }
   }
 
+  // Pattern-side insert owner: a synth/drum track ('track:<name>' or a bare
+  // track name when no arrangement lane matches) or 'pattern-master'.
+  patternInsertOwner(lane) {
+    const p = this.store.project;
+    if (lane === 'pattern-master') { p.patternMaster ??= { inserts: [] }; p.patternMaster.inserts ??= []; return { owner: p.patternMaster, label: 'pattern-master' }; }
+    const ref = String(lane).replace(/^track:/, '');
+    const t = this.resolveTrack(ref);
+    t.channel.inserts ??= [];
+    return { owner: t.channel, label: `track:${t.name}` };
+  }
+  isPatternOwner(lane) {
+    if (lane == null) return false;
+    if (lane === 'pattern-master' || String(lane).startsWith('track:')) return true;
+    // A bare name: pattern track wins only when no arrangement lane has it.
+    const lanes = this.store.project.arrangement?.lanes ?? [];
+    if (lanes.some(l => l.id === lane || l.name === lane)) return false;
+    return this.store.project.tracks.some(t => t.id === lane || t.name === lane);
+  }
+  patternInsert(action, { lane, type, params, index, to, bypass }) {
+    const { store } = this;
+    const view = (x, i) => ({ index: i, type: x.type, bypass: !!x.bypass, params: { ...x.params } });
+    const { owner, label } = this.patternInsertOwner(lane);
+    const at = () => { if (!Number.isInteger(index) || index < 0 || index >= owner.inserts.length) throw new Error(`Bad insert index ${index} on ${label}; it has ${owner.inserts.length}.`); return index; };
+    const done = (extra) => { store.emit('patternfx:changed', {}); return { ok: true, owner: label, ...extra, chain: owner.inserts.map(view) }; };
+    switch (action) {
+      case 'list': return { owner: label, inserts: owner.inserts.map(view), available: listEffectDefs().map(d => d.type) };
+      case 'add': {
+        if (!type) throw new Error(`add needs 'type'. Available: ${listEffectDefs().map(d => d.type).join(', ')}.`);
+        getEffectDef(type); const vp = validateEffectParams(type, params);
+        store.checkpoint(); owner.inserts.push({ type, params: vp, bypass: false });
+        return done({ added: owner.inserts.length - 1 });
+      }
+      case 'set': {
+        const i = at(); const ins = owner.inserts[i];
+        if (params === undefined && bypass === undefined) throw new Error("set needs 'params' and/or 'bypass'.");
+        const vp = params ? validateEffectParams(ins.type, params) : null;
+        store.checkpoint(); if (vp) ins.params = { ...ins.params, ...vp }; if (bypass !== undefined) ins.bypass = !!bypass;
+        return done({ set: i });
+      }
+      case 'remove': { const i = at(); store.checkpoint(); owner.inserts.splice(i, 1); return done({ removed: i }); }
+      case 'move': {
+        const i = at(); if (!Number.isInteger(to)) throw new Error("insert 'move' needs integer 'to'.");
+        store.checkpoint(); const [x] = owner.inserts.splice(i, 1); owner.inserts.splice(Math.max(0, Math.min(owner.inserts.length, to)), 0, x);
+        return done({ moved: [i, to] });
+      }
+      default: throw this.badAction('insert', action, ['list', 'add', 'set', 'remove', 'move']);
+    }
+  }
+
+  cmd_pattern_automation({ action, slot, target, points }) {
+    const { store } = this;
+    const si = this.resolveSlot(slot);
+    const s = store.project.slots[si];
+    const beats = s.bars * 4;
+    const resolve = () => {
+      if (!target) throw new Error("needs 'target', e.g. 'track:Reese:insert:0:cutoff'.");
+      const r = resolvePatternTarget(store.project, target, ref => this.resolveTrack(ref));
+      const m = /^track:([^:]+):param:(\w+)$/.exec(r.target);
+      if (m) {
+        const t = store.project.tracks.find(x => x.id === m[1]);
+        const ps = getInstrumentDef(t.instrument.type).params.find(p => p.key === m[2]);
+        if (!ps || ps.type !== 'knob') throw new Error(`'${m[2]}' is not a knob on ${t.instrument.type}.`);
+        r.range = { min: ps.min, max: ps.max };
+      }
+      return r;
+    };
+    const view = () => ({ slot: SLOT_NAMES[si], beats, envelopes: (s.automation ?? []).map(e => ({ target: this.prettyTarget(e.target), points: e.points })) });
+    switch (action) {
+      case 'list': return view();
+      case 'set_points': {
+        const { target: tg, range } = resolve();
+        if (!Array.isArray(points) || !points.length) throw new Error("set_points needs 'points': [{beat, v, shape?}].");
+        const pts = points.map((p, i) => {
+          if (typeof p.beat !== 'number' || typeof p.v !== 'number') throw new Error(`points[${i}] needs numeric beat and v.`);
+          return { beat: clamp(p.beat, 0, beats), v: range ? clamp(p.v, range.min, range.max) : p.v, ...(p.shape ? { shape: p.shape } : {}) };
+        }).sort((a, b) => a.beat - b.beat);
+        store.checkpoint();
+        s.automation = (s.automation ?? []).filter(e => e.target !== tg);
+        s.automation.push({ target: tg, points: pts });
+        store.emit('patternfx:changed', {});
+        return view();
+      }
+      case 'clear': {
+        store.checkpoint();
+        if (target) { const { target: tg } = resolve(); s.automation = (s.automation ?? []).filter(e => e.target !== tg); }
+        else delete s.automation;
+        store.emit('patternfx:changed', {});
+        return view();
+      }
+      default: throw this.badAction('pattern_automation', action, ['list', 'set_points', 'clear']);
+    }
+  }
+  prettyTarget(t) {
+    return t.replace(/^track:([^:]+)/, (_, id) => `track:${this.store.project.tracks.find(x => x.id === id)?.name ?? id}`);
+  }
+
   cmd_insert({ action, lane, type, params, index, to, bypass }) {
+    if (this.isPatternOwner(lane)) return this.patternInsert(action, { lane, type, params, index, to, bypass });
     const { store } = this;
     const needIndex = () => { if (!Number.isInteger(index)) throw new Error(`insert '${action}' needs integer 'index' (see insert list).`); };
     switch (action) {

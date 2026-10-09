@@ -10,7 +10,9 @@ import { uid, clamp } from './util.js';
 import { defaultParams, presetParams, getInstrumentDef } from '../engine/instruments/index.js';
 
 export const FORMAT_VERSION = 2;
-export const SLOT_NAMES = ['A', 'B', 'C', 'D'];
+// 8 slots since 2026-10-08 (a song needs more than 4 sections: intro, drops,
+// variations, breakdown, outro). Older 4-slot projects are padded on load.
+export const SLOT_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 export const BAR_CHOICES = [1, 2, 4, 8, 16, 32];
 export const MIDI_MIN = 24;   // C1
 export const MIDI_MAX = 107;  // B7
@@ -165,6 +167,7 @@ export function validateProject(p) {
     if (!p.song.length) delete p.song;
   }
   for (const s of p.slots) if (!BAR_CHOICES.includes(s.bars)) s.bars = 2;
+  while (p.slots.length < SLOT_NAMES.length) p.slots.push({ name: SLOT_NAMES[p.slots.length], bars: 2, patterns: {} });
   // baseUrl is a load-time fact (where the document was opened from), set by
   // the sidecar's open_file so relative asset refs resolve. Keep it if present;
   // it's stripped again on save (see persist / save_file).

@@ -311,8 +311,8 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // Count guard: the arrangement nouns (arrangement, clip, lane, marker, cycle,
   // range, insert, automation, words) took the count from 21 to 30. The e2e
   // tool-count check is derived from COMMANDS.length, so it tracks this.
-  // 2026-10-08 fitting pass: + listen, song.
-  check('catalog command count is 35', COMMANDS.length === 35, `got ${COMMANDS.length}`);
+  // 2026-10-08 fitting pass: + listen, song, pattern_automation.
+  check('catalog command count is 36', COMMANDS.length === 36, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',
@@ -1022,7 +1022,7 @@ const share = await import(`${ROOT}/src/core/share.js`);
   const back = await share.decodeFragmentToProject(share.fragmentFromUrl(url));
   check('share round-trips name/bpm/tracks/slots',
     back.name === proj.name && back.bpm === proj.bpm &&
-    back.tracks.length === proj.tracks.length && back.slots.length === 4);
+    back.tracks.length === proj.tracks.length && back.slots.length === proj.slots.length);
   const leadId = proj.tracks.find(t => t.name === 'Lead').id;
   const origNotes = proj.slots[0].patterns[leadId].notes;
   const backNotes = back.slots[0].patterns[leadId].notes;

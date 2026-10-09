@@ -64,6 +64,8 @@ export function measure(channels, sr, { bpm = null, from = 0, to = null } = {}) 
     clipped, dc: Math.round(sum / Math.max(1, n) * 10000) / 10000, bands,
   };
   if (bpm) out.grid = gridFit(mono, sr, bpm);
+  const k = keyEstimate(mono, sr);
+  if (k) out.key = k;
   const notes = [];
   if (clipped) notes.push(`${clipped} clipped samples: lower track gains or master volume.`);
   if (Math.abs(out.dc) > 0.005) notes.push(`DC offset ${out.dc}: an instrument is emitting 0 Hz.`);
@@ -93,4 +95,57 @@ export function gridFit(mono, sr, bpm) {
     on += Math.max(flux[i] || 0, flux[i + 1] || 0); off += Math.max(flux[j] || 0, flux[j + 1] || 0); c++;
   }
   return { sixteenths: c, onOffRatio: off > 0 ? Math.round(on / off * 100) / 100 : null };
+}
+
+// Key estimate, confidence-gated. Chroma from 200 Hz-5 kHz only (bass and sub
+// excluded: on bass-heavy music the sub's harmonics are what fooled chroma
+// key-finding before), correlated against Krumhansl-Kessler profiles for all
+// 24 keys. Reported only when the best correlation clears 0.6 AND beats the
+// runner-up that isn't its relative key; otherwise null with the reason.
+// The relative major/minor is always named, because profiles can't fully
+// separate them; the operator decides by the tonic.
+const KK_MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KK_MIN = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+const PC = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CAMELOT_MAJ = ['8B', '3B', '10B', '5B', '12B', '7B', '2B', '9B', '4B', '11B', '6B', '1B'];
+const CAMELOT_MIN = ['5A', '12A', '7A', '2A', '9A', '4A', '11A', '6A', '1A', '8A', '3A', '10A'];
+function corr(a, b) {
+  const ma = a.reduce((x, y) => x + y) / 12, mb = b.reduce((x, y) => x + y) / 12;
+  let n = 0, da = 0, db2 = 0;
+  for (let i = 0; i < 12; i++) { n += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db2 += (b[i] - mb) ** 2; }
+  return n / Math.sqrt(da * db2 || 1);
+}
+export function keyEstimate(mono, sr, { lo = 100, hi = 5000 } = {}) {
+  // Per-SEMITONE mean magnitude, then fold to pitch classes. Summing raw FFT
+  // bins weights high notes by their bin count (a semitone is ~2 bins at
+  // 200 Hz, ~55 at 5 kHz), so upper harmonics dominate and the 3rd harmonic
+  // (the fifth) wins: F minor read as C minor on every song tested before
+  // this normalisation (2026-10-08).
+  const N = 8192, perNote = new Map();
+  const hop = Math.max(N, Math.floor(mono.length / 120)); // cap the work at ~120 frames
+  for (let s = 0; s + N <= mono.length; s += hop) {
+    const m = fftMag(mono, s, N);
+    for (let k = 1; k < N / 2; k++) {
+      const f = k * sr / N; if (f < lo || f > hi) continue;
+      const midi = Math.round(69 + 12 * Math.log2(f / 440));
+      const e = perNote.get(midi) ?? [0, 0]; e[0] += Math.sqrt(m[k]); e[1]++; perNote.set(midi, e);
+    }
+  }
+  const chroma = new Array(12).fill(0);
+  for (const [midi, [sum, cnt]] of perNote) chroma[((midi % 12) + 12) % 12] += sum / cnt;
+  if (chroma.every(v => v === 0)) return null;
+  const rot = (p, r) => p.map((_, i) => p[(i - r + 12) % 12]);
+  const scores = [];
+  for (let r = 0; r < 12; r++) {
+    scores.push({ name: `${PC[r]} major`, camelot: CAMELOT_MAJ[r], r: corr(chroma, rot(KK_MAJ, r)), tonic: r, mode: 'maj' });
+    scores.push({ name: `${PC[r]} minor`, camelot: CAMELOT_MIN[r], r: corr(chroma, rot(KK_MIN, r)), tonic: r, mode: 'min' });
+  }
+  scores.sort((a, b) => b.r - a.r);
+  const best = scores[0];
+  const relTonic = best.mode === 'maj' ? (best.tonic + 9) % 12 : (best.tonic + 3) % 12;
+  const relative = scores.find(s => s.tonic === relTonic && s.mode !== best.mode);
+  const rival = scores.find(s => s !== best && s !== relative);
+  const r = Math.round(best.r * 100) / 100, margin = Math.round((best.r - rival.r) * 100) / 100;
+  if (best.r < 0.6 || margin < 0.05) return { key: null, why: `low confidence (best ${best.name} r=${r}, margin ${margin})` };
+  return { key: best.name, camelot: best.camelot, r, margin, relative: relative.name };
 }

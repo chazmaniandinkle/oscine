@@ -21,7 +21,7 @@
 export const API_VERSION = 1;
 
 const TRACK = { type: 'string', description: 'Track id or exact track name (case-insensitive), e.g. "Bass".' };
-const SLOT = { type: ['string', 'integer'], description: "Pattern slot 'A'-'D' (or 0-3). Omit for the active slot." };
+const SLOT = { type: ['string', 'integer'], description: "Pattern slot 'A'-'H' (or 0-7). Omit for the active slot." };
 
 const NOTE_ITEM = {
   type: 'object',
@@ -211,7 +211,7 @@ export const COMMANDS = [
   },
   {
     name: 'slots',
-    description: "Pattern slots A-D are four scenes sharing the same tracks. 'list' shows each slot's bars and content; 'select' switches the playing slot (while playing, the switch queues and lands at the next loop boundary); 'set_bars' changes a slot's loop length (1/2/4/8/16/32 bars); 'copy' duplicates one slot's patterns into another, or only one 'track' when given.",
+    description: "Pattern slots A-H are eight scenes sharing the same tracks. 'list' shows each slot's bars and content; 'select' switches the playing slot (while playing, the switch queues and lands at the next loop boundary); 'set_bars' changes a slot's loop length (1/2/4/8/16/32 bars); 'copy' duplicates one slot's patterns into another, or only one 'track' when given.",
     input: {
       type: 'object',
       properties: {
@@ -433,7 +433,7 @@ export const COMMANDS = [
   },
   {
     name: 'insert',
-    description: "Effect inserts on a lane or the master chain. 'lane' is a lane id/name, or 'master' (the default). 'list' shows the chain and the available effect types; 'add' appends 'type' with optional partial 'params'; 'set' updates insert 'index' params (merged, validated and clamped against the effect schema) and/or 'bypass'; 'remove' deletes insert 'index'; 'move' moves insert 'index' to position 'to'.",
+    description: "Effect inserts. 'lane' picks the chain: an arrangement lane id/name or 'master' (the default), OR a pattern track ('track:<name>', or its bare name) or 'pattern-master' (the pattern mix bus, after the glue compressor). 'list' shows the chain and the available effect types; 'add' appends 'type' with optional partial 'params'; 'set' updates insert 'index' params (merged, validated and clamped against the effect schema) and/or 'bypass'; 'remove' deletes insert 'index'; 'move' moves insert 'index' to position 'to'.",
     input: {
       type: 'object',
       properties: {
@@ -468,6 +468,20 @@ export const COMMANDS = [
         v: { type: 'number' },
         shape: { type: 'string', enum: ['linear', 'hold', 'exp'] },
         index: { type: 'integer', minimum: 0 },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'pattern_automation',
+    description: "Envelopes on a pattern slot, in SLOT-LOCAL BEATS (they repeat each time the slot plays, like the pattern): filter sweeps into a drop, risers, fades. Targets: 'track:<name>:gain' (0..1.5, multiplies the fader), 'track:<name>:pan', 'track:<name>:insert:<n>:<param>' (a knob of that track's nth insert), 'track:<name>:param:<key>' (an instrument knob, stepped per 16th), 'master:insert:<n>:<param>' (pattern-master insert). Points {beat, v, shape?:'linear'|'hold'|'exp'}; a point's shape governs the segment that STARTS at it (exp sweep: shape on the first point); values clamp to range. 'list', 'set_points' (replaces that target's envelope), 'clear' (one target, or all on the slot).",
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'set_points', 'clear'] },
+        slot: SLOT,
+        target: { type: 'string' },
+        points: { type: 'array', items: { type: 'object', properties: { beat: { type: 'number', minimum: 0 }, v: { type: 'number' }, shape: { type: 'string', enum: ['linear', 'hold', 'exp'] } }, required: ['beat', 'v'] } },
       },
       required: ['action'],
     },

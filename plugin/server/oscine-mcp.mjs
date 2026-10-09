@@ -753,13 +753,20 @@ const PROJECT_OPEN_FILE_TOOL = {
   },
 };
 
+// Tool profile (2026-10-08). The full catalog is ~35 KB of schemas; an agent
+// composing with patterns never touches the arrangement/Suno tools. Set
+// OSCINE_TOOLS=compose to list only the pattern-composition surface (~21 KB).
+// Hidden tools still execute if called by name; this only trims tools/list.
+const ARRANGEMENT_TOOLS = new Set(['arrangement', 'clip', 'lane', 'marker', 'cycle', 'range', 'automation', 'words', 'asset', 'suno', 'ledger', 'share']);
+const TOOL_PROFILE = (process.env.OSCINE_TOOLS || 'full').toLowerCase();
+
 function toolList() {
   return [
     OPEN_APP_TOOL,
     SESSIONS_TOOL,
     PROJECT_SAVE_FILE_TOOL,
     PROJECT_OPEN_FILE_TOOL,
-    ...COMMANDS.map(c => ({
+    ...COMMANDS.filter(c => TOOL_PROFILE !== 'compose' || !ARRANGEMENT_TOOLS.has(c.name)).map(c => ({
       name: `oscine_${c.name}`,
       description: c.description,
       // Clone the catalog schema and add `session`; never mutate COMMANDS.
