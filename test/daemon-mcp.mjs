@@ -79,6 +79,20 @@ try {
   check('Origin of the app itself refused too', (await http('POST', '/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'ping' }, headers: { origin: `http://127.0.0.1:${PORT}` } })).status === 403);
   check('proxied request refused: 403', (await http('POST', '/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'ping' }, headers: { 'x-forwarded-for': '9.9.9.9' } })).status === 403);
   check('wrong Host refused: 403', (await http('POST', '/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'ping' }, headers: { host: 'evil.example' } })).status === 403);
+  // A client that vanishes with only a FIN (no close frame) must not linger as a ghost session.
+  const { connect } = await import('node:net');
+  const raw = await new Promise((res) => {
+    const s = connect(PORT, '127.0.0.1', () => {
+      s.write('GET /bridge HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n');
+      s.once('data', () => res(s));
+    });
+  });
+  const sessions = async () => JSON.parse((await rpc(90, 'tools/call', { name: 'oscine_sessions', arguments: {} })).json().result.content[0].text).count;
+  check('a raw websocket client registers a session', await sessions() === 1);
+  raw.end();                                  // FIN, no WebSocket close frame
+  let left = 1;
+  for (let i = 0; i < 30 && left; i++) { await new Promise((r) => setTimeout(r, 100)); left = await sessions(); }
+  check('a client that only sends FIN is reaped, not left as a ghost session', left === 0);
   check('the app shell still serves', (await http('GET', '/')).status === 200);
   check('/projects.json lists under OSCINE_PROJECT_ROOT', Array.isArray((await http('GET', '/projects.json')).json().projects));
 } finally {

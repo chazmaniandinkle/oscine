@@ -93,6 +93,9 @@ class WSConn {
     socket.on('data', (chunk) => this.feed(chunk));
     socket.on('close', () => this.close());
     socket.on('error', () => this.close());
+    // A peer that vanishes without a close frame (tablet off wifi, killed process, a reverse proxy that
+    // dropped) sends only FIN: without this the session lingered as a ghost and could stay "active".
+    socket.on('end', () => this.close());
   }
 
   send(str) {
