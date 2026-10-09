@@ -7,5 +7,6 @@ import './drumkit.js';
 import './reese.js';
 import './breaks.js';
 import './atmos.js';
+import './gb.js';
 
 export * from './registry.js';

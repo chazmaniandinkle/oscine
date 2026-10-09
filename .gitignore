@@ -7,3 +7,5 @@ node_modules/
 # except its README, so your work there never shows up as something to commit.
 /local/*
 !/local/README.md
+src/engine/instruments/gbdata.game.js
+plugin/app/src/engine/instruments/gbdata.game.js
