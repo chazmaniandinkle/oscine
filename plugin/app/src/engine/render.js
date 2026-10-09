@@ -169,9 +169,11 @@ export async function renderProjectToBuffer(project, {
   }
   // Slot automation: audio-rate params are scheduled now (curves); instrument
   // params come back as k-rate jobs and ride the event queue.
-  for (const { s, at: passStart } of plan) {
-    if (!s.automation?.length) continue;
-    events.push(...scheduleSlotAutomation(s, { strips: channels, master: masterChain, passStart, secPerBeat, beats: s.bars * 4 }));
+  for (let pi = 0; pi < plan.length; pi++) {
+    const { s, at: passStart } = plan[pi];
+    const prevSlot = pi > 0 && plan[pi - 1].s !== s ? plan[pi - 1].s : null;
+    if (!s.automation?.length && !prevSlot?.automation?.length) continue;
+    events.push(...scheduleSlotAutomation(s, { strips: channels, master: masterChain, passStart, secPerBeat, beats: s.bars * 4, prevSlot, project }));
   }
   events.sort((a, b) => a.time - b.time);
   const WINDOW = 2, LEAD = 0.25;

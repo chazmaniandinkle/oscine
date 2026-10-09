@@ -57,10 +57,24 @@ const asEnv = (env) => ({ points: env.points.map(p => ({ t: p.beat, v: p.v, shap
 //   strips: trackId -> { strip, panner, instrument }
 //   master: InsertChain
 //   passStart: ctx time the slot pass begins; secPerBeat; beats: slot length
+//   prevSlot: the slot that played just before (song mode). Any lane IT automated that THIS slot
+//     doesn't is put back to its resting value at passStart, so a section's automation can't
+//     leak into the next one (bug found 2026-10-09: a breakdown's fader dip held through the
+//     final drop, 1.1 LU quieter than the others).
 // Returns k-rate jobs [{time, run}] for instrument params (caller schedules
 // them like note events so they land in the right render window).
-export function scheduleSlotAutomation(slot, { strips, master, passStart, secPerBeat, beats }) {
+export function scheduleSlotAutomation(slot, { strips, master, passStart, secPerBeat, beats, prevSlot = null, project = null }) {
   const jobs = [];
+  const mine = new Set((slot.automation ?? []).map(e => e.target));
+  for (const env of prevSlot?.automation ?? []) {
+    if (mine.has(env.target)) continue;
+    const tg = parsePatternTarget(env.target); if (!tg) continue;
+    const rest = restingValue(tg, { strips, master, project });
+    if (rest == null) continue;
+    const r = resolveNode(tg, { strips, master });
+    if (r.node) { r.node.cancelScheduledValues(passStart); r.node.setValueAtTime(rest, passStart); }
+    else if (r.apply) jobs.push({ time: passStart, run: () => r.apply(rest) });
+  }
   for (const env of slot.automation ?? []) {
     const tg = parsePatternTarget(env.target);
     if (!tg || !env.points?.length) continue;
@@ -90,6 +104,33 @@ export function scheduleSlotAutomation(slot, { strips, master, passStart, secPer
     node.setValueCurveAtTime(curve, passStart, span);
   }
   return jobs;
+}
+
+// Resting value of an automation lane: what it holds with no automation running.
+//   gain -> 1 (the automation gain multiplies the fader); pan -> the track's pan;
+//   insert / instrument param -> the value saved in the project.
+function restingValue(tg, { strips, master, project }) {
+  if (tg.scope === 'master') {
+    const fx = master?.effects[tg.insert]; return fx?.params?.[tg.param] ?? null;
+  }
+  const s = strips.get(tg.id); if (!s) return null;
+  if (tg.instrument) return project?.tracks.find(t => t.id === tg.id)?.instrument?.params?.[tg.param] ?? s.instrument?.params?.[tg.param] ?? null;
+  if (tg.param === 'gain' && tg.insert == null) return 1;
+  if (tg.param === 'pan' && tg.insert == null) return s.track?.channel?.pan ?? project?.tracks.find(t => t.id === tg.id)?.channel?.pan ?? 0;
+  const fx = s.strip.chain.effects[tg.insert]; return fx?.params?.[tg.param] ?? null;
+}
+// Where a lane writes: an AudioParam (node) or a setter (apply) for k-rate params.
+function resolveNode(tg, { strips, master }) {
+  if (tg.scope === 'master') {
+    const fx = master?.effects[tg.insert]; if (!fx) return {};
+    const node = fx.paramNode?.(tg.param) ?? null; return node ? { node } : { apply: v => fx.setParam(tg.param, v) };
+  }
+  const s = strips.get(tg.id); if (!s) return {};
+  if (tg.instrument) return { apply: v => s.instrument.setParam(tg.param, v) };
+  if (tg.param === 'gain' && tg.insert == null) return { node: s.strip.autoGain.gain };
+  if (tg.param === 'pan' && tg.insert == null) return { node: s.panner.pan };
+  const fx = s.strip.chain.effects[tg.insert]; if (!fx) return {};
+  const node = fx.paramNode?.(tg.param) ?? null; return node ? { node } : { apply: v => fx.setParam(tg.param, v) };
 }
 
 function pushK(jobs, e, beats, passStart, secPerBeat, apply) {

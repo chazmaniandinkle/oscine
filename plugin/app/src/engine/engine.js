@@ -157,12 +157,14 @@ export class AudioEngine {
     const { store } = this;
     const spb = 60 / store.project.bpm;
     const slot = store.project.slots[w.slotIndex];
-    if (slot?.automation?.length && w.fromLocal < 1e-9) {
+    const prevSlot = this._lastAutoSlot && this._lastAutoSlot !== slot ? this._lastAutoSlot : null;
+    if ((slot?.automation?.length || prevSlot?.automation?.length) && w.fromLocal < 1e-9) {
       const passStart = w.beatToTime(w.loopStartAbs);
-      const jobs = scheduleSlotAutomation(slot, { strips: this.channels, master: this.masterChain, passStart, secPerBeat: spb, beats: slot.bars * 4 });
+      const jobs = scheduleSlotAutomation(slot, { strips: this.channels, master: this.masterChain, passStart, secPerBeat: spb, beats: slot.bars * 4, prevSlot, project: store.project });
       const now = this.ctx.currentTime;
       for (const j of jobs) setTimeout(j.run, Math.max(0, (j.time - now) * 1000));
     }
+    if (w.fromLocal < 1e-9) this._lastAutoSlot = slot;
 
     for (const track of store.project.tracks) {
       const ch = this.channels.get(track.id);
