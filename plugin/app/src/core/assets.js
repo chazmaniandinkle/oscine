@@ -4,6 +4,8 @@
 // resource that's actually expensive — decoded PCM — keyed by content hash
 // so two assets/clips pointing at identical bytes never decode twice.
 
+import { sidecarUrl } from './sidecar.js';
+
 export const ASSETS_DIR = 'assets'; // convention: <projectDir>/assets/<sha256>.<ext>
 
 // Which variant plays: an explicit name, then asset.preferred (the user's
@@ -56,7 +58,7 @@ export class AssetCache {
 
     const url = resolveAssetUrl(project, assetId, variantName, baseUrl);
     const promise = (async () => {
-      const res = await fetch(url);
+      const res = await fetch(sidecarUrl(url));
       const arrayBuffer = await res.arrayBuffer();
       // decodeAudioData exists on both AudioContext and OfflineAudioContext —
       // callers may use an offline ctx for headless export/render paths.

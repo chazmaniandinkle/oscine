@@ -8,6 +8,7 @@
 import { el, NumberDrag, Btn, Knob, Select, openMenu } from './widgets.js';
 import { wordsFor, pickVariant } from '../core/assets.js';
 import { sourcePanel } from './sourcepanel.js';
+import { sidecarUrl } from '../core/sidecar.js';
 import { keymap } from '../core/keymap.js';
 import { getEffectDef } from '../engine/effects/index.js';
 import { toSRT, toVTT, toJSON, parseTimedText, wordsForClipLocal, mergeClipWords } from '../core/timedtext.js';
@@ -77,7 +78,7 @@ export class AssetInspector {
       try {
         const body = { file, force: !!(asset.words?.length), model: app.prefs?.get('transcribe.model') ?? 'small' };
         if (clip) { body.from = clip.in; body.to = clip.out; }
-        const res = await fetch('/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const res = await fetch(sidecarUrl('/transcribe'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.ok) throw new Error(await res.text());
         const { words } = await res.json();
         setWords(clip ? mergeClipWords(asset.words, clip, words.map(w => ({ s: w.s - clip.in, e: w.e - clip.in, t: w.t }))) : words);

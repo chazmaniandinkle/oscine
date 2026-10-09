@@ -19,6 +19,7 @@ import { buildShareUrl, fragmentFromUrl, decodeFragmentToProject } from '../core
 import * as Arr from '../core/arrangement.js';
 import * as Src from '../core/sources.js';
 import { prefs } from '../core/prefs/index.js';
+import { sidecarUrl } from '../core/sidecar.js';
 
 export class CommandAPI {
   constructor({ store, engine, transport, bus }) {
@@ -31,7 +32,7 @@ export class CommandAPI {
     // is a same-origin POST; tests can swap in a stub.
     this.sidecar = async (route, body) => {
       if (typeof fetch !== 'function' || typeof location === 'undefined') throw new Error(`${route} needs the Oscine sidecar (open the app from it).`);
-      const res = await fetch(route, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+      const res = await fetch(sidecarUrl(route), { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await res.text();
       if (!res.ok) throw new Error(text || `${route}: HTTP ${res.status}`);
       return JSON.parse(text);
@@ -779,7 +780,7 @@ export class CommandAPI {
     }
     if (save) {
       const bytes = encodeWav(chans, sr);
-      const res = await fetch('/render-save', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Path': save }, body: bytes });
+      const res = await fetch(sidecarUrl('/render-save'), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Path': save }, body: bytes });
       out.saved = res.ok ? (await res.json()).path : `not saved: ${await res.text()}`;
     }
     return out;

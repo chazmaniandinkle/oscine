@@ -7,6 +7,12 @@
 //   3. WebSocket endpoint at /bridge that the running app connects to;
 //      MCP tool calls are forwarded over it as commands
 //
+// Daemon mode (OSCINE_DAEMON=1): a persistent local service instead of a
+// per-client child. No stdio MCP loop (stdin may be /dev/null), never exits on
+// stdin EOF, strict port (no fallback), and the same tool list/handlers are
+// served as JSON-RPC over HTTP at POST /mcp (loopback only, no browser Origin)
+// so any number of MCP clients (Hermes, scripts) drive the one running app.
+//
 // Tool catalog comes from the app's own command catalog (single source
 // of truth): ../app/src/api/commands.js. One extra server-side tool,
 // oscine_open_app, opens the app in the user's browser.
@@ -344,6 +350,7 @@ async function transcribeFile(full, { from = null, to = null, model = 'small', f
 
 async function serveStatic(req, res) {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (urlPath === '/mcp') { await serveMcp(req, res); return; }
   if (urlPath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ server: 'oscine-mcp', version: SERVER_VERSION, appConnected: registry.size > 0, instances: registry.size }));
@@ -549,6 +556,47 @@ async function serveStatic(req, res) {
   } catch {
     res.writeHead(404); res.end('not found');
   }
+}
+
+// POST /mcp: MCP over HTTP (JSON-RPC 2.0, one message or a batch per POST, JSON
+// reply). It drives the app and writes project files, so it is darkstar-only:
+//   - the TCP peer must be loopback (the listener is 127.0.0.1 anyway);
+//   - Host must be a loopback name (DNS-rebinding guard);
+//   - NO Origin header at all: every browser page that can reach 127.0.0.1
+//     sends one on a POST, so this keeps web pages (and the app's own origin)
+//     from calling tools; non-browser MCP clients send none;
+//   - no proxy markers (x-forwarded-*, cf-connecting-ip, forwarded): a reverse
+//     proxy (the mod3 stage) must never carry this route.
+export function mcpGuard(headers, remoteAddress) {
+  const peer = String(remoteAddress || '').replace(/^::ffff:/, '');
+  if (peer !== '127.0.0.1' && peer !== '::1') return 'loopback only';
+  if (headers.origin !== undefined) return 'browser origins are refused';
+  const host = String(headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) return 'bad Host';
+  for (const h of ['x-forwarded-for', 'x-forwarded-host', 'forwarded', 'cf-connecting-ip', 'x-real-ip']) {
+    if (headers[h] !== undefined) return 'proxied requests are refused';
+  }
+  return null;
+}
+
+async function serveMcp(req, res) {
+  const why = mcpGuard(req.headers, req.socket.remoteAddress);
+  const reply = (code, obj, extra = {}) => {
+    res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+    res.end(obj === undefined ? '' : JSON.stringify(obj));
+  };
+  if (why) return reply(403, { error: `/mcp: ${why}` });
+  if (req.method !== 'POST') return reply(405, { error: 'POST JSON-RPC 2.0 to /mcp' }, { Allow: 'POST' });
+  let body = '';
+  for await (const chunk of req) { body += chunk; if (body.length > 8 * 1024 * 1024) return reply(413, { error: 'too large' }); }
+  let msg;
+  try { msg = JSON.parse(body); } catch { return reply(400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); }
+  if (Array.isArray(msg)) {
+    const out = (await Promise.all(msg.map(rpc))).filter(Boolean);
+    return out.length ? reply(200, out) : reply(202);
+  }
+  const out = await rpc(msg);
+  return out ? reply(200, out) : reply(202);
 }
 
 function startHttp(port, attemptsLeft = 9) {
@@ -914,19 +962,19 @@ function send(msg) {
   process.stdout.write(JSON.stringify(msg) + '\n');
 }
 
-function rpcResult(id, result) {
-  send({ jsonrpc: '2.0', id, result });
-}
-
-function rpcError(id, code, message) {
-  send({ jsonrpc: '2.0', id, error: { code, message } });
-}
-
-async function handleRpc(msg) {
+// The transport-independent core: one JSON-RPC message in, the response object
+// out (null for notifications). stdio writes it to stdout; POST /mcp returns it.
+async function rpc(msg) {
+  let out = null;
+  const rpcResult = (id, result) => { out = { jsonrpc: '2.0', id, result }; };
+  const rpcError = (id, code, message) => { out = { jsonrpc: '2.0', id, error: { code, message } }; };
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.method !== 'string') {
+    return { jsonrpc: '2.0', id: msg?.id ?? null, error: { code: -32600, message: 'Invalid Request' } };
+  }
   const { id, method, params } = msg;
   const isRequest = id !== undefined && id !== null;
 
-  try {
+  await (async () => { try {
     switch (method) {
       case 'initialize':
         rpcResult(id, {
@@ -972,7 +1020,13 @@ async function handleRpc(msg) {
   } catch (err) {
     if (isRequest) rpcError(id, -32603, `Internal error: ${err.message}`);
     log('rpc error:', err);
-  }
+  } })();
+  return isRequest ? out : null;
+}
+
+async function handleRpc(msg) {
+  const out = await rpc(msg);
+  if (out) send(out);
 }
 
 // Only run the sidecar (stdio RPC loop + HTTP + OSC) when this file is
@@ -982,30 +1036,35 @@ async function handleRpc(msg) {
 // network ports and attach a stdin listener that calls process.exit(0) as
 // soon as stdin closes -- silently killing whatever imported it.
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+const DAEMON = /^(1|true|yes)$/i.test(process.env.OSCINE_DAEMON || '');
 if (isMain) {
-  const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
-  rl.on('line', (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    let msg;
-    try { msg = JSON.parse(trimmed); } catch {
-      log('unparseable line on stdin');
-      return;
-    }
-    handleRpc(msg);
-  });
+  if (!DAEMON) {
+    const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
+    rl.on('line', (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      let msg;
+      try { msg = JSON.parse(trimmed); } catch {
+        log('unparseable line on stdin');
+        return;
+      }
+      handleRpc(msg);
+    });
 
-  // Claude Desktop closes stdin to stop the sidecar.
-  rl.on('close', () => { log('stdin closed; exiting'); process.exit(0); });
+    // Claude Desktop closes stdin to stop the sidecar.
+    rl.on('close', () => { log('stdin closed; exiting'); process.exit(0); });
+  }
   process.on('SIGTERM', () => process.exit(0));
   process.on('SIGINT', () => process.exit(0));
 
-  startHttp(BASE_PORT);
+  // Daemon: the port is the service's address; a busy port is an error (launchd
+  // restarts it), never a silent move to 7451.
+  startHttp(BASE_PORT, DAEMON ? 0 : 9);
   gateway = new OscGateway({
     port: OSC_PORT,
     callApp,
     onSubscribersChange: (n) => setAppStreaming(n > 0),
     log,
   });
-  log(`MCP server ready (tools: ${toolList().length})`);
+  log(`MCP server ready (tools: ${toolList().length}${DAEMON ? '; daemon: POST /mcp, no stdio' : ''})`);
 }

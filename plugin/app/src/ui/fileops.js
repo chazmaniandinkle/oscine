@@ -4,6 +4,7 @@
 import { exportProject as coreExport, importProjectFile as coreImport } from '../core/persist.js';
 import { createProject, demoProject } from '../core/schema.js';
 import { toast } from './widgets.js';
+import { sidecarUrl } from '../core/sidecar.js';
 
 export function exportProject(store) {
   coreExport(store);
@@ -51,13 +52,13 @@ export async function copyShareLink(api) {
 export const LAST_PROJECT_KEY = 'oscine.lastProjectPath';
 
 export async function listProjects() {
-  const res = await fetch('/projects.json');
+  const res = await fetch(sidecarUrl('/projects.json'));
   if (!res.ok) throw new Error('no sidecar project root');
   return res.json();
 }
 
 export async function openProjectPath(path, api, { quiet = false } = {}) {
-  const res = await fetch('/project-doc/' + path.split('/').map(encodeURIComponent).join('/'));
+  const res = await fetch(sidecarUrl('/project-doc/' + path.split('/').map(encodeURIComponent).join('/')));
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   const project = await res.json();
   const out = await api.execute('project', { action: 'load', project });
@@ -72,7 +73,7 @@ export async function revealProjectFolder() {
   let path = null; try { path = localStorage.getItem(LAST_PROJECT_KEY); } catch {}
   if (!path) { toast('No project file open. Use Open project… first.'); return false; }
   try {
-    const res = await fetch('/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+    const res = await fetch(sidecarUrl('/reveal'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
     if (!res.ok) throw new Error(await res.text());
     toast('Showing the project in Finder');
     return true;
@@ -87,7 +88,7 @@ export async function saveProjectPath(store, api, path = null) {
   path = path || (() => { try { return localStorage.getItem(LAST_PROJECT_KEY); } catch { return null; } })();
   if (!path) { toast('No project file open — use Open project… first.'); return; }
   const project = await api.execute('project', { action: 'get' });
-  const res = await fetch('/project-doc/' + path.split('/').map(encodeURIComponent).join('/'), {
+  const res = await fetch(sidecarUrl('/project-doc/' + path.split('/').map(encodeURIComponent).join('/')), {
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(project),
   });
   if (!res.ok) { toast('Save failed: ' + await res.text()); return; }

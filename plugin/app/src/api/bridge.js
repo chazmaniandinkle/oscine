@@ -12,6 +12,8 @@
 //   app -> server  {type:'result', id, ok, result?, error?}
 //   server -> app  {type:'ping'}  ->  {type:'pong'}
 
+import { servedWithSidecar, bridgeUrlHere } from '../core/sidecar.js';
+
 export const DEFAULT_BRIDGE_PORT = 7321;
 
 export class Bridge {
@@ -28,10 +30,13 @@ export class Bridge {
   candidates() {
     const list = [];
     const override = new URLSearchParams(location.search).get('bridge');
-    if (override) list.push(`ws://127.0.0.1:${override}/bridge`);
-    if (location.protocol.startsWith('http') &&
-        ['localhost', '127.0.0.1'].includes(location.hostname)) {
-      list.push(`ws://${location.host}/bridge`);
+    if (override && override !== 'here') list.push(`ws://127.0.0.1:${override}/bridge`);
+    // Same origin AND same path prefix as the page: the sidecar itself on
+    // localhost, or a reverse proxy (the mod3 stage at /r/<key>/oscine/) that
+    // the page opts into with ?bridge=here. ws:// or wss:// to match the page.
+    if (servedWithSidecar()) {
+      const here = bridgeUrlHere();
+      if (here) list.push(here);
     }
     list.push(`ws://127.0.0.1:${DEFAULT_BRIDGE_PORT}/bridge`);
     return [...new Set(list)];
