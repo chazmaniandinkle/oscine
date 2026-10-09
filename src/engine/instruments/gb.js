@@ -65,7 +65,9 @@ export function renderPulse(ctx, midi, dur, p, vel = 1) {
     if (p.vibDepth && t > p.vibDelay) f *= Math.pow(2, p.vibDepth / 1200 * Math.sin(2 * Math.PI * p.vibRate * (t - p.vibDelay)));
     ph += f / sr; ph -= Math.floor(ph);
     const v = envAt(vol0, p.envPeriod | 0, !!p.envUp, t);
-    d[i] = (ph < duty ? 1 : -1) * v / 15;
+    // centred per sample: (bit - duty) keeps the waveform zero-mean at every volume, so an envelope
+    // can't turn the duty-cycle DC into a slow sub-bass drift (found in 'Porch Light': decaying 25% keys read 44% sub)
+    d[i] = ((ph < duty ? 1 : 0) - duty) * 2 * v / 15;
   }
   return finish(ctx, d);
 }
