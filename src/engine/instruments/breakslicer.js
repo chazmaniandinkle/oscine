@@ -54,7 +54,11 @@ class BreakSlicer extends BaseInstrument {
     const lenMul = this.params[`${laneId}Len`] ?? 1; // play part of the slice (1) or run on into the next ones (>1)
     s1 = Math.min(bufs.n, s0 + Math.round((s1 - s0) * lenMul));
     const reverse = laneId === 'rsnare';
-    const rate = Math.pow(2, ((this.params.pitch ?? 0) + (this.params[`${laneId}Tune`] ?? 0)) / 12);
+    // kick slices: numbered lanes whose slice the bake classed 'kick' take kickTune too, so EVERY kick (named lane
+    // or s-lane) can be pulled back toward the break's original pitch
+    const isKickSlice = /^s\d+$/.test(laneId) && b.slices[idx - 1][2] === 'kick';
+    const laneTune = isKickSlice ? (this.params.sliceKickTune ?? 0) : (this.params[`${laneId}Tune`] ?? 0);
+    const rate = Math.pow(2, ((this.params.pitch ?? 0) + laneTune) / 12);
     const src = this.ctx.createBufferSource();
     src.buffer = reverse ? bufs.rev : bufs.fwd; src.playbackRate.value = rate;
     const g = this.ctx.createGain();
@@ -76,6 +80,11 @@ class BreakSlicer extends BaseInstrument {
 
 const sliceKnob = (lane, label, def) => ({ key: `${lane}Slice`, label: `${label} slice`, type: 'knob', min: 1, max: 32, step: 1, default: def, group: 'Slices' });
 const lenKnob = (lane, label) => ({ key: `${lane}Len`, label: `${label} length`, type: 'knob', min: 0.25, max: 4, step: 0.25, default: 1, group: 'Lengths' });
+// Per-lane tune/level for the named hit lanes. Tune adds to the global pitch: a kick at tune -pitch plays at the
+// break's ORIGINAL pitch while the rest of the break stays pitched up (pitched-up kicks go thin and cartoonish).
+const NAMED = ['kick', 'kick2', 'snare', 'snare2', 'ghost', 'ghost2', 'hat', 'ride', 'rsnare'];
+const tuneKnob = lane => ({ key: `${lane}Tune`, label: `${lane} tune`, type: 'knob', min: -12, max: 12, step: 0.01, default: 0, unit: 'st', group: 'Tune' });
+const levelKnob = lane => ({ key: `${lane}Level`, label: `${lane} level`, type: 'knob', min: 0, max: 2, default: 1, group: 'Levels' });
 defineInstrument({
   type: 'breakslicer', label: NAMES.length ? 'Break Slicer' : 'Break Slicer (no local breaks)', kind: 'drums', klass: BreakSlicer,
   lanes: LANES,
@@ -86,7 +95,9 @@ defineInstrument({
     sliceKnob('kick', 'Kick', 1), sliceKnob('kick2', 'Kick 2', 10), sliceKnob('snare', 'Snare', 3), sliceKnob('snare2', 'Snare 2', 7),
     sliceKnob('ghost', 'Ghost', 4), sliceKnob('ghost2', 'Ghost 2', 12), sliceKnob('hat', 'Hat', 23), sliceKnob('ride', 'Ride', 31),
     sliceKnob('rsnare', 'Rev Snare', 3),
-    ...LANES.map(l => lenKnob(l.id, l.label)),
+    ...LANES.filter(l => !/^s\d+$/.test(l.id)).map(l => lenKnob(l.id, l.label)),
+    ...NAMED.map(tuneKnob), ...NAMED.map(levelKnob),
+    { key: 'sliceKickTune', label: 'Kick slices tune', type: 'knob', min: -12, max: 12, step: 0.01, default: 0, unit: 'st', group: 'Tune' },
     { key: 'level', label: 'Level', type: 'knob', min: 0, max: 1.5, default: 0.9, group: 'Out' },
   ],
   presets: {
