@@ -751,6 +751,25 @@ export class CommandAPI {
     throw new Error(`Bad action '${action}'. Use get, set or clear.`);
   }
 
+  // The live ear (src/engine/earlive.js): lazily built so a headless/test API that never asks costs nothing.
+  async liveEarOf() {
+    if (!this._liveEar) {
+      const { LiveEar } = await import('../engine/earlive.js');
+      this._liveEar = new LiveEar({ engine: this.engine, transport: this.transport, store: this.store, bus: this.bus });
+    }
+    return this._liveEar;
+  }
+
+  async cmd_ear({ action = 'snapshot', hz } = {}) {
+    if (!this.engine?.ctx) throw new Error('The live ear needs the running audio engine (open the app).');
+    const ear = await this.liveEarOf();
+    if (action === 'start') return ear.start({ hz });
+    if (action === 'stop') return ear.stop();
+    if (action === 'status') return ear.status();
+    if (action === 'snapshot') return await ear.snapshot();
+    throw new Error(`Bad action '${action}'. Use snapshot, start, stop or status.`);
+  }
+
   async cmd_listen({ slot, loops = 1, song = false, solo, from, to, save }) {
     const { measure } = await import('../engine/listen.js');
     const p = deepClone(this.store.project);

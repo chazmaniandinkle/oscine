@@ -11,6 +11,8 @@
 //   server -> app  {type:'cmd', id, name, args}
 //   app -> server  {type:'result', id, ok, result?, error?}
 //   server -> app  {type:'ping'}  ->  {type:'pong'}
+//   viewer -> app  {type:'ear', on, hz}   start/stop the live ear stream (a proxy in the middle may inject it)
+//   app -> server  {type:'event', name:'ear:frame', data}   while the live ear streams (the `ear` command)
 
 import { servedWithSidecar, bridgeUrlHere, sidecarPort } from '../core/sidecar.js';
 
@@ -51,6 +53,12 @@ export class Bridge {
     // project_open_file command), so tell the sidecar again whenever the project is replaced. Same
     // clientId -> same session, label refreshed (oscine_sessions / select-by-name stay truthful).
     this.bus.on?.('project:replaced', () => this.sendHello());
+    // The live ear (src/engine/earlive.js) emits ear:frame on the bus while it runs; ship each frame up the socket.
+    // Opt-in: nothing emits unless someone ran the `ear` command (the Stage's ear widget does, through a cmd).
+    this.bus.on?.('ear:frame', (data) => {
+      if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) return;
+      this.ws.send(JSON.stringify({ type: 'event', name: 'ear:frame', data }));
+    });
   }
 
   sendHello() {
@@ -97,6 +105,11 @@ export class Bridge {
         this.setStreaming(msg.on);
         return;
       }
+      if (msg.type === 'ear') {
+        // A viewer (the Stage's ear hub) turns the live ear on/off without a command round-trip.
+        this.api.execute('ear', { action: msg.on ? 'start' : 'stop', hz: msg.hz }).catch(() => {});
+        return;
+      }
       if (msg.type === 'session') {
         // Sidecar tells us whether this tab is the active command target and
         // how many instances are connected, for a multi-session indicator.
@@ -114,6 +127,7 @@ export class Bridge {
 
     ws.onclose = () => {
       this.setStreaming(false);
+      try { this.api._liveEar?.stop(); } catch { /* no ear running */ }   // a viewer that left can't be streamed to
       if (this.connected) {
         this.connected = false;
         this.bus.emit('bridge:status', { connected: false });

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The live ear
+- New `ear` command (and MCP tool `oscine_ear`): what is playing right now, sampled from the running audio graph. `snapshot` reads one frame (levels, five band shares, a 64-bin spectrum, per-track meters, bar/beat/slot, onset/kick and which tracks are loud or silent); `start`/`stop` stream those frames (5-30 Hz) as `ear:frame` events over the bridge for a viewer such as the Stage's ear widget. The bands are the same as the offline `listen` (sub <60, bass 60-250, lowmid 250-800, mid 800-4k, high 4k+), so the numbers compare. Opt-in; analysers exist only while it runs.
+
 ### Settings
 - A settings panel (⚙ in the toolbar, or ⌘,): snap, grid, snap distance, follow playhead, lyrics bar, key scheme with its full shortcut list, and the whisper model for Transcribe. Each has help text and a reset. Saved per browser and restored on reload.
 - New `settings` command (and MCP tool): get, set (validated; errors name the allowed values) and reset. The panel, the toolbar, the shortcuts and Claude all change the same values.

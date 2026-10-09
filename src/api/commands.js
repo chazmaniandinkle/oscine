@@ -264,6 +264,18 @@ export const COMMANDS = [
     },
   },
   {
+    name: 'ear',
+    description: "The LIVE ear: what the engine is playing right now, sampled from the running audio graph (listen is the offline one; the bands here are the SAME: sub <60, bass 60-250, lowmid 250-800, mid 800-4k, high 4k+, as energy shares). 'snapshot' reads one frame now without streaming: playing?, project, bpm, slot/bar/beat, master rmsDb/peakDb, bands (shares) and bandsDb, a 64-bin log spectrum (30 Hz-16 kHz, 0-99), per-track rmsDb/peakDb/mute, and reads {onset, kick, loud[], silent[]}. 'start' streams those frames (hz 5-30, default 15) as ear:frame bridge events for a viewer such as the Stage's ear widget; 'stop' ends the stream (analysers are disconnected: free when off); 'status' says whether it is streaming. Audio must be playing (transport play, and a click in the tab to unlock audio) for levels to be non-silent.",
+    readOnly: true,
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['snapshot', 'start', 'stop', 'status'], description: "Default 'snapshot'." },
+        hz: { type: 'integer', minimum: 5, maximum: 30, description: "For 'start': frames per second (default 15)." },
+      },
+    },
+  },
+  {
     name: 'song',
     description: "Song mode for the pattern side: an ordered list of slots that plays and renders as one song (a slot may repeat, e.g. ['A','B','B','C','B','D']). 'get' returns the sequence with each section's start/length in bars and seconds; 'set' replaces it; 'clear' removes it. export_wav and listen take song:true to render it.",
     input: {
