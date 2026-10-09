@@ -35,14 +35,20 @@ const BASE_PORT = Number(process.env.OSCINE_PORT || 7321);
 const OSC_PORT = Number(process.env.OSCINE_OSC_PORT || 7340);
 const SERVER_VERSION = '2.3.0';
 
-// Bridge origin policy: localhost is always allowed; hosted copies of the
-// app (e.g. GitHub Pages) must be allowlisted via OSCINE_ALLOWED_ORIGINS
-// (comma-separated origins). Without this, any website you visit could
-// connect to the local bridge and drive your session.
-const ALLOWED_ORIGINS = (process.env.OSCINE_ALLOWED_ORIGINS || '')
+// Bridge origin policy: localhost is always allowed; so are the official hosted
+// copies of the app (DEFAULT_HOSTED_ORIGINS: GitHub Pages, where myrgic.com/oscine
+// forwards). Any other hosted copy must be allowlisted via OSCINE_ALLOWED_ORIGINS
+// (comma-separated origins). Without this, any website you visit could connect
+// to the local bridge and drive your session. OSCINE_ALLOWED_ORIGINS=none turns
+// the defaults off (localhost only).
+const DEFAULT_HOSTED_ORIGINS = ['https://chazmaniandinkle.github.io', 'https://myrgic.com'];
+const ENV_ORIGINS = (process.env.OSCINE_ALLOWED_ORIGINS || '')
   .split(',').map(s => s.trim()).filter(Boolean);
+const ALLOWED_ORIGINS = ENV_ORIGINS.includes('none')
+  ? []
+  : [...new Set([...DEFAULT_HOSTED_ORIGINS, ...ENV_ORIGINS])];
 
-function originAllowed(origin) {
+export function originAllowed(origin) {
   if (!origin) return true; // non-browser clients send no Origin header
   try {
     const u = new URL(origin);
@@ -351,9 +357,36 @@ async function transcribeFile(full, { from = null, to = null, model = 'small', f
   return words;
 }
 
+// CORS for a hosted copy of the app (myrgic.com/oscine -> GitHub Pages) calling
+// this sidecar on 127.0.0.1: only origins originAllowed() accepts get the
+// Access-Control headers, so other websites still can't read anything back.
+// Chrome's Private Network Access preflight (an https page reaching loopback)
+// also needs Access-Control-Allow-Private-Network. Same-origin requests (the app
+// served by this sidecar, or through the stage proxy) send no matching Origin
+// and are untouched. /mcp keeps its own stricter guard and never gets CORS.
+export function corsHeaders(origin, { preflight = false } = {}) {
+  if (!origin || !originAllowed(origin)) return null;
+  let u; try { u = new URL(origin); } catch { return null; }
+  if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return null; // same-machine pages are same-origin
+  const h = { 'Access-Control-Allow-Origin': u.origin, 'Vary': 'Origin' };
+  if (preflight) Object.assign(h, {
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Path',
+    'Access-Control-Allow-Private-Network': 'true',
+    'Access-Control-Max-Age': '600',
+  });
+  return h;
+}
+
 async function serveStatic(req, res) {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (urlPath === '/mcp') { await serveMcp(req, res); return; }
+  const cors = corsHeaders(req.headers.origin, { preflight: req.method === 'OPTIONS' });
+  if (req.method === 'OPTIONS') {
+    if (!cors) { res.writeHead(403); res.end(); return; }
+    res.writeHead(204, cors); res.end(); return;
+  }
+  if (cors) for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
   if (urlPath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ server: 'oscine-mcp', version: SERVER_VERSION, appConnected: registry.size > 0, instances: registry.size }));

@@ -25,12 +25,16 @@ directly rather than through those commands; see "Known gaps".)
 
 ## Run it
 
-1. **Hosted:** https://chazmaniandinkle.github.io/oscine/ . Static files
-   served by GitHub Pages. Pattern projects autosave to localStorage. If the
-   Oscine sidecar is running on your machine the page connects to it, which
-   turns on MCP and OSC control. (Opening and saving project files needs the
-   page served by the sidecar itself, options 2 and 3. Chrome, Edge and
-   Firefox let a secure page reach 127.0.0.1; Safari doesn't.)
+1. **Hosted:** https://myrgic.com/oscine (GitHub Pages). Pattern projects
+   autosave to localStorage, and **File > Import song…** opens any
+   `.oscine.json` with nothing else installed. If an Oscine sidecar is running
+   on your machine (the managed daemon on 127.0.0.1:7450, or the plugin's
+   7321), the page finds it on load and connects: the status bar shows
+   **● sidecar**, and MCP/OSC control, **Open project…**, saving and asset
+   files go through it. Another port: add `?sidecar=PORT` to the URL. The
+   sidecar allows the official hosted origins by default; allow another with
+   `OSCINE_ALLOWED_ORIGINS`. Chrome, Edge and Firefox let a secure page reach
+   127.0.0.1; Safari doesn't (use Import song… there).
 2. **Claude plugin:** `claude plugin marketplace add chazmaniandinkle/oscine`,
    then `claude plugin install oscine@oscine`. Claude runs the sidecar, which
    serves the app at `http://127.0.0.1:7321/`. Ask Claude to "open oscine".

@@ -220,7 +220,10 @@ export class TransportBar {
   // pick. Falls back to a toast when there's no sidecar (static deploy).
   async pickProject(anchor) {
     let list;
-    try { list = await listProjects(); } catch { toast('Open project… needs the Oscine sidecar (no project root).'); return; }
+    try { list = await listProjects(); } catch {
+      toast('Open project… needs the Oscine sidecar running on this computer (not found on 127.0.0.1:7450 or 7321). Use Import song… to load a .oscine.json file instead.');
+      return;
+    }
     if (!list.projects.length) { toast(`No *.oscine.json under ${list.root}`); return; }
     openMenu(anchor, list.projects.slice(0, 20).map(p => ({
       label: `${p.name}  —  ${p.path}`,

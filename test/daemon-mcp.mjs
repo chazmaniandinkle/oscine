@@ -95,6 +95,35 @@ try {
   check('a client that only sends FIN is reaped, not left as a ghost session', left === 0);
   check('the app shell still serves', (await http('GET', '/')).status === 200);
   check('/projects.json lists under OSCINE_PROJECT_ROOT', Array.isArray((await http('GET', '/projects.json')).json().projects));
+
+  // -- a hosted page (myrgic.com/oscine -> GitHub Pages) reaching this sidecar --
+  const PAGES = 'https://chazmaniandinkle.github.io';
+  const pre = await new Promise((res, rej) => {
+    const r = request({ host: '127.0.0.1', port: PORT, method: 'OPTIONS', path: '/projects.json', headers: { origin: PAGES, 'access-control-request-method': 'GET', 'access-control-request-private-network': 'true' } },
+      (resp) => { resp.resume(); resp.on('end', () => res(resp)); });
+    r.on('error', rej); r.end();
+  });
+  check('hosted origin: preflight 204 with CORS + private-network allow',
+    pre.statusCode === 204 && pre.headers['access-control-allow-origin'] === PAGES && pre.headers['access-control-allow-private-network'] === 'true');
+  const hostedGet = await new Promise((res, rej) => {
+    const r = request({ host: '127.0.0.1', port: PORT, method: 'GET', path: '/projects.json', headers: { origin: PAGES } },
+      (resp) => { let t = ''; resp.on('data', (c) => { t += c; }); resp.on('end', () => res({ resp, t })); });
+    r.on('error', rej); r.end();
+  });
+  check('hosted origin: GET /projects.json carries Allow-Origin', hostedGet.resp.headers['access-control-allow-origin'] === PAGES && Array.isArray(JSON.parse(hostedGet.t).projects));
+  const evilGet = await new Promise((res, rej) => {
+    const r = request({ host: '127.0.0.1', port: PORT, method: 'GET', path: '/projects.json', headers: { origin: 'https://evil.example' } },
+      (resp) => { resp.resume(); resp.on('end', () => res(resp)); });
+    r.on('error', rej); r.end();
+  });
+  check('other origins: no Allow-Origin (browser blocks the read)', evilGet.headers['access-control-allow-origin'] === undefined);
+  const evilPre = await new Promise((res, rej) => {
+    const r = request({ host: '127.0.0.1', port: PORT, method: 'OPTIONS', path: '/projects.json', headers: { origin: 'https://evil.example', 'access-control-request-method': 'GET' } },
+      (resp) => { resp.resume(); resp.on('end', () => res(resp)); });
+    r.on('error', rej); r.end();
+  });
+  check('other origins: preflight refused 403', evilPre.statusCode === 403);
+  check('/mcp still refuses the hosted origin', (await http('POST', '/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'ping' }, headers: { origin: PAGES } })).status === 403);
 } finally {
   child.kill('SIGTERM');
 }

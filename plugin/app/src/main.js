@@ -17,6 +17,7 @@ import { CrossTab } from './api/crosstab.js';
 import { App } from './ui/app.js';
 import { openProjectPath, LAST_PROJECT_KEY } from './ui/fileops.js';
 import { projectFromUrl } from './core/share.js';
+import { discoverSidecar } from './core/sidecar.js';
 
 // One stable per-tab id, shared by autosave (per-tab project keys), the
 // bridge (session identity), and cross-tab coordination. Derived before
@@ -48,6 +49,9 @@ crosstab.start();
 // (same store/engine/transport calls the UI uses). The bridge exposes it
 // to the MCP sidecar; window.oscine.api exposes it to the console.
 const api = new CommandAPI({ store, engine, transport, bus });
+// Hosted copy (no sidecar behind the page): look for one running on this machine
+// first, so the bridge, File > Open project… and asset bytes all go to it.
+await discoverSidecar();
 const bridge = new Bridge(api, bus);
 bridge.start();
 
