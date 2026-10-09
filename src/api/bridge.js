@@ -44,6 +44,22 @@ export class Bridge {
 
   start() {
     this.connect();
+    // The hello carries the project name; the app loads a song AFTER connecting (?p=, File > Open, a
+    // project_open_file command), so tell the sidecar again whenever the project is replaced. Same
+    // clientId -> same session, label refreshed (oscine_sessions / select-by-name stay truthful).
+    this.bus.on?.('project:replaced', () => this.sendHello());
+  }
+
+  sendHello() {
+    if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({
+      type: 'hello',
+      app: 'oscine',
+      apiVersion: this.api.version,
+      project: this.api.store.project.name,
+      clientId: this.clientId(),
+      title: tabTitle(),
+    }));
   }
 
   connect() {
@@ -62,14 +78,7 @@ export class Bridge {
     ws.onopen = () => {
       this.connected = true;
       this.candidateIndex = Math.max(0, this.candidateIndex - 1); // stick with this one
-      ws.send(JSON.stringify({
-        type: 'hello',
-        app: 'oscine',
-        apiVersion: this.api.version,
-        project: this.api.store.project.name,
-        clientId: this.clientId(),     // stable per browser tab; lets the
-        title: tabTitle(),             // sidecar treat each tab as one session
-      }));
+      this.sendHello();                // clientId is stable per browser tab: the sidecar treats each tab as one session
       this.bus.emit('bridge:status', { connected: true, url });
       console.info(`[oscine] MCP bridge connected: ${url}`);
     };
