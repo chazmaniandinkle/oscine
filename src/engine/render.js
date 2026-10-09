@@ -16,6 +16,7 @@ import { faderGain, swingOffsetSec } from '../core/util.js';
 import { createInstrument, getInstrumentDef } from './instruments/index.js';
 import { DelayFX } from './effects/delay.js';
 import { ReverbFX } from './effects/reverb.js';
+import { buildPatternStrip, buildPatternMaster, scheduleSlotAutomation } from './patternmix.js';
 
 // The mixer taper (faderGain) and swing math (swingOffsetSec) are shared with
 // the live engine and transport via core/util, so an export matches playback
@@ -81,8 +82,11 @@ export async function renderProjectToBuffer(project, {
   comp.release.value = 0.22;
   const masterGain = ctx.createGain();
   masterGain.gain.value = project.masterVolume;
+  // Pattern master chain sits after the glue comp, before the volume (live engine mirrors this).
+  const masterChain = buildPatternMaster(ctx, project);
   masterIn.connect(comp);
-  comp.connect(masterGain);
+  comp.connect(masterChain.input);
+  masterChain.output.connect(masterGain);
   masterGain.connect(ctx.destination);
 
   // -- shared FX buses --
@@ -105,7 +109,10 @@ export async function renderProjectToBuffer(project, {
     sendDelay.gain.value = track.channel.sendDelay;
     sendReverb.gain.value = track.channel.sendReverb;
 
-    instrument.output.connect(chanGain);
+    // instrument -> inserts -> automation gain -> fader -> pan -> master + sends
+    const strip = buildPatternStrip(ctx, track);
+    instrument.output.connect(strip.input);
+    strip.output.connect(chanGain);
     chanGain.connect(panner);
     panner.connect(masterIn);
     panner.connect(sendDelay);
@@ -113,7 +120,7 @@ export async function renderProjectToBuffer(project, {
     panner.connect(sendReverb);
     sendReverb.connect(reverbFx.input);
 
-    channels.set(track.id, { track, instrument });
+    channels.set(track.id, { track, instrument, strip, panner });
   }
 
   // -- schedule every event across all loop passes --
@@ -159,6 +166,12 @@ export async function renderProjectToBuffer(project, {
         }
       }
     }
+  }
+  // Slot automation: audio-rate params are scheduled now (curves); instrument
+  // params come back as k-rate jobs and ride the event queue.
+  for (const { s, at: passStart } of plan) {
+    if (!s.automation?.length) continue;
+    events.push(...scheduleSlotAutomation(s, { strips: channels, master: masterChain, passStart, secPerBeat, beats: s.bars * 4 }));
   }
   events.sort((a, b) => a.time - b.time);
   const WINDOW = 2, LEAD = 0.25;

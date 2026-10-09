@@ -15,6 +15,7 @@ import { createInstrument, getInstrumentDef } from './instruments/index.js';
 import { DelayFX } from './effects/delay.js';
 import { ReverbFX } from './effects/reverb.js';
 import { renderProjectToBuffer } from './render.js';
+import { buildPatternStrip, buildPatternMaster, scheduleSlotAutomation } from './patternmix.js';
 import { throttle, faderGain } from '../core/util.js';
 
 export class AudioEngine {
@@ -35,8 +36,10 @@ export class AudioEngine {
     this.masterGain.gain.value = store.project.masterVolume;
     this.masterAnalyser = ctx.createAnalyser();
     this.masterAnalyser.fftSize = 512;
+    this.masterChain = buildPatternMaster(ctx, store.project);
     this.masterIn.connect(this.comp);
-    this.comp.connect(this.masterGain);
+    this.comp.connect(this.masterChain.input);
+    this.masterChain.output.connect(this.masterGain);
     this.masterGain.connect(this.masterAnalyser);
     this.masterAnalyser.connect(ctx.destination);
 
@@ -73,6 +76,7 @@ export class AudioEngine {
       }
     });
     bus.on('project:replaced', () => this.rebuildAll());
+    bus.on('patternfx:changed', () => this.syncPatternFx());
     bus.on('schedule:window', (w) => this.scheduleWindow(w));
     bus.on('transport:state', ({ playing }) => { if (!playing) this.allOff(); });
   }
@@ -82,7 +86,14 @@ export class AudioEngine {
     this.applyMixState();
   }
 
+  // Re-read pattern-side insert chains (cheap: InsertChain.sync reuses instances).
+  syncPatternFx() {
+    this.masterChain.sync(this.store.project.patternMaster?.inserts ?? []);
+    for (const tr of this.store.project.tracks) this.channels.get(tr.id)?.strip.chain.sync(tr.channel.inserts ?? []);
+  }
+
   rebuildAll() {
+    this.masterChain.sync(this.store.project.patternMaster?.inserts ?? []);
     for (const id of [...this.channels.keys()]) this.teardownChannel(id);
     this.masterGain.gain.setTargetAtTime(this.store.project.masterVolume, this.ctx.currentTime, 0.02);
     this.buildAll();
@@ -101,7 +112,9 @@ export class AudioEngine {
     sendDelay.gain.value = 0;
     sendReverb.gain.value = 0;
 
-    instrument.output.connect(chanGain);
+    const strip = buildPatternStrip(ctx, track);
+    instrument.output.connect(strip.input);
+    strip.output.connect(chanGain);
     chanGain.connect(panner);
     panner.connect(analyser);
     analyser.connect(this.masterIn);
@@ -110,7 +123,7 @@ export class AudioEngine {
     panner.connect(sendReverb);
     sendReverb.connect(this.reverbFx.input);
 
-    this.channels.set(track.id, { trackId: track.id, instrument, chanGain, panner, analyser, sendDelay, sendReverb });
+    this.channels.set(track.id, { trackId: track.id, instrument, strip, chanGain, panner, analyser, sendDelay, sendReverb });
   }
 
   teardownChannel(trackId) {
@@ -118,7 +131,8 @@ export class AudioEngine {
     if (!ch) return;
     this.channels.delete(trackId);
     ch.instrument.dispose();
-    for (const node of [ch.chanGain, ch.panner, ch.analyser, ch.sendDelay, ch.sendReverb]) {
+    ch.strip?.chain.dispose();
+    for (const node of [ch.strip?.autoGain, ch.chanGain, ch.panner, ch.analyser, ch.sendDelay, ch.sendReverb]) {
       try { node.disconnect(); } catch { /* ok */ }
     }
   }
@@ -142,6 +156,13 @@ export class AudioEngine {
   scheduleWindow(w) {
     const { store } = this;
     const spb = 60 / store.project.bpm;
+    const slot = store.project.slots[w.slotIndex];
+    if (slot?.automation?.length && w.fromLocal < 1e-9) {
+      const passStart = w.beatToTime(w.loopStartAbs);
+      const jobs = scheduleSlotAutomation(slot, { strips: this.channels, master: this.masterChain, passStart, secPerBeat: spb, beats: slot.bars * 4 });
+      const now = this.ctx.currentTime;
+      for (const j of jobs) setTimeout(j.run, Math.max(0, (j.time - now) * 1000));
+    }
 
     for (const track of store.project.tracks) {
       const ch = this.channels.get(track.id);

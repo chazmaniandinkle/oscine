@@ -92,6 +92,14 @@ class ResonantFilter extends BaseEffect {
     }
   }
 
+  // Automation fast path: cutoff/Q are native AudioParams, so pattern and
+  // arrangement envelopes schedule sample-accurately instead of polling.
+  paramNode(key) {
+    if (key === 'cutoff') return this.filter.frequency;
+    if (key === 'resonance') return this.filter.Q;
+    return null;
+  }
+
   dispose() {
     super.dispose();
     try { this.lfo.stop(); } catch { /* already stopped */ }
