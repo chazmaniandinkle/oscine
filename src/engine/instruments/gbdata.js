@@ -27,4 +27,7 @@ let game = { waves: {}, drums: {}, oraclesNoise: [] };
 try { game = (await import('./gbdata.game.js')).default; } catch { /* not extracted: built-ins only */ }
 export const GAME = game;
 export const WAVES = { ...BUILTIN_WAVES, ...game.waves };
-export const DRUMS = { ...BUILTIN_DRUMS, ...game.drums };
+// Oracles noise table entries -> one-step drums 'oracles:noise:<note>' (the driver's
+// channel volume is not in the table; 12 is a typical mid value).
+const oraclesDrums = Object.fromEntries((game.oraclesNoise || []).map(n => [`oracles:noise:${n.note.toString(16)}`, [{ frames: 1, vol: 12, envPeriod: n.envPeriod || 1, envUp: n.envUp, nr43: n.nr43 }]]));
+export const DRUMS = { ...BUILTIN_DRUMS, ...game.drums, ...oraclesDrums };

@@ -9,3 +9,4 @@ node_modules/
 !/local/README.md
 src/engine/instruments/gbdata.game.js
 plugin/app/src/engine/instruments/gbdata.game.js
+scripts/local/
