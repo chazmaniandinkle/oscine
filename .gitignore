@@ -10,3 +10,5 @@ node_modules/
 src/engine/instruments/gbdata.game.js
 plugin/app/src/engine/instruments/gbdata.game.js
 scripts/local/
+src/engine/instruments/breakdata.local.js
+plugin/app/src/engine/instruments/breakdata.local.js
