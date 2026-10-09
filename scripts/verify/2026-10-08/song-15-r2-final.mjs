@@ -1,0 +1,12 @@
+import { session, OUT } from './drive.mjs';
+import { readFileSync, writeFileSync } from 'node:fs';
+const s = await session(7511);
+const c = s.call;
+await c('project', { action: 'load', project: JSON.parse(readFileSync(`${OUT}/second-pass-r2.oscine.json`, 'utf8')) });
+await c('set_mix', { track: 'Riser', gain: 0.2 });
+const r = await c('listen', { song: true, save: 'projects/songs/2026-10-08-cog-first-oscine/second-pass-r2.wav' });
+console.log(`whole: ${r.seconds}s peak ${r.peakDb} rms ${r.rmsDb} clipped ${r.clipped} grid ${r.grid?.onOffRatio} key ${JSON.stringify(r.key)}`, JSON.stringify(r.bands));
+for (const x of r.sections || []) console.log(`   ${x.slot} rms ${x.rmsDb} high ${x.bands.high}`);
+console.log('saved', r.saved);
+writeFileSync(`${OUT}/second-pass-r2.oscine.json`, JSON.stringify(await c('project', { action: 'get' }), null, 1));
+await s.close();
