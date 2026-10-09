@@ -55,7 +55,7 @@ const { listInstrumentDefs } = await import(`${ROOT}/src/engine/instruments/inde
 
 {
   const defs = listInstrumentDefs();
-  check('instrument registry has 9 built-ins (+ gbpulse gbwave gbnoise)', defs.length === 9 && ['poly','fm','drums','reese','breaks','atmos','gbpulse','gbwave','gbnoise'].every(t => defs.some(d => d.type === t)), `got ${defs.map(d => d.type)}`);
+  check('instrument registry has 10 built-ins (+ gbpulse gbwave gbnoise breakslicer)', defs.length === 10 && ['poly','fm','drums','reese','breaks','atmos','gbpulse','gbwave','gbnoise','breakslicer'].every(t => defs.some(d => d.type === t)), `got ${defs.map(d => d.type)}`);
 
   const demo = demoProject();
   check('demo project validates', !!validateProject(JSON.parse(JSON.stringify(demo))));
@@ -329,7 +329,7 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
 
   const inst = await api.execute('list_instruments');
   check('list_instruments exposes schemas + presets',
-    inst.instruments.length === 9 &&
+    inst.instruments.length === 10 &&
     inst.instruments.every(d => d.params.length > 0) &&
     inst.instruments.find(d => d.type === 'poly').presets.includes('Acid Bass'));
 
