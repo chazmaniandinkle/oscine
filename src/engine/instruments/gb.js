@@ -120,9 +120,13 @@ export function renderNoise(ctx, steps, tail, vel = 1, tune = 0) {
 }
 
 // LSDj-style kick: the wave channel with a fast pitch drop (the GB has no
-// kick drum; trackers fake one this way).
+// kick drum; trackers fake one this way). The drop ends at about 45 Hz: the first
+// version dropped 30 semitones from A1 to 9.7 Hz, so 87% of the kick's energy sat
+// below 40 Hz, inaudible on most speakers but eating headroom. Every DnB drop
+// measured ~30% "rumble" because of it (found in the 2026-10-09 old/new re-render comparison).
 function renderWaveKick(ctx, p, vel) {
-  return renderWave(ctx, 33 + p.kickTune, p.kickDecay, { wave: 'triangle', shift: 0, pitchDrop: 30, dropTime: p.kickDecay * 0.6 }, vel);
+  const start = 45 + p.kickTune;                                  // MIDI ~A2 (110 Hz) at tune 0
+  return renderWave(ctx, start, p.kickDecay, { wave: 'triangle', shift: 0, pitchDrop: start - 30, dropTime: p.kickDecay * 0.5 }, vel); // ends near MIDI 30 (46 Hz)
 }
 
 const cache = new WeakMap();
