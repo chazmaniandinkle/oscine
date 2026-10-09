@@ -1,3 +1,4 @@
+import { seededRandom } from '../../core/util.js';
 // Common instrument plumbing. Subclasses implement noteOn/noteOff (melodic)
 // or trigger (drums). All envelope automation in this codebase uses
 // setTargetAtTime chains: later events supersede earlier ones from their
@@ -47,7 +48,8 @@ export function noiseBuffer(ctx) {
     const len = ctx.sampleRate * 2;
     buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const rnd = seededRandom(0x2545f491);
+    for (let i = 0; i < len; i++) data[i] = rnd() * 2 - 1;
     noiseCache.set(ctx, buf);
   }
   return buf;

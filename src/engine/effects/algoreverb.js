@@ -1,3 +1,4 @@
+import { seededRandom } from '../../core/util.js';
 // Algorithmic convolution reverb: a synthesized stereo impulse response
 // (exponentially decaying filtered noise) fed into a native
 // ConvolverNode. Modelled on the "algo reverb from a generated IR" shape
@@ -70,9 +71,10 @@ function buildImpulse(ctx, { size, decay, damping }) {
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch);
     let prev = 0;
+    const rnd = seededRandom(0xA160 + ch * 7919);
     for (let i = 0; i < len; i++) {
       const t = i / len;
-      const white = Math.random() * 2 - 1;
+      const white = rnd() * 2 - 1;
       // one-pole lowpass baked into the IR (decorrelated per channel
       // since `prev` and the random stream are independent per loop)
       prev = prev + alpha * (white - prev);

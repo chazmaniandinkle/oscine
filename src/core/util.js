@@ -12,6 +12,14 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 
 export const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
+// Deterministic PRNG (xorshift32) -> [0,1). Used for every noise buffer and
+// reverb IR so two renders of the same project are sample-identical: the ear
+// then compares edits, not randomness (2026-10-08).
+export function seededRandom(seed = 0x9e3779b9) {
+  let s = (seed >>> 0) || 1;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+}
+
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export function midiName(m) {
   return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1);
