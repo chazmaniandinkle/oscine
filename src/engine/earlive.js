@@ -199,8 +199,34 @@ export class LiveEar {
     this.sync();
   }
 
+  // The arrangement (audio clips) does not pass through the pattern engine: the transport makes a fresh ClipPlayer
+  // per play/loop pass, whose master chain goes straight to the destination. Tap its master into the same master
+  // analyser (an analyser sums its inputs) and each lane strip into its own analyser, re-wiring when the player
+  // changes. Without this the ear is deaf to every audio-clip song.
+  syncClips() {
+    const cp = this.transport?.clipPlayer ?? null;
+    if (cp === this.clipTap?.cp) return;
+    this.dropClips();
+    if (!cp || !this.master) return;
+    const lanes = new Map();
+    try { cp.masterChain.output.connect(this.master); } catch { return; }
+    for (const [id, s] of Object.entries(cp.strips ?? {})) {
+      const an = this.makeAnalyser(2048, 0);
+      try { s.pan.connect(an); lanes.set(id, { node: s.pan, an }); } catch { /* strip gone */ }
+    }
+    this.clipTap = { cp, lanes };
+  }
+
+  dropClips() {
+    const t = this.clipTap; if (!t) return;
+    try { t.cp.masterChain.output.disconnect(this.master); } catch { /* ok */ }
+    for (const { node, an } of t.lanes.values()) { try { node.disconnect(an); } catch { /* ok */ } }
+    this.clipTap = null;
+  }
+
   // Channels come and go (track added/removed, project replaced): reconcile each tick, it is a Map walk.
   sync() {
+    this.syncClips();
     const live = this.engine.channels;
     for (const [id, ch] of live) {
       const have = this.chans.get(id);
@@ -220,6 +246,7 @@ export class LiveEar {
   }
 
   detach() {
+    this.dropClips();
     for (const id of [...this.chans.keys()]) this.drop(id);
     if (this.master) { try { this.engine.masterGain.disconnect(this.master); } catch { /* ok */ } this.master = null; }
   }
@@ -240,6 +267,15 @@ export class LiveEar {
       an.getFloatTimeDomainData(an.td);
       const tr = names.get(id);
       tracks.push({ id, name: tr?.name ?? id, mute: !!tr?.channel?.mute, td: an.td });
+    }
+    // arrangement lanes (audio clips), named as the timeline names them
+    if (this.clipTap) {
+      const lanes = new Map((store.project.arrangement?.lanes ?? []).map(l => [l.id, l]));
+      for (const [id, { an }] of this.clipTap.lanes) {
+        an.getFloatTimeDomainData(an.td);
+        const l = lanes.get(id);
+        tracks.push({ id, name: l?.name ?? id, mute: !!l?.mute, td: an.td });
+      }
     }
     return buildFrame({ ...base, master: { freqDb: this.master.freq, td: this.master.td }, tracks });
   }
