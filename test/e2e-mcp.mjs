@@ -133,7 +133,14 @@ try {
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const consoleErrors = [];
-  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+  // Optional local data modules (gitignored: gbdata.game.js, breakdata.local.js) are absent on a clean checkout by
+  // design; the app's dynamic import() catches that, but the browser still logs the 404. Ignore exactly those.
+  const OPTIONAL_LOCAL = /\/src\/engine\/instruments\/[a-z]+\.(game|local)\.js$/;
+  page.on('console', m => {
+    if (m.type() !== 'error') return;
+    if (OPTIONAL_LOCAL.test(m.location()?.url ?? '')) return;
+    consoleErrors.push(m.text());
+  });
   page.on('pageerror', e => consoleErrors.push('PAGEERROR: ' + e.message));
   await page.goto(`http://127.0.0.1:${PORT}/`);
 
