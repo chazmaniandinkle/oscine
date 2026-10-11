@@ -218,6 +218,34 @@ console.log('[6] session -> sidecar storage -> read-since-last-look');
   } finally { await rm(root, { recursive: true, force: true }); }
 }
 
+console.log('[6b] the default timer works in a browser-like realm, and a failed start rolls back');
+{
+  // The defaults must be wrapped: a bare setInterval stored on the instance and called as this.setTimer() throws
+  // "Illegal invocation" in a browser (found against the live app). Simulate that brand check.
+  const realSet = globalThis.setInterval, realClear = globalThis.clearInterval;
+  globalThis.setInterval = function (f, ms) { if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation'); return realSet(f, ms); };
+  const root = await mkdtemp(join(tmpdir(), 'oscine-jam2-'));
+  try {
+    const bus = new EventBus(), store = fakeStore(), mem = {};
+    const persist = { get: () => mem.v ?? null, set: (v) => { mem.v = v; }, clear: () => { delete mem.v; } };
+    const s = new JamSession({ store, bus, engine: { ctx: { currentTime: 1 } }, transport: {}, audio: null, post: async () => {}, persist, now: () => 5 });
+    let started = null, err = null;
+    try { started = await s.start({}); } catch (e) { err = e; }
+    check('default timer start does not throw in a browser-like realm', !err && s.active && s.timer != null, err && err.message);
+    const stopped = await s.stop();
+    check('and stops cleanly (default clearTimer)', !s.active && stopped.id === started.id);
+    // failed start: the audio recorder throws after the taps are in -> everything is rolled back
+    const orig = store.logInput;
+    const s2 = new JamSession({ store, bus, engine: { ctx: { currentTime: 1 } }, transport: {}, audio: { start: async () => ({ ok: true, t0_ct: 1 }), drain: () => [], stop: async () => ({ chunks: [] }) }, post: async () => { throw new Error('boom'); }, persist, now: () => 5, setTimer: () => { throw new Error('timer broke'); } });
+    let e2 = null; try { await s2.start({}); } catch (e) { e2 = e; }
+    check('a failed start throws', e2 && /timer broke/.test(e2.message));
+    check('and leaves nothing half-open: recorder off, taps removed, nothing persisted', !s2.active && store.logInput === orig && !mem.v);
+    const s3 = new JamSession({ store, bus, engine: { ctx: { currentTime: 1 } }, transport: {}, audio: null, post: async () => { throw new Error('offline'); }, persist, now: () => 5 });
+    await s3.start({}); await s3.flush(); await s3.stop();
+    check('an unreachable sidecar never breaks recording: uploads fail soft and are counted', s3.errors > 0 && !s3.active);
+  } finally { globalThis.setInterval = realSet; globalThis.clearInterval = realClear; await rm(root, { recursive: true, force: true }); }
+}
+
 console.log('[7] command surface');
 {
   const c = COMMANDS.find(x => x.name === 'jam');

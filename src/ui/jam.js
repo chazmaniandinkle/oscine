@@ -13,7 +13,8 @@ import { JamRecorder, installJamTap } from '../core/jam.js';
 const FLUSH_MS = 1000;
 
 export class JamSession {
-  constructor({ store, bus, engine, transport, audio, post, persist, now = () => Date.now(), setTimer = setInterval, clearTimer = clearInterval }) {
+  constructor({ store, bus, engine, transport, audio, post, persist, now = () => Date.now(), setTimer = (f, ms) => setInterval(f, ms), clearTimer = (h) => clearInterval(h) }) {
+    // (the defaults are wrapped: a bare setInterval kept as a property and called as this.setTimer(...) throws "Illegal invocation" in a browser)
     this.store = store; this.bus = bus; this.engine = engine; this.transport = transport;
     this.audio = audio; this.post = post; this.persist = persist;
     this.now = now; this.setTimer = setTimer; this.clearTimer = clearTimer;
@@ -28,6 +29,18 @@ export class JamSession {
   get active() { return this.rec.active; }
 
   async start(meta = {}, { resumeId = null, seg = 0, seq = 0 } = {}) {
+    try { return await this._start(meta, { resumeId, seg, seq }); } catch (err) {
+      // A failed start must not leave a half-open jam (recorder on, taps installed, no uploader): roll everything back.
+      this.clearTimer(this.timer); this.timer = null;
+      try { await this.audio?.stop?.(); } catch { /* nothing to stop */ }
+      this.untap?.(); this.untap = null;
+      if (this.rec.active) { try { this.rec.stop(); } catch { /* already off */ } }
+      this.persist?.clear?.();
+      throw err;
+    }
+  }
+
+  async _start(meta, { resumeId, seg, seq }) {
     const sm = { project: this.store.project?.name ?? null, bpm: this.store.project?.bpm ?? null, ...meta };
     const m = this.rec.start(sm, resumeId ? { id: resumeId, seq, seg } : { seg });
     this.untap = installJamTap({ store: this.store, bus: this.bus, recorder: this.rec });
