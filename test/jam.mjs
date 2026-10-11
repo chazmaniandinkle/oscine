@@ -249,7 +249,7 @@ console.log('[6b] the default timer works in a browser-like realm, and a failed 
 console.log('[7] command surface');
 {
   const c = COMMANDS.find(x => x.name === 'jam');
-  check('jam is in the catalog with the five actions', c && JSON.stringify(c.input.properties.action.enum) === JSON.stringify(['status', 'start', 'stop', 'list', 'read']));
+  check('jam is in the catalog with its actions', c && JSON.stringify(c.input.properties.action.enum) === JSON.stringify(['status', 'start', 'stop', 'list', 'read', 'phrases', 'clip', 'place']));
   check('catalog/handler agree', typeof CommandAPI.prototype.cmd_jam === 'function');
   const api = Object.create(CommandAPI.prototype);
   let msg = ''; try { await api.cmd_jam({ action: 'read' }); } catch (e) { msg = e.message; }

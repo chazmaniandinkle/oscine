@@ -798,8 +798,9 @@ export class CommandAPI {
     return this._jam;
   }
 
-  async cmd_jam({ action = 'status', audio = true, note } = {}) {
-    if (['list', 'read'].includes(action)) throw new Error(`'${action}' is answered by the sidecar from disk; call it through the MCP tool (oscine_jam) or POST /mcp.`);
+  async cmd_jam({ action = 'status', audio = true, note } = {}) {   // also: place { clip, toSlot, toTrack, mode } (the sidecar sends it for clip + toSlot)
+    if (['list', 'read', 'phrases', 'clip'].includes(action)) throw new Error(`'${action}' is answered by the sidecar from disk; call it through the MCP tool (oscine_jam) or POST /mcp.`);
+    if (action === 'place') return this.jamPlace(arguments[0]);
     const jam = await this.jamOf();
     if (action === 'status') return jam.status();
     if (action === 'start') {
@@ -807,7 +808,47 @@ export class CommandAPI {
       return await jam.start(note ? { note } : {});
     }
     if (action === 'stop') return await jam.stop();
-    throw new Error(`Bad action '${action}'. Use status, start, stop, list or read.`);
+    throw new Error(`Bad action '${action}'. Use status, start, stop, list, read, phrases, clip or place.`);
+  }
+
+  // Put a jam clip (from the sidecar's 'clip') into a pattern slot as ONE undo step.
+  //   clip    { kind:'synth', notes:[{start,pitch,dur,vel}], bars } | { kind:'drums', lanes:{lane:[steps]}, bars }
+  //   toSlot  'A'..'H' (default: the active slot)   toTrack  id or name (default: the track the phrase was played on)
+  //   mode    'replace' (default: the track's pattern in that slot becomes the clip) | 'add' (merge into it)
+  // The slot is lengthened to fit the clip (never shortened). Undo restores both the slot length and the notes.
+  jamPlace({ clip, toSlot, toTrack, mode = 'replace' } = {}) {
+    if (!clip || typeof clip !== 'object') throw new Error("place needs a 'clip' (from oscine_jam {action:'clip', ...}).");
+    if (!['replace', 'add'].includes(mode)) throw new Error("mode is 'replace' or 'add'.");
+    let t = null, lastErr = null;
+    for (const ref of [toTrack, clip.track, clip.trackName]) {
+      if (ref === undefined || ref === null || ref === '') continue;
+      try { t = this.resolveTrack(ref); break; } catch (e) { lastErr = e; }
+    }
+    if (!t) throw new Error(toTrack ? lastErr.message : `Which track? The phrase's track is gone${lastErr ? ` (${lastErr.message})` : ''}; pass toTrack.`);
+    const want = clip.kind === 'drums' ? 'drums' : 'synth';
+    this.requireKind(t, want, want === 'drums' ? 'set_notes' : 'set_steps');
+    const slotIdx = this.resolveSlot(toSlot);
+    const { store } = this;
+    const bars = BAR_CHOICES.find(b => b >= (Number(clip.bars) || 1)) ?? BAR_CHOICES[BAR_CHOICES.length - 1];
+    // One undo step: setSlotBars checkpoints when it resizes; checkpoint ourselves only when it didn't.
+    const depth = store.undoStack.length;
+    if (store.project.slots[slotIdx].bars < bars) store.setSlotBars(bars, slotIdx);
+    if (store.undoStack.length === depth) store.checkpoint();
+    const slotBars = store.project.slots[slotIdx].bars;
+    let placed;
+    if (want === 'drums') {
+      const valid = new Set(getInstrumentDef(t.instrument.type).lanes.map(l => l.id));
+      const bad = Object.keys(clip.lanes || {}).filter(l => !valid.has(l));
+      if (bad.length) { store.undo(); throw new Error(`Track '${t.name}' has no lane(s) ${bad.join(', ')}. Lanes: ${[...valid].join(', ')}.`); }
+      store.setLanes(t.id, clip.lanes || {}, slotIdx, mode === 'replace');
+      placed = { lanes: Object.keys(clip.lanes || {}) };
+    } else {
+      const { out } = this.validateNotes(clip.notes || [], slotBars * 4);
+      const merged = mode === 'add' ? [...store.getPattern(t.id, slotIdx).notes, ...out] : out;
+      store.setNotes(t.id, merged, slotIdx);
+      placed = { notes: out.length };
+    }
+    return { ok: true, track: t.name, slot: SLOT_NAMES[slotIdx], bars: slotBars, mode, ...placed, undo: 'one undo step' };
   }
 
   async cmd_listen({ slot, loops = 1, song = false, solo, from, to, save }) {

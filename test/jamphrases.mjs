@@ -3,7 +3,13 @@
 import { mkdtemp, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { segmentPhrases, clipFromPhrase, parseQuantize, tempoMap, pairEvents, noteContour } from '../src/core/jamphrases.js';
+import { phrasesOf, clipOf, cutAudio, jamDir } from '../plugin/server/jam-store.mjs';
+import { CommandAPI } from '../src/api/api.js';
+import { EventBus } from '../src/core/bus.js';
+import { Store } from '../src/core/store.js';
+import { demoProject, SLOT_NAMES } from '../src/core/schema.js';
 
 let fails = 0;
 const check = (n, ok, d = '') => { console.log((ok ? '  ok  ' : 'FAIL  ') + n + (d ? `  (${d})` : '')); if (!ok) fails++; };
@@ -140,6 +146,92 @@ console.log('[5] clip: quantize + rebase to beat 0');
   const d = [hit(0, 'kick'), hit(520, 'snare'), hit(1000, 'kick'), hit(1490, 'hat')];
   const dc = clipFromPhrase(segmentPhrases(d, { meta })[0]);
   check('drum clip: lanes of 16ths for set_steps, vel in the hit step', dc.kind === 'drums' && dc.bars === 1 && dc.lanes.kick.length === 16 && dc.lanes.kick[0] > 0 && dc.lanes.kick[8] > 0 && dc.lanes.snare[4] > 0 && dc.lanes.hat[12] > 0, JSON.stringify(Object.fromEntries(Object.entries(dc.lanes).map(([k, v]) => [k, v.map(x => x ? 1 : 0).join('')]))));
+}
+
+console.log('[6] sidecar: phrases + clip + audio cut over a synthetic jam dir (real ffmpeg)');
+const FF = ['/opt/homebrew/bin/ffmpeg', 'ffmpeg'].find(f => { try { execFileSync(f, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } });
+{
+  const root = await mkdtemp(join(tmpdir(), 'oscine-jamphrases-'));
+  try {
+    const id = 'jam-test-phrases';
+    const dir = jamDir(root, id);
+    await mkdir(dir, { recursive: true });
+    seq = 0;
+    const e = [on(0, 60), off(240, 60), on(260, 62), off(500, 62), on(515, 64), off(740, 64), on(745, 65), off(1000, 65),
+               on(5000, 72), off(5300, 72), hit(5100, 'kick'), hit(5600, 'snare')];
+    await writeFile(join(dir, 'events.jsonl'), e.map(x => JSON.stringify(x)).join('\n') + '\n');
+    await writeFile(join(dir, 'meta.json'), JSON.stringify({ ...meta, id, started_t: T0, stopped_t: T0 + 6000 }));
+    if (FF) execFileSync(FF, ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=7', '-c:a', 'libopus', join(dir, 'audio.webm')]);
+
+    const ps = await phrasesOf(root, {});
+    check('phrases: newest jam by default, 2 melodic + 1 drum phrase', ps.ok && ps.id === id && ps.total === 3, `total ${ps.total}`);
+    check('phrases carry contour, range, audio window', ps.phrases[0].contour === 'C4 D4 E4 F4' && ps.phrases[0].audio.aligned && ps.phrases[0].range.hiName === 'F4', ps.phrases[0].contour);
+    check('phrases: notes:false drops the note lists', !('notes' in (await phrasesOf(root, { notes: false })).phrases[0]));
+    check('phrases: track filter', (await phrasesOf(root, { track: 'Kit' })).total === 1);
+    check('phrases: sinceSec keeps only the recent ones', (await phrasesOf(root, { sinceSec: 2 })).total === 2);
+    check('phrases: unknown jam is an error, not a crash', (await phrasesOf(root, { id: 'jam-nope' })).ok === false);
+
+    const c1 = await clipOf(root, { phraseId: ps.phrases[0].id, quantize: '1/8' }, { ffmpeg: FF });
+    check('clip by phraseId: quantized notes 0, 0.5, 1, 1.5', c1.ok && c1.clip.notes.map(n => n.start).join(',') === '0,0.5,1,1.5', c1.error || '');
+    if (FF) {
+      check('clip: audio cut to clips/<phraseId>.wav with an absolute path', c1.audio.ok && c1.audio.path.endsWith(`/clips/${ps.phrases[0].id}.wav`) && c1.audio.path.startsWith('/'), c1.audio.error || c1.audio.path);
+      const dur = parseFloat(execFileSync(FF.replace('ffmpeg', 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', c1.audio.path]).toString());
+      const want = c1.audio.to_sec - c1.audio.from_sec;
+      check('clip: the wav is the length of the window', Math.abs(dur - want) < 0.1, `${dur.toFixed(2)} vs ${want.toFixed(2)}`);
+    } else console.log('  skip  ffmpeg not found: audio cut checks');
+    const c2 = await clipOf(root, { fromSec: 0.4, toSec: 2.0, quantize: '1/16' }, { ffmpeg: FF });
+    check('clip by audio range (0.4 s..2.0 s into the audio) finds the melody', c2.ok && c2.clip.notes.length === 4, c2.error || String(c2.clip?.notes.length));
+    check('clip by range: the window includes 0.5 s of audio-offset (ct0 10 vs t0 9.5)', c2.ok && c2.audio.from_sec === 0.4 && c2.audio.to_sec === 2);
+    check('clip: a range with nothing played is a clear error', (await clipOf(root, { fromSec: 3, toSec: 4 }, { ffmpeg: FF })).error?.includes('no played notes'));
+    check('clip: no phrase and no range is a clear error', /phraseId/.test((await clipOf(root, {})).error));
+    check('clip: unknown phraseId lists the recent ones', /Recent: ph-/.test((await clipOf(root, { phraseId: 'ph-999' })).error));
+    const cd = await clipOf(root, { phraseId: ps.phrases.find(p => p.kind === 'hits').id }, { ffmpeg: FF });
+    check('clip of a drum phrase gives step lanes', cd.ok && cd.clip.kind === 'drums' && cd.clip.lanes.kick && cd.clip.lanes.snare);
+    const bad = await cutAudio(root, id, { from_sec: 2, to_sec: 1 }, { ffmpeg: FF });
+    check('cut: from >= to is refused', bad.ok === false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+}
+
+console.log('[7] place: a clip into a slot as ONE undo step');
+{
+  const bus = new EventBus();
+  const store = new Store(bus, demoProject());
+  const api = Object.create(CommandAPI.prototype);
+  api.store = store; api.bus = bus;
+  const lead = store.project.tracks.find(t => store.kindOf(t) === 'synth');
+  const kit = store.project.tracks.find(t => store.kindOf(t) === 'drums');
+  check('fixture has a synth and a drum track', !!lead && !!kit);
+  if (lead && kit) {
+    const slotE = SLOT_NAMES.indexOf('E');
+    const before = store.undoStack.length, barsBefore = store.project.slots[slotE].bars;
+    const clip = { kind: 'synth', track: lead.id, trackName: lead.name, bars: 4, notes: [{ start: 0, pitch: 60, dur: 1, vel: 0.8 }, { start: 5, pitch: 64, dur: 1, vel: 0.8 }, { start: 14, pitch: 67, dur: 1.5, vel: 0.8 }] };
+    const r = api.jamPlace({ clip, toSlot: 'E' });
+    check('place returns ok, slot, track, count', r.ok && r.slot === 'E' && r.notes === 3 && r.track === lead.name);
+    check('slot lengthened to fit (4 bars) and holds the notes', store.project.slots[slotE].bars === 4 && store.getPattern(lead.id, slotE).notes.length === 3);
+    check('ONE undo step for resize + notes', store.undoStack.length === before + 1, `${before} -> ${store.undoStack.length}`);
+    store.undo();
+    check('undo restores both the slot length and the notes', store.project.slots[slotE].bars === barsBefore && store.getPattern(lead.id, slotE).notes.length === 0);
+
+    const r2 = api.jamPlace({ clip: { ...clip, bars: 1, notes: [clip.notes[0]] }, toSlot: 'E' });
+    const r3b = api.jamPlace({ clip: { ...clip, bars: 1, notes: [clip.notes[1]] }, toSlot: 'E', mode: 'add' });
+    check("mode 'add' merges, 'replace' replaces", store.getPattern(lead.id, slotE).notes.length === 2 && r3b.mode === 'add' && r2.mode === 'replace');
+    const len = store.project.slots[slotE].bars;
+    api.jamPlace({ clip: { ...clip, bars: 1, notes: [clip.notes[0]] }, toSlot: 'E' });
+    check('a shorter clip never shortens the slot', store.project.slots[slotE].bars === len);
+
+    const lane = Object.keys(store.getPattern(kit.id, slotE).steps)[0];
+    const dclip = { kind: 'drums', track: kit.id, trackName: kit.name, bars: 1, lanes: { [lane]: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0] } };
+    const u0 = store.undoStack.length;
+    const rd = api.jamPlace({ clip: dclip, toSlot: 'E' });
+    check('drum clip writes the steps as one undo step', rd.ok && store.getPattern(kit.id, slotE).steps[lane][4] === 1 && store.undoStack.length === u0 + 1);
+
+    let msg = ''; try { api.jamPlace({ clip: { ...dclip, lanes: { nope: [1] } }, toSlot: 'E' }); } catch (e) { msg = e.message; }
+    check('a clip with a lane the kit lacks is refused, and leaves no stray undo step', /no lane/.test(msg) && store.undoStack.length === u0 + 1, msg);
+    msg = ''; try { api.jamPlace({ clip: { ...clip }, toSlot: 'E', toTrack: kit.name }); } catch (e) { msg = e.message; }
+    check('a melodic clip onto a drum track is refused', msg.length > 0, msg);
+    msg = ''; try { api.jamPlace({}); } catch (e) { msg = e.message; }
+    check('place without a clip says so', /clip/.test(msg));
+  }
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall jamphrases checks passed');

@@ -7,7 +7,9 @@
 
 import { mkdir, readFile, writeFile, appendFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
 import { audioWindow } from '../app/src/core/jam.js';
+import { segmentPhrases, clipFromPhrase } from '../app/src/core/jamphrases.js';
 
 export const JAM_ID_RE = /^jam-[0-9a-z]+(?:-[0-9a-z]+)*$/;
 export const JAM_DIR = '.cog/run/jam';
@@ -110,4 +112,83 @@ export async function readJam(projectRoot, { id, readerId = 'cog', all = false, 
     count: fresh.length, kinds: summarize(fresh), wall_ms: t.length ? { first: Math.min(...t), last: Math.max(...t) } : null,
     audio: { dir: join(JAM_DIR, jid), windows }, events: fresh,
   };
+}
+
+// -- phrases, clips, audio cuts ------------------------------------------------------------------------------------------
+// phrases: the jam's played notes grouped into musical phrases (src/core/jamphrases.js), newest last.
+// clip:    one phrase (or any audio-time range) as a quantized clip in the shape set_notes / set_steps take, plus the
+//          matching audio cut to <jam dir>/clips/<name>.wav. Placing a clip into a slot needs the app (one undo step):
+//          the MCP dispatcher forwards the clip to the app's 'jam' action 'place'.
+
+const r3 = (v) => Math.round(v * 1000) / 1000;
+const slim = ({ notes, hits, firstSeq, ...rest }) => rest;       // a phrase without its note list
+const FFMPEG = process.env.OSCINE_FFMPEG || 'ffmpeg';
+
+async function loadJam(projectRoot, id) {
+  const jams = await listJams(projectRoot);
+  const jid = id || jams[0]?.id;
+  if (!jid) return { error: 'no jams recorded yet (start one: oscine_jam {action:"start"})' };
+  if (!jams.find(j => j.id === jid)) return { error: `no jam '${jid}' (jam ids: ${jams.slice(0, 5).map(j => j.id).join(', ') || 'none'})` };
+  const dir = jamDir(projectRoot, jid);
+  return { jid, dir, meta: await readJson(join(dir, 'meta.json'), {}), events: await readEvents(projectRoot, jid) };
+}
+
+export async function phrasesOf(projectRoot, { id, jamId, sinceSec, track, gapSec, gapBeats, limit = 12, notes = true } = {}) {
+  const j = await loadJam(projectRoot, id || jamId);
+  if (j.error) return { ok: false, error: j.error };
+  let all = segmentPhrases(j.events, { meta: j.meta, track, gapSec, gapBeats });
+  if (Number.isFinite(sinceSec) && sinceSec > 0) {
+    const lastT = Math.max(0, ...j.events.map(e => e.t).filter(Number.isFinite));
+    all = all.filter(p => p.end.t >= lastT - sinceSec * 1000);
+  }
+  const total = all.length;
+  const shown = all.slice(-Math.max(1, limit));
+  return { ok: true, id: j.jid, open: j.meta.stopped_t == null, bpm: j.meta.bpm ?? null, total, count: shown.length, phrases: notes ? shown : shown.map(slim) };
+}
+
+function cut(src, out, fromSec, toSec, ffmpeg = FFMPEG) {
+  return new Promise((resolveP) => {
+    const args = ['-y', '-v', 'error', '-i', src, '-ss', String(fromSec), '-t', String(Math.max(0.05, toSec - fromSec)), '-ar', '44100', out];
+    execFile(ffmpeg, args, { timeout: 60000 }, (err, _so, se) => resolveP(err ? { ok: false, error: String(se || err.message).trim().slice(0, 300) } : { ok: true }));
+  });
+}
+
+// Cut audio [fromSec, toSec] of a jam segment's audio file to clips/<name>.wav. Returns the absolute path.
+export async function cutAudio(projectRoot, id, { seg = 0, from_sec, to_sec, name }, { ffmpeg } = {}) {
+  const j = await loadJam(projectRoot, id);
+  if (j.error) return { ok: false, error: j.error };
+  if (!Number.isFinite(from_sec) || !Number.isFinite(to_sec) || to_sec <= from_sec) return { ok: false, error: 'cut needs from_sec < to_sec (seconds into the jam audio)' };
+  const file = j.meta.segments?.[seg]?.audio?.file || audioName(seg);
+  const src = join(j.dir, file);
+  try { await stat(src); } catch { return { ok: false, error: `no audio file ${file} in ${j.jid} (was the jam recorded with audio?)` }; }
+  const safe = String(name || `cut-${seg}-${from_sec}-${to_sec}`).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80);
+  const outDir = join(j.dir, 'clips');
+  await mkdir(outDir, { recursive: true });
+  const out = join(outDir, safe + '.wav');
+  const r = await cut(src, out, from_sec, to_sec, ffmpeg);
+  return r.ok ? { ok: true, path: out, seg, file, from_sec: r3(from_sec), to_sec: r3(to_sec) } : { ok: false, error: `ffmpeg: ${r.error}` };
+}
+
+export async function clipOf(projectRoot, args = {}, { ffmpeg } = {}) {
+  const { id, jamId, phraseId, fromSec, toSec, seg = 0, track, quantize, rebase } = args;
+  const j = await loadJam(projectRoot, id || jamId);
+  if (j.error) return { ok: false, error: j.error };
+  let phrase = null, audioReq = null;
+  if (phraseId) {
+    const all = segmentPhrases(j.events, { meta: j.meta, track });
+    phrase = all.find(p => p.id === phraseId);
+    if (!phrase) return { ok: false, error: `no phrase '${phraseId}' in ${j.jid}. Recent: ${all.slice(-6).map(p => p.id).join(', ') || 'none'} (oscine_jam {action:"phrases"})` };
+    if (phrase.audio?.aligned) audioReq = { seg: phrase.audio.seg, from_sec: phrase.audio.from_sec, to_sec: phrase.audio.to_sec, name: phrase.id };
+  } else if (Number.isFinite(fromSec) && Number.isFinite(toSec) && toSec > fromSec) {
+    const a = j.meta.segments?.[seg]?.audio;
+    if (!a || !Number.isFinite(a.audio_t0_ct)) return { ok: false, error: `segment ${seg} has no audio clock (audio_t0_ct); can't map seconds to events. Use phraseId, or a segment recorded with audio.` };
+    const window = { seg, fromCt: a.audio_t0_ct + fromSec, toCt: a.audio_t0_ct + toSec };
+    const found = segmentPhrases(j.events, { meta: j.meta, track, window, gapSec: Infinity, gapBeats: Infinity });
+    if (!found.length) return { ok: false, error: `no played notes between ${fromSec}s and ${toSec}s of segment ${seg}` };
+    phrase = found.slice().sort((x, y) => y.count - x.count)[0];
+    audioReq = { seg, from_sec: fromSec, to_sec: toSec, name: `range-${seg}-${r3(fromSec)}-${r3(toSec)}` };
+  } else return { ok: false, error: "clip needs phraseId, or fromSec and toSec (seconds into the jam audio; optional seg)" };
+  const clip = clipFromPhrase(phrase, { quantize, rebase });
+  const audio = audioReq ? await cutAudio(projectRoot, j.jid, audioReq, { ffmpeg }) : { ok: false, error: 'this phrase has no aligned audio window (no audio clock in the jam)' };
+  return { ok: true, id: j.jid, phrase: slim(phrase), clip, audio };
 }

@@ -19,6 +19,7 @@
 
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { readFile, stat, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -28,7 +29,7 @@ import { COMMANDS } from '../app/src/api/commands.js';
 import { OscGateway } from './osc-gateway.js';
 import { SessionRegistry } from './sessions.js';
 import { scanLocal, importClips, fetchPublic, loadLibrary, summarizeLibrary, ingestFile } from './suno-library.mjs';
-import { writeMeta as jamWriteMeta, appendEvents as jamAppendEvents, appendAudio as jamAppendAudio, listJams, readJam, JAM_ID_RE } from './jam-store.mjs';
+import { writeMeta as jamWriteMeta, appendEvents as jamAppendEvents, appendAudio as jamAppendAudio, listJams, readJam, phrasesOf, clipOf, JAM_ID_RE } from './jam-store.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
@@ -1001,6 +1002,16 @@ async function dispatchTool(name, args) {
     const root = resolve(PROJECT_ROOT);
     if (forwardArgs.action === 'list') return { ok: true, jams: await listJams(root) };
     return await readJam(root, { id: forwardArgs.id, readerId: forwardArgs.readerId || 'cog', all: !!forwardArgs.all, peek: !!forwardArgs.peek, limit: forwardArgs.limit });
+  }
+  // phrases / clip are also answered from disk. A clip with toSlot is then written into the pattern by the app (one undo step).
+  if (cmdName === 'jam' && forwardArgs.action === 'phrases') return await phrasesOf(resolve(PROJECT_ROOT), forwardArgs);
+  if (cmdName === 'jam' && forwardArgs.action === 'clip') {
+    const out = await clipOf(resolve(PROJECT_ROOT), forwardArgs, { ffmpeg: process.env.OSCINE_FFMPEG || (existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg') });
+    if (out.ok && forwardArgs.toSlot) {
+      try { out.placed = await callApp('jam', { action: 'place', clip: out.clip, toSlot: forwardArgs.toSlot, toTrack: forwardArgs.toTrack, mode: forwardArgs.mode }, 15000, selector); }
+      catch (e) { out.placed = { ok: false, error: String(e?.message || e) }; }
+    }
+    return out;
   }
 
   if (cmdName === 'status' && registry.size === 0) {
