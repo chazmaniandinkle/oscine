@@ -133,7 +133,9 @@ export class MidiMap {
   }
 
   noteFeed(key, msg, r) {
-    const e = { t: Date.now(), key, label: srcLabel(key), v: normOf(msg), bound: r ? (r.desc ? r.desc.label : null) : null, waiting: !!r?.waiting };
+    // Name it the way the controller's own layout does ("K3", "P5") when the profile knows the source.
+    const known = this.profile && !this.profile.generic ? (controlIndex(this.profile).get(key) || controlIndex(this.profile).get(key.split('@')[0])) : null;
+    const e = { t: Date.now(), key, label: known ? known.control.label : srcLabel(key), v: normOf(msg), bound: r ? (r.desc ? r.desc.label : null) : null, waiting: !!r?.waiting };
     this.feed.push(e); if (this.feed.length > FEED_MAX) this.feed.shift();
     this.bus.emit('midi:touch', e);
   }

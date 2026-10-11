@@ -18,11 +18,34 @@ export class MidiSurface {
     this.root = null;
     this.cells = new Map();          // sourceKey -> element(s) lit by live touches
     const rerender = () => { if (this.root) this.render(); };
-    for (const ev of ['midi:surface', 'midi:status', 'midi:config', 'midi:wizard', 'midi:bound', 'midi:profiles', 'ui:selection', 'midi:bind']) this.bus.on(ev, rerender);
+    for (const ev of ['midi:surface', 'midi:status', 'midi:config', 'midi:wizard', 'midi:profiles', 'ui:selection']) this.bus.on(ev, rerender);
+    // Binding needs the rest of the app in view: shrink the panel the moment a control is armed (from either side),
+    // restore it when the binding lands. The user can still toggle it by hand.
+    this.bus.on('midi:bind', (e) => { if (e.armedSource || e.armedTarget) this.min = true; rerender(); });
+    this.bus.on('midi:bound', () => { this.min = false; rerender(); });
     this.bus.on('midi:touch', (e) => this.light(e));
     this.hold = null;
     this.onKey = (e) => { if (e.key === 'Escape' && this.root) { if (this.store.ui.midi.bindMode) this.map.setBindMode(false); else this.close(); } };
     window.addEventListener('keydown', this.onKey);
+  }
+
+  // Drag the panel by its header (position kept for the session). Pointer events, so touch works too.
+  dragger(head) {
+    head.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = this.root.getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      head.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        const x = Math.max(0, Math.min(innerWidth - 60, ev.clientX - dx)), y = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy));
+        Object.assign(this.root.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto' });
+        this.pos = { left: x, top: y };
+      };
+      const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); };
+      head.addEventListener('pointermove', move); head.addEventListener('pointerup', up);
+    });
+    head.classList.add('drag');
+    if (this.pos) Object.assign(this.root.style, { left: this.pos.left + 'px', top: this.pos.top + 'px', right: 'auto', bottom: 'auto' });
   }
 
   get isOpen() { return !!this.root; }
@@ -50,7 +73,7 @@ export class MidiSurface {
   // -- live lights -----------------------------------------------------------------------------------------------------
   light(e) {
     if (!this.root) return;
-    const targets = this.cells.get(e.key) || this.cells.get(String(e.key).split('@')[0]);
+    const targets = this.cells.get(String(e.key).split('@')[0]);       // cells are keyed without the channel
     for (const c of targets || []) {
       c.classList.add('hot'); c._hot = performance.now();
       c.style.setProperty('--v', String(Math.round(e.v * 100) / 100));
@@ -71,6 +94,7 @@ export class MidiSurface {
     this.cells.clear();
     root.textContent = '';
     root.classList.toggle('binding', !!m.bindMode);
+    root.classList.toggle('min', !!this.min);
 
     // header: what is plugged in
     const head = el('div', 'msurf-head');
@@ -85,7 +109,10 @@ export class MidiSurface {
       title.append(el('span', 'msurf-chip ' + (prof.generic ? 'warn' : prof.verified ? 'good' : ''), prof.generic ? 'unknown device' : prof.custom ? 'your map' : prof.verified ? 'verified' : 'default layout, unverified'));
     }
     const x = el('button', 'btn mini msurf-x', '×'); x.type = 'button'; x.title = 'Close (Esc)'; x.addEventListener('click', () => this.close());
-    head.append(title, x);
+    const mn = el('button', 'btn mini msurf-min', this.min ? '▴' : '▾'); mn.type = 'button'; mn.title = this.min ? 'Expand' : 'Shrink so you can see the app (drag the title to move it)';
+    mn.addEventListener('click', () => { this.min = !this.min; this.render(); });
+    head.append(title, mn, x);
+    this.dragger(head);
     root.append(head);
 
     // device row: inputs and outputs, so "is my controller seen" is answerable at a glance
@@ -98,7 +125,7 @@ export class MidiSurface {
         b.addEventListener('click', () => this.store.configureMidi({ inputId: d.id }));
         dev.append(b);
       }
-      for (const d of outs) dev.append(el('span', 'msurf-d out', `⇤ ${d.name}`)).title = 'MIDI output (LED feedback)';
+      for (const d of outs) { const o = el('span', 'msurf-d out', `⇤ ${d.name}`); o.title = 'MIDI output (LED feedback)'; dev.append(o); }
       root.append(dev);
     }
 
@@ -130,7 +157,7 @@ export class MidiSurface {
 
     const body = el('div', 'msurf-body');
     if (m.wizard) body.append(this.wizardView());
-    else if (prof) body.append(...this.surfaceView(prof));
+    else if (prof && map.profile) body.append(...this.surfaceView(map.profile));   // the store holds a summary; the layout is map.profile
     else body.append(el('div', 'msurf-empty', m.enabled ? 'Plug in a MIDI controller. Known ones get a starter map the moment they appear; anything else you can teach with “Map my controller”.' : 'Turn MIDI on from the MIDI button to see your controller here.'));
     root.append(body);
     body.scrollTop = keep;
@@ -198,7 +225,8 @@ export class MidiSurface {
     const key = c.src ? srcKey(c.src) : null;
     const bound = key ? boundOf(key) : null;
     const wrap = el('div', `msurf-c k-${c.kind}` + (bound ? ' bound' : '') + (key ? '' : ' slot') + (this.map.armedSource?.key === key && key ? ' armed' : ''));
-    wrap.dataset.src = key || '';
+    const bare = key ? key.split('@')[0] : null;          // lights and the unbind lookup ignore the channel
+    wrap.dataset.src = bare || '';
     const face = el('div', 'msurf-face');
     face.append(el('span', 'msurf-ico', KIND_ICON[c.kind] || '•'));
     const val = el('span', 'msurf-val', ''); face.append(val); wrap._val = val;
@@ -216,7 +244,7 @@ export class MidiSurface {
       this.map.armSource({ key, t: c.src.t, n: c.src.n, ch: c.src.ch, label: c.label, kind: c.kind });
       if (!this.store.ui.midi.bindMode) this.map.setBindMode(true), this.map.armSource({ key, t: c.src.t, n: c.src.n, ch: c.src.ch, label: c.label, kind: c.kind });
     });
-    if (key) { if (!this.cells.has(key)) this.cells.set(key, new Set()); this.cells.get(key).add(wrap); }
+    if (bare) { if (!this.cells.has(bare)) this.cells.set(bare, new Set()); this.cells.get(bare).add(wrap); }
     return wrap;
   }
 
@@ -227,7 +255,7 @@ export class MidiSurface {
       const k = el('div', 'msurf-key' + (isBlack(n) ? ' black' : ''));
       k.title = NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
       const key = srcKey({ t: 'note', n });
-      if (n % 12 === 0) k.append(el('span', 'msurf-key-c', 'C' + (Math.floor(n / 12) - 1)));
+      if (n % 12 === 0) k.classList.add('c');
       if (boundOf(key)) k.classList.add('bound');
       if (!this.cells.has(key)) this.cells.set(key, new Set()); this.cells.get(key).add(k);
       wrap.append(k);
