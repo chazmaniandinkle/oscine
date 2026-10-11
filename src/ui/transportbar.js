@@ -1,6 +1,6 @@
 // Top bar: transport, tempo/swing, pattern slots, file ops, master level.
 
-import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast } from './widgets.js';
+import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast, bindable } from './widgets.js';
 import { SLOT_NAMES, BAR_CHOICES } from '../core/schema.js';
 import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink, listProjects, openProjectPath, saveProjectPath, revealProjectFolder } from './fileops.js';
 
@@ -22,6 +22,7 @@ export class TransportBar {
 
     this.playBtn = el('button', 'btn play-btn', '▶');
     this.playBtn.title = 'Play/Stop (Space)';
+    bindable(this.playBtn, { k: 'transport', op: 'toggle' }, 'Play / stop');
     this.playBtn.addEventListener('click', () => transport.toggle());
     left.appendChild(this.playBtn);
 
@@ -29,6 +30,7 @@ export class TransportBar {
     left.appendChild(this.posEl);
 
     this.bpmCtl = NumberDrag({
+      midi: { k: 'setting', key: 'bpm' },
       value: store.project.bpm, min: 40, max: 240, step: 1, suffix: ' bpm',
       title: 'Tempo: drag or double-click',
       onInput: v => store.setSetting('bpm', v),
@@ -37,7 +39,7 @@ export class TransportBar {
     left.appendChild(this.bpmCtl.root);
 
     this.swingCtl = Knob({
-      label: 'Swing', min: 0, max: 1, value: store.project.swing, default: 0, small: true,
+      label: 'Swing', min: 0, max: 1, value: store.project.swing, default: 0, small: true, midi: { k: 'setting', key: 'swing' },
       format: v => Math.round(v * 100) + '%',
       onInput: v => store.setSetting('swing', v),
     });
@@ -55,6 +57,7 @@ export class TransportBar {
     this.slotBtns = SLOT_NAMES.map((name, i) => {
       const b = el('button', 'btn slot-btn', name);
       b.title = `Pattern ${name} (switches at loop end while playing)`;
+      bindable(b, { k: 'slot', n: i }, `Pattern ${name}`);
       b.addEventListener('click', () => store.requestSlot(i, transport.playing));
       mid.appendChild(b);
       return b;
@@ -249,6 +252,7 @@ export class TransportBar {
           toast(m.enabled ? 'WebMIDI off' : 'WebMIDI on');
         },
       },
+      { label: 'Controller surface…', onPick: () => this.app.midiSurface?.open() },
       {
         label: (m.record ? '✓ ' : '') + 'Record-arm',
         onPick: () => {

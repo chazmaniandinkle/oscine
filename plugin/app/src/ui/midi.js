@@ -12,6 +12,7 @@
 
 import { getInstrumentDef } from '../engine/instruments/index.js';
 import { clamp, denorm, roundTo } from '../core/util.js';
+import { MidiMap } from './midimap.js';
 
 const LS_KEY = 'oscine.midi';
 
@@ -23,6 +24,8 @@ export class MidiInput {
     this.engine = app.engine;
     this.transport = app.transport;
 
+    this.map = new MidiMap(app); // control surface: bindings, profiles, wizard (src/ui/midimap.js)
+    app.midiMap = this.map;
     this.access = null;          // MIDIAccess once granted
     this.take = false;           // one undo checkpoint per record take
     this.held = new Map();       // synth: midi -> { start, vel }
@@ -219,7 +222,7 @@ export class MidiInput {
     if (!this.access) return;
     const midi = this.store.ui.midi;
     const inputs = [...this.access.inputs.values()];
-    const devices = inputs.map(i => ({ id: i.id, name: i.name }));
+    const devices = inputs.map(i => ({ id: i.id, name: i.name, maker: i.manufacturer || '' }));
     // No coordinator -> bind as today; coordinator present -> bind only if owner.
     const mayBind = !this.crosstab || this.owns;
     const bound = mayBind ? (inputs.find(i => i.id === midi.inputId) || inputs[0] || null) : null;
@@ -229,9 +232,11 @@ export class MidiInput {
     this.store.reportMidi({
       available: true,
       devices,
+      outputs: [...this.access.outputs.values()].map(o => ({ id: o.id, name: o.name, maker: o.manufacturer || '' })),
       inputName: bound ? bound.name : null,
       inputId: bound ? bound.id : midi.inputId,
     });
+    this.map.detect(bound ? bound.name : null, bound ? bound.manufacturer : '');
   }
 
   unbindAll() {
@@ -251,12 +256,13 @@ export class MidiInput {
     const chan = (status & 0x0f) + 1;
     const midi = this.store.ui.midi;
     if (midi.channel && chan !== midi.channel) return; // 0 = omni
+    if (this.map.handle(e.data)) return;                // a bound control / wizard / bind-mode capture consumed it
     if (type === 0x90 && d2 > 0) {
       this.store.observeMidiVelocity(d2);   // record the RAW value (before shaping)
       this.noteOn(d1, this.shapeVel(d2));
     } else if (type === 0x80 || (type === 0x90 && d2 === 0)) this.noteOff(d1);
     else if (type === 0xB0) this.control(d1, d2);
-    // pitch bend, aftertouch, program change ignored for v1.
+    // pitch bend, channel pressure, program change: only meaningful when bound (MidiMap.handle above).
     // (velocity is only recorded for note-on, not note-off or CC.)
   }
 
@@ -377,7 +383,7 @@ export class MidiInput {
     const midi = this.store.ui.midi;
     if (midi.learnParam) { this.store.mapMidiKnob(cc, midi.learnParam); return; }
     const key = midi.knobs[cc];
-    if (!key) return;
+    if (typeof key !== 'string') return;               // target objects are the control surface's (MidiMap.handle)
     const track = this.track;
     if (!track) return;
     const def = this.defOf(track);

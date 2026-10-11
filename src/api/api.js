@@ -10,6 +10,9 @@ import { COMMANDS, getCommand, API_VERSION } from './commands.js';
 import { SLOT_NAMES, BAR_CHOICES, demoProject, createProject, validateProject } from '../core/schema.js';
 import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/instruments/index.js';
 import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
+import { isSrcKey, srcKey, srcLabel } from '../core/midisrc.js';
+import { asTarget, targetLabel, describeTarget, defaultMap } from '../core/midimap.js';
+import { listProfiles, profileById, allControls } from '../core/controllers/index.js';
 import { encodeWav } from '../core/wav.js';
 import { chordPitches } from '../core/chords.js';
 import { validateEffectParams } from '../core/arrangement.js';
@@ -545,6 +548,10 @@ export class CommandAPI {
       learn: m.learnParam,
       devices: m.devices.map(d => ({ ...d })),
       knobs: { ...m.knobs },
+      bindings: this.midiBindings(),                  // the same map, resolved to readable targets
+      controller: m.profile ? { ...m.profile } : null, // the detected device (null = none bound)
+      outputs: (m.outputs || []).map(d => ({ ...d })),
+      bindMode: !!m.bindMode,
       velocity: { floor: m.velFloor, curve: m.velCurve, fixed: m.velFixed },
       monitor: {                                      // raw 0..127 incoming velocity
         last: m.velMonitor.last,
@@ -578,7 +585,17 @@ export class CommandAPI {
     return p.key;
   }
 
-  cmd_midi({ action, device, channel, record, floor, curve, fixed, bytes, reset, cc, param }) {
+  // Every binding as { source, label, target, text, auto } so Cog can read the map without decoding keys.
+  midiBindings() {
+    const { store } = this;
+    const ctx = { store, transport: this.transport, engine: this.engine, api: this };
+    return Object.entries(store.ui.midi.knobs).map(([source, entry]) => {
+      const t = asTarget(entry);
+      return { source, label: srcLabel(source), target: t, text: targetLabel(ctx, entry), auto: !!t?.auto, relative: t?.rel || null };
+    });
+  }
+
+  cmd_midi({ action, device, channel, record, floor, curve, fixed, bytes, reset, cc, param, source, target, profile, rel, pickup }) {
     const { store } = this;
     switch (action) {
       case 'status':
@@ -669,6 +686,55 @@ export class CommandAPI {
         if (cc !== undefined) store.mapMidiKnob(cc, null);
         else store.configureMidi({ knobs: {} });
         return this.midiState();
+      case 'bind': {
+        // Bind one hardware source to a target. `source` is a key ("74", "74@2", "n36@10", "pb", "cp"); a bare `cc`
+        // number works too. Replaces any existing binding for that source.
+        const key = source !== undefined ? String(source) : cc !== undefined ? String(Math.round(cc)) : null;
+        if (!key || !isSrcKey(key)) throw new Error("action 'bind' needs a 'source' key: a CC number (\"74\"), \"74@2\" (channel 2 only), \"n36@10\" (note 36 on channel 10), \"pb\" (pitch bend) or \"cp\" (pressure).");
+        if (!target || typeof target !== 'object' || typeof target.k !== 'string') {
+          if (param !== undefined) { store.bindMidi(key, this.resolveMidiParam(param)); return this.midiState(); }
+          throw new Error("action 'bind' needs a 'target' object: { k: 'param'|'channel'|'master'|'fx'|'setting'|'transport'|'slot'|'drum'|'select'|'command', ... } (see this command's description).");
+        }
+        const t = { ...target };
+        if (rel) t.rel = rel;
+        if (pickup === false) t.pickup = false;
+        const ctx = { store, transport: this.transport, engine: this.engine, api: this };
+        if (!describeTarget(ctx, t)) throw new Error(`That target doesn't resolve right now (no such track/lane/param, or nothing selected): ${JSON.stringify(t)}`);
+        store.bindMidi(key, t);
+        return this.midiState();
+      }
+      case 'unbind': {
+        const key = source !== undefined ? String(source) : cc !== undefined ? String(Math.round(cc)) : null;
+        if (!key) throw new Error("action 'unbind' needs a 'source' (or 'cc').");
+        const n = store.unbindMidi(key);
+        return { ...this.midiState(), note: n ? `Removed ${n} binding(s).` : 'Nothing was bound to that source.' };
+      }
+      case 'bindings':
+        return { bindings: this.midiBindings(), controller: store.ui.midi.profile };
+      case 'bind_mode':
+        // The touch-then-click binding mode of the surface panel. Headless it just sets the flag.
+        store.reportMidi({ bindMode: record !== undefined ? !!record : !store.ui.midi.bindMode });
+        this.bus.emit('midi:config', {});
+        return this.midiState();
+      case 'profiles': {
+        const list = listProfiles().map(p => ({ id: p.id, name: p.name, maker: p.maker || '', verified: !!p.verified, custom: !!p.custom, controls: allControls(p).length }));
+        return { profiles: list, active: store.ui.midi.profile?.id ?? null };
+      }
+      case 'profile': {
+        // Describe one profile (default: the detected one): its segments and what each control sends.
+        const p = profile ? profileById(String(profile)) : (store.ui.midi.profile ? profileById(store.ui.midi.profile.id) : null);
+        if (!p) throw new Error(profile ? `No profile '${profile}'. Use action 'profiles' to list them.` : "No controller is bound; pass a 'profile' id (action 'profiles' lists them).");
+        return { id: p.id, name: p.name, maker: p.maker, verified: !!p.verified, source: p.source, segments: p.segments.map(sg => ({ id: sg.id, kind: sg.kind, label: sg.label, range: sg.range,
+          controls: (sg.controls || []).map(c => ({ id: c.id, label: c.label, kind: c.kind, source: c.src ? srcKey(c.src) : null, rel: c.rel || null })) })) };
+      }
+      case 'defaults': {
+        // Rebuild the starter map for the detected (or named) device; replaces bindings on those sources.
+        const p = profile ? profileById(String(profile)) : (store.ui.midi.profile ? profileById(store.ui.midi.profile.id) : null);
+        if (!p) throw new Error("No controller is bound; pass a 'profile' id (action 'profiles' lists them).");
+        const map = defaultMap(p);
+        store.configureMidi({ knobs: { ...store.ui.midi.knobs, ...map } });
+        return { ...this.midiState(), note: `Applied ${Object.keys(map).length} default bindings for ${p.name}.` };
+      }
       case 'claim':
         // Take MIDI ownership for this tab. Intent only: the browser MIDI
         // manager reacts to 'midi:claim' and steals the lock + binds. Headless

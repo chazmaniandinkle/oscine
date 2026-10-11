@@ -211,5 +211,43 @@ console.log('\n[5] default map for a known device');
   check('cleanMap drops junk keys', Object.keys(M.cleanMap({ '5': 'x', foo: 'y', 'n3': { k: 'master' } })).join() === '5,n3');
 }
 
+console.log('\n[6] the midi command: bind / bindings / profiles (headless, as Cog drives it over MCP)');
+{
+  const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
+  const bus = new EventBus();
+  const store = new Store(bus, demoProject());
+  const transport = { playing: false, getPosition() { return { playing: false, localBeat: 0, loopBeats: 8 }; }, toggle() {}, play() {}, stop() {} };
+  const api = new CommandAPI({ store, engine: {}, transport, bus });
+  store.selectTrack(store.project.tracks[0].id);
+  let r = await api.execute('midi', { action: 'bind', source: '7', target: { k: 'channel', strip: 2, key: 'gain' } });
+  check('bind: CC7 -> strip 2 volume shows up in status.bindings with readable text', r.bindings.some((b) => b.source === '7' && /Volume/.test(b.text)), JSON.stringify(r.bindings));
+  r = await api.execute('midi', { action: 'bind', source: 'n36@10', target: { k: 'transport', op: 'toggle' } });
+  check('bind: a pad (note 36 on ch10) -> transport', r.knobs['n36@10']?.k === 'transport');
+  r = await api.execute('midi', { action: 'bind', cc: 74, target: { k: 'master' }, pickup: false });
+  check('bind: bare cc number + pickup:false', r.knobs['74']?.pickup === false);
+  r = await api.execute('midi', { action: 'bind', source: '75', target: { k: 'master' }, rel: 'binoff' });
+  check('bind: relative encoder encoding kept', r.knobs['75']?.rel === 'binoff');
+  r = await api.execute('midi', { action: 'bind', source: 'pb', target: { k: 'setting', key: 'swing' } });
+  check('bind: pitch bend is a valid source', !!r.knobs.pb);
+  const bad = async (a) => { try { await api.execute('midi', { action: 'bind', ...a }); return null; } catch (e) { return e.message; } };
+  check('bind: junk source rejected with the grammar', /source/.test(await bad({ source: 'foo', target: { k: 'master' } }) || ''));
+  check('bind: unresolvable target rejected (strip 99)', /resolve/.test(await bad({ source: '9', target: { k: 'channel', strip: 99, key: 'gain' } }) || ''));
+  check('bind: missing target rejected', /target/.test(await bad({ source: '9' }) || ''));
+  r = await api.execute('midi', { action: 'bind', source: '12', param: Object.keys(store.project.tracks[0].instrument.params)[0] }).catch((e) => ({ err: e.message }));
+  r = await api.execute('midi', { action: 'unbind', source: '7' });
+  check('unbind removes it', r.knobs['7'] === undefined && /Removed 1/.test(r.note));
+  r = await api.execute('midi', { action: 'bindings' });
+  check('bindings lists the rest', r.bindings.length >= 3);
+  r = await api.execute('midi', { action: 'profiles' });
+  check('profiles: built-ins listed, MPK mini 3 among them', r.profiles.some((p) => p.id === 'akai-mpk-mini-3') && r.profiles.length >= 8);
+  r = await api.execute('midi', { action: 'profile', profile: 'akai-mpk-mini-3' });
+  check('profile: segments with the message each control sends', r.segments.find((s) => s.id === 'knobs').controls[0].source === '70' && r.segments.some((s) => s.kind === 'keys'));
+  r = await api.execute('midi', { action: 'defaults', profile: 'korg-nanokontrol2' });
+  check('defaults: applies the nanoKONTROL2 starter map', r.knobs['0@1']?.k === 'channel' && /Applied \d+ default/.test(r.note));
+  r = await api.execute('midi', { action: 'bind_mode', record: true });
+  check('bind_mode flag', r.bindMode === true);
+  check('status exposes the detected controller slot (null headless) and outputs', 'controller' in r && Array.isArray(r.outputs));
+}
+
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nall ok');
