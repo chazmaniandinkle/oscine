@@ -95,6 +95,7 @@ export class MidiSurface {
     root.textContent = '';
     root.classList.toggle('binding', !!m.bindMode);
     root.classList.toggle('min', !!this.min);
+    root.classList.toggle('phys', !!(this.map.profile && this.map.profile.layout && !this.map.profile.generic));
 
     // header: what is plugged in
     const head = el('div', 'msurf-head');
@@ -263,7 +264,7 @@ export class MidiSurface {
     const face = el('div', 'msurf-face');
     face.append(el('span', 'msurf-ico', KIND_ICON[c.kind] || '•'));
     const val = el('span', 'msurf-val', ''); face.append(val); wrap._val = val;
-    wrap.append(face, el('div', 'msurf-lbl', c.label));
+    wrap.append(face, el('div', 'msurf-lbl', c.short || c.label));
     const tgt = bound ? targetLabel(ctx, bound) : (key ? '' : 'tap, then touch it');
     const t = el('div', 'msurf-to', tgt); wrap.append(t);
     if (bound) {

@@ -1244,6 +1244,13 @@ select.settings-ctl, .settings-num { background: var(--bg-2); color: var(--text)
 .msurf-key.hot { background: var(--good); }
 .msurf-key.c:not(.black)::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--text-faint); }
 /* physical layout (profile.layout): joystick top-left, pads middle, knobs right, keys along the bottom */
+.msurf.phys { width: min(640px, calc(100vw - 24px)); }
+.msurf.phys.min { width: min(340px, calc(100vw - 24px)); }
+.msurf-phys .msurf-face { height: 20px; font-size: 15px; }
+.msurf-phys .msurf-c { padding: 3px 2px 2px; }
+.msurf-phys .msurf-lbl { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.msurf-phys .msurf-seg-h { white-space: nowrap; overflow: hidden; }
+@media (max-width: 520px) { .msurf-phys .msurf-lbl { font-size: 8px; letter-spacing: -0.02em; } .msurf-phys .msurf-seg-h { font-size: 8px; letter-spacing: 0.04em; } .msurf-phys .msurf-bank { margin-left: 3px; padding: 0 4px; } }
 .msurf-phys { display: grid; gap: 8px 10px; align-items: start; }
 .msurf-phys .msurf-seg { margin-bottom: 0; min-width: 0; }
 .msurf-phys .msurf-keys { height: 44px; }

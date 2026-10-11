@@ -16,26 +16,28 @@ import { cc, note, many, keysSeg, seg } from './kit.js';
 // prog modes) and send no MIDI, so Oscine can't see or map them. PROG CHANGE mode makes the pads send program
 // change numbers the profile doesn't claim either.
 const unv = (controls) => controls.map((c) => (c.src ? { ...c, verified: false } : c));
+// `short` is what the cramped surface draws under a pad or knob ("5"); `label` ("PAD 5") is what prompts and titles say.
+const shorten = (controls, f) => controls.map((c, i) => ({ ...c, short: f(c, i) }));
 const padNotes = (base) => (i) => note(base + i, 10);
 const dev = (id, label, title) => ({ id, label, kind: 'button', local: true, ...(title ? { title } : {}) });
 
 const mk3Segments = () => [
   seg('stick', 'stick', 'Joystick', unv([
-    { id: 'pb', label: '◀ ▶', kind: 'pitchbend', src: { t: 'pb' }, title: 'Left / right: pitch bend' },
+    { id: 'pb', label: '◂▸', kind: 'pitchbend', src: { t: 'pb' }, title: 'Left / right: pitch bend' },
     { id: 'mod', label: '▲', kind: 'modwheel', src: cc(1), title: 'Up: mod wheel (CC1)' },
     { id: 'moddn', label: '▼', kind: 'modwheel', title: 'Down: not known yet. Check my controller fills it in' },
   ]), { area: 'stick', cols: 3 }),
   seg('arp', 'buttons', 'Arp (device only)', [
-    dev('arp', 'Arp', 'ARP ON/OFF'), dev('tap', 'Tap', 'TAP TEMPO'), dev('octm', 'Oct −'), dev('octp', 'Oct +'),
-    dev('full', 'Full', 'FULL LEVEL'), dev('rep', 'Repeat', 'NOTE REPEAT'),
+    dev('arp', 'Arp', 'ARP ON/OFF'), dev('tap', 'Tap', 'TAP TEMPO'), dev('octm', '−Oct'), dev('octp', 'Oct+'),
+    dev('full', 'Full', 'FULL LEVEL'), dev('rep', 'Rpt', 'NOTE REPEAT'),
   ], { area: 'arp', cols: 2, local: true }),
   seg('padmode', 'buttons', 'Pad modes (device only)', [
-    dev('bankab', 'Bank A/B', 'BANK A/B: switches the pads between notes 36-43 and 44-51'), dev('ccmode', 'CC'),
-    dev('pc', 'Prog chg'), dev('psel', 'Prog sel'),
+    dev('bankab', 'A/B', 'BANK A/B: switches the pads between notes 36-43 and 44-51'), dev('ccmode', 'CC'),
+    dev('pc', 'PC', 'PROG CHANGE: pads send program change numbers'), dev('psel', 'Sel', 'PROG SELECT'),
   ], { area: 'pmode', cols: 4, local: true }),
-  seg('pads', 'pads', 'Pads', unv(many('p', 'pad', 8, padNotes(36), { labelPrefix: 'PAD ' })), { area: 'pads', cols: 4, order: 'mpc', bank: 'A' }),
-  seg('pads-b', 'pads', 'Pads', unv(many('pb', 'pad', 8, padNotes(44), { labelPrefix: 'B·' })), { area: 'pads', cols: 4, order: 'mpc', bank: 'B' }),
-  seg('knobs', 'knobs', 'Knobs', unv(many('k', 'knob', 8, (i) => cc(70 + i), { labelPrefix: 'K' })), { area: 'knobs', cols: 4 }),
+  seg('pads', 'pads', 'Pads', shorten(unv(many('p', 'pad', 8, padNotes(36), { labelPrefix: 'PAD ' })), (c, i) => String(i + 1)), { area: 'pads', cols: 4, order: 'mpc', bank: 'A' }),
+  seg('pads-b', 'pads', 'Pads', shorten(unv(many('pb', 'pad', 8, padNotes(44), { labelPrefix: 'B·' })), (c, i) => 'B' + (i + 1)), { area: 'pads', cols: 4, order: 'mpc', bank: 'B' }),
+  seg('knobs', 'knobs', 'Knobs', shorten(unv(many('k', 'knob', 8, (i) => cc(70 + i), { labelPrefix: 'K' })), (c, i) => String(i + 1)), { area: 'knobs', cols: 4 }),
   keysSeg(48, 72, { ch: 1, area: 'keys' }),
 ];
 
