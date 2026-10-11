@@ -37,8 +37,7 @@ try {
   check('clip by audio range', r.ok && r.clip.notes.length === 1 && r.clip.notes[0].pitch === 69, r.error || '');
   const e = await call({ action: 'clip', id, phraseId: 'ph-9999' });
   check('bad phraseId is a clean error', e.ok === false && /Recent/.test(e.error));
-  let toSlot = null; try { toSlot = await call({ action: 'clip', id, phraseId: ps.phrases[0].id, toSlot: 'E' }); } catch (x) { toSlot = { err: String(x.message) }; }
-  console.log('  info  clip with toSlot (needs an Oscine tab):', JSON.stringify(toSlot.placed ?? toSlot).slice(0, 220));
-} finally { await rm(dir, { recursive: true, force: true }); }
+  // toSlot writes into whatever project is open in the app (one undo step); run it by hand on a scratch project, not here.
+  } finally { await rm(dir, { recursive: true, force: true }); }
 console.log(bad ? `${bad} FAILED` : 'live smoke ok');
 process.exit(bad ? 1 : 0);
