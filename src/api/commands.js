@@ -341,6 +341,24 @@ export const COMMANDS = [
       },
     },
   },
+  {
+    name: 'jam',
+    description: "JAM MODE: an opt-in, complete ledger of everything the user does (every note and drum hit, MIDI cc/pitch-bend/pressure, every param, mixer, notes, steps, slot, tempo and transport change), each event stamped with wall time, the audio-clock time and the musical beat, while the master output is recorded on the same clock. It streams to <project root>/.cog/run/jam/<id>/ (meta.json, events.jsonl, audio.webm), so the inputs line up with the sound they made and you can point a hearing tool at exactly that stretch. Unlike 'ledger' (always-on, bounded, notes only, never saved) a jam is explicit and saved. 'start' begins (needs the app open and audio unlocked; audio is skipped with a reason if not), 'stop' ends and finalises, 'status' says what is recording. 'list' shows saved jams. 'read' returns the events SINCE THIS READER LAST LOOKED (readerId, default 'cog'; the cursor is saved on disk and advances) plus audio.windows: for each segment, the file and from_sec/to_sec into it covering those events. all:true reads from the start without moving the cursor; peek:true reads without advancing; id picks a jam (default: the newest); limit caps the batch. list and read work with no app open.",
+    readOnly: false,
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['status', 'start', 'stop', 'list', 'read'], default: 'status' },
+        id: { type: 'string', description: "For 'read': the jam id (default: the newest)." },
+        readerId: { type: 'string', default: 'cog', description: "For 'read': whose cursor to use and advance." },
+        all: { type: 'boolean', description: "For 'read': from the beginning, cursor untouched." },
+        peek: { type: 'boolean', description: "For 'read': don't advance the cursor." },
+        limit: { type: 'integer', minimum: 1, description: "For 'read': at most this many events." },
+        audio: { type: 'boolean', default: true, description: "For 'start': also record the master output (default true)." },
+        note: { type: 'string', description: "For 'start': a free-text label saved in meta.json." },
+      },
+    },
+  },
   // -- arrangement (v2) -------------------------------------------------------
   // Song time is SECONDS here (not beats). Placements are addressed by their
   // index in arrangement.placements (see arrangement get). Lanes resolve by id

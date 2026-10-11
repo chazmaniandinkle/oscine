@@ -770,6 +770,46 @@ export class CommandAPI {
     throw new Error(`Bad action '${action}'. Use snapshot, start, stop or status.`);
   }
 
+  // Jam mode (src/ui/jam.js, src/core/jam.js, plugin/server/jam-store.mjs). Built lazily: a headless/test API that never
+  // starts a jam loads none of it. list/read are normally answered by the sidecar from disk (they need no app); the
+  // handlers here exist so the in-app command surface is complete and testable.
+  async jamOf() {
+    if (!this._jam) {
+      const [{ JamSession }, { JamAudio }] = await Promise.all([import('../ui/jam.js'), import('../ui/jamaudio.js')]);
+      const post = async (route, body, kind) => {
+        const init = { method: 'POST' };
+        if (kind === 'json') { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); }
+        else if (kind === 'text') { init.headers = { 'Content-Type': 'text/plain' }; init.body = body; }
+        else { init.headers = { 'Content-Type': 'application/octet-stream' }; init.body = body; }
+        const res = await fetch(sidecarUrl('/' + route), init);
+        if (!res.ok) throw new Error(`jam upload ${route}: ${res.status}`);
+      };
+      const KEY = 'oscine.jam.open';
+      const persist = {
+        get: () => { try { return JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch { return null; } },
+        set: (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch {} },
+        clear: () => { try { sessionStorage.removeItem(KEY); } catch {} },
+      };
+      const audio = new JamAudio({ engine: this.engine, transport: this.transport });
+      this._jam = new JamSession({ store: this.store, bus: this.bus, engine: this.engine, transport: this.transport, audio, post, persist });
+      this._jamNoAudio = { start: async () => ({ ok: false, reason: 'audio recording off for this jam' }), stop: async () => ({ chunks: [] }), drain: () => [] };
+      this._jamAudio = audio;
+    }
+    return this._jam;
+  }
+
+  async cmd_jam({ action = 'status', audio = true, note } = {}) {
+    if (['list', 'read'].includes(action)) throw new Error(`'${action}' is answered by the sidecar from disk; call it through the MCP tool (oscine_jam) or POST /mcp.`);
+    const jam = await this.jamOf();
+    if (action === 'status') return jam.status();
+    if (action === 'start') {
+      jam.audio = audio ? this._jamAudio : this._jamNoAudio;
+      return await jam.start(note ? { note } : {});
+    }
+    if (action === 'stop') return await jam.stop();
+    throw new Error(`Bad action '${action}'. Use status, start, stop, list or read.`);
+  }
+
   async cmd_listen({ slot, loops = 1, song = false, solo, from, to, save }) {
     const { measure } = await import('../engine/listen.js');
     const p = deepClone(this.store.project);

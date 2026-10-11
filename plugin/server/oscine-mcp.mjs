@@ -28,6 +28,7 @@ import { COMMANDS } from '../app/src/api/commands.js';
 import { OscGateway } from './osc-gateway.js';
 import { SessionRegistry } from './sessions.js';
 import { scanLocal, importClips, fetchPublic, loadLibrary, summarizeLibrary, ingestFile } from './suno-library.mjs';
+import { writeMeta as jamWriteMeta, appendEvents as jamAppendEvents, appendAudio as jamAppendAudio, listJams, readJam, JAM_ID_RE } from './jam-store.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
@@ -503,6 +504,33 @@ async function serveStatic(req, res) {
     } catch (err) { res.writeHead(500); res.end(String(err?.message || err)); }
     return;
   }
+  // Jam mode storage (src/ui/jam.js streams here; see plugin/server/jam-store.mjs):
+  //   POST /jam/<id>/meta    JSON, merged per segment
+  //   POST /jam/<id>/events  jsonl text, appended
+  //   POST /jam/<id>/audio?seg=N  raw webm bytes, appended to audio[.N].webm
+  // Same-origin pages only (the stage proxy puts these behind its paired-device gate), ids are validated, 200 MB cap.
+  const jamM = /^\/jam\/([^/]+)\/(meta|events|audio)$/.exec(urlPath);
+  if (jamM && req.method === 'POST') {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const id = decodeURIComponent(jamM[1]);
+    if (!JAM_ID_RE.test(id)) { res.writeHead(400); res.end('bad jam id'); return; }
+    const chunks = []; let n = 0;
+    for await (const c of req) { n += c.length; if (n > 200 * 1024 * 1024) { res.writeHead(413); res.end('too large'); return; } chunks.push(c); }
+    const buf = Buffer.concat(chunks);
+    try {
+      const root = resolve(PROJECT_ROOT);
+      let out;
+      if (jamM[2] === 'meta') out = await jamWriteMeta(root, id, JSON.parse(buf.toString('utf8') || '{}'));
+      else if (jamM[2] === 'events') out = await jamAppendEvents(root, id, buf.toString('utf8'));
+      else out = await jamAppendAudio(root, id, new URL(req.url, 'http://x').searchParams.get('seg') || 0, buf);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, bytes: n, ...(out && out.file ? { file: out.file } : {}) }));
+    } catch (err) { res.writeHead(400); res.end(String(err?.message || err)); }
+    return;
+  }
   if (urlPath === '/reveal' && req.method === 'POST') {
     const o = req.headers.origin;
     let local = !o;
@@ -841,7 +869,7 @@ const PROJECT_OPEN_FILE_TOOL = {
 // composing with patterns never touches the arrangement/Suno tools. Set
 // OSCINE_TOOLS=compose to list only the pattern-composition surface (~21 KB).
 // Hidden tools still execute if called by name; this only trims tools/list.
-const ARRANGEMENT_TOOLS = new Set(['arrangement', 'clip', 'lane', 'marker', 'cycle', 'range', 'automation', 'words', 'asset', 'suno', 'ledger', 'share']);
+const ARRANGEMENT_TOOLS = new Set(['arrangement', 'clip', 'lane', 'marker', 'cycle', 'range', 'automation', 'words', 'asset', 'suno', 'ledger', 'jam', 'share']);
 const TOOL_PROFILE = (process.env.OSCINE_TOOLS || 'full').toLowerCase();
 
 function toolList() {
@@ -966,6 +994,14 @@ async function dispatchTool(name, args) {
   const selector = args?.session ?? null;
   const forwardArgs = { ...(args || {}) };
   delete forwardArgs.session;
+
+  // Jam mode: list/read come straight from disk (they work with no app open and don't touch the audio engine);
+  // start/stop/status need the app (audio + live state) and fall through to callApp below.
+  if (cmdName === 'jam' && ['list', 'read'].includes(forwardArgs.action || 'status')) {
+    const root = resolve(PROJECT_ROOT);
+    if (forwardArgs.action === 'list') return { ok: true, jams: await listJams(root) };
+    return await readJam(root, { id: forwardArgs.id, readerId: forwardArgs.readerId || 'cog', all: !!forwardArgs.all, peek: !!forwardArgs.peek, limit: forwardArgs.limit });
+  }
 
   if (cmdName === 'status' && registry.size === 0) {
     return {
