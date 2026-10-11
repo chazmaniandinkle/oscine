@@ -12,6 +12,15 @@ export function el(tag, cls, text) {
   return n;
 }
 
+// Mark a UI element as bindable to a MIDI control: while "Bind controls" is on, clicking it picks `target` (a target
+// object, core/midimap.js) instead of operating it. Plain data attributes, so any widget or button can opt in.
+export function bindable(node, target, label) {
+  if (!target) return node;
+  node.dataset.midi = JSON.stringify(target);
+  if (label) node.dataset.midiLabel = label;
+  return node;
+}
+
 function fmtValue(v, o) {
   if (o.format) return o.format(v);
   const abs = Math.abs(v);
@@ -55,6 +64,7 @@ export function Knob(o) {
   root.appendChild(valueEl);
   if (o.label) root.appendChild(labelEl);
   if (o.color) fill.style.stroke = o.color;
+  if (o.midi) bindable(root, o.midi, o.label);
 
   function paint() {
     const n = norm(value, min, max, curve);
@@ -122,6 +132,7 @@ export function Knob(o) {
 export function Fader(o) {
   let value = clamp(o.value ?? 0.8, 0, 1);
   const root = el('div', 'fader');
+  if (o.midi) bindable(root, o.midi, o.label || 'Fader');
   const track = el('div', 'fader-track');
   const fillBar = el('div', 'fader-fill');
   const cap = el('div', 'fader-cap');
@@ -220,6 +231,7 @@ export function NumberDrag(o) {
   let value = o.value;
   const root = el('div', 'numdrag');
   if (o.title) root.title = o.title;
+  if (o.midi) bindable(root, o.midi, o.title);
   const paint = () => { root.textContent = (o.format ? o.format(value) : value) + (o.suffix || ''); };
 
   let dragging = false, startY = 0, startVal = 0, moved = false;

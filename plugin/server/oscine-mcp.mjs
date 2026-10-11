@@ -372,7 +372,7 @@ export function corsHeaders(origin, { preflight = false } = {}) {
   if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return null; // same-machine pages are same-origin
   const h = { 'Access-Control-Allow-Origin': u.origin, 'Vary': 'Origin' };
   if (preflight) Object.assign(h, {
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Path',
     'Access-Control-Allow-Private-Network': 'true',
     'Access-Control-Max-Age': '600',
@@ -531,6 +531,46 @@ async function serveStatic(req, res) {
       res.end(JSON.stringify({ ok: true, bytes: n, ...(out && out.file ? { file: out.file } : {}) }));
     } catch (err) { res.writeHead(400); res.end(String(err?.message || err)); }
     return;
+  }
+  // Controller profiles (MIDI control surface): GET /controllers -> {profiles:[...]}, PUT /controllers/<id> {profile},
+  // DELETE /controllers/<id>. Stored one file per device under <root>/.cog/run/oscine/controllers/<id>.json so a map
+  // made on one browser follows Chaz to any other. Same guard as /reveal: pages served by this sidecar only; ids are
+  // [a-z0-9-] so nothing escapes the directory; 256 KB cap.
+  if (urlPath === '/controllers' || urlPath.startsWith('/controllers/')) {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const dir = resolve(PROJECT_ROOT, '.cog', 'run', 'oscine', 'controllers');
+    const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    const id = decodeURIComponent(urlPath.slice('/controllers/'.length));
+    try {
+      if (req.method === 'GET' && urlPath === '/controllers') {
+        const out = [];
+        let names = []; try { names = await readdir(dir); } catch {}
+        for (const n of names.filter(n => /^[a-z0-9-]{1,80}\.json$/.test(n))) {
+          try { out.push(JSON.parse(await readFile(resolve(dir, n), 'utf8'))); } catch {}
+        }
+        return json(200, { profiles: out });
+      }
+      if (!/^[a-z0-9-]{1,80}$/.test(id)) return json(400, { error: 'bad controller id' });
+      const file = resolve(dir, id + '.json');
+      if (req.method === 'PUT') {
+        let body = '', n = 0;
+        for await (const c of req) { n += c.length; if (n > 256 * 1024) return json(413, { error: 'too large' }); body += c; }
+        let doc; try { doc = JSON.parse(body); } catch { return json(400, { error: 'bad json' }); }
+        if (!doc || typeof doc !== 'object' || !Array.isArray(doc.segments) || doc.id !== id) return json(400, { error: 'not a controller profile (needs id === url id and segments[])' });
+        await mkdir(dir, { recursive: true });
+        await writeFile(file, JSON.stringify(doc, null, 2) + '\n', 'utf8');
+        return json(200, { ok: true, id });
+      }
+      if (req.method === 'DELETE') {
+        const { rm } = await import('node:fs/promises');
+        await rm(file, { force: true });
+        return json(200, { ok: true, id });
+      }
+      return json(405, { error: 'GET /controllers, PUT|DELETE /controllers/<id>' });
+    } catch (err) { return json(500, { error: String(err?.message || err) }); }
   }
   if (urlPath === '/reveal' && req.method === 'POST') {
     const o = req.headers.origin;
