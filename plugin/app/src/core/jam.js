@@ -159,7 +159,9 @@ export function installJamTap({ store, bus, recorder }) {
   offs.push(bus.on('*', (type, payload) => {
     if (!recorder.active || SKIP_BUS.has(type) || type.startsWith('jam:') || type === 'midi:raw') return;
     const s = sanitize(payload);
-    recorder.record(kindOfBus(type, payload), { ...(s && typeof s === 'object' && !Array.isArray(s) ? s : (s == null ? {} : { value: s })), name: type });
+    // A tempo/swing change says which setting moved; stamp the NEW value too, so a phrase can be placed in beats later.
+    const val = type === 'settings:changed' && payload && (payload.key === 'bpm' || payload.key === 'swing') ? { value: store.project?.[payload.key] } : {};
+    recorder.record(kindOfBus(type, payload), { ...(s && typeof s === 'object' && !Array.isArray(s) ? s : (s == null ? {} : { value: s })), ...val, name: type });
   }));
   offs.push(bus.on('midi:raw', (m) => {
     if (!recorder.active || !m || !m.data) return;
