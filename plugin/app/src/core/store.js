@@ -36,6 +36,7 @@ export class Store {
       midi: {
         enabled: false,     // user wants WebMIDI active
         inputId: null,      // preferred input device id; null = first available
+        inputPinned: false, // the user picked that device by hand (otherwise a recognised controller may take over when plugged in)
         channel: 0,         // 0 = omni; 1..16 = listen on that channel only
         record: false,      // record-arm
         knobs: {},          // { [ccNumber:int]: paramKey:string } for selected instrument
@@ -353,7 +354,7 @@ export class Store {
     if ('enabled' in patch) m.enabled = !!patch.enabled;
     if ('record' in patch) m.record = !!patch.record;
     if ('channel' in patch) m.channel = clamp(Math.round(patch.channel), 0, 16);
-    if ('inputId' in patch) m.inputId = patch.inputId == null ? null : String(patch.inputId);
+    if ('inputId' in patch) { m.inputId = patch.inputId == null ? null : String(patch.inputId); m.inputPinned = patch.inputId != null; }   // a hand pick pins the device; auto-binding (reportMidi) never does
     if ('knobs' in patch) m.knobs = patch.knobs ?? {};
     this.emit('midi:config', {});
   }

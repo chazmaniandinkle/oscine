@@ -18,7 +18,7 @@ export class MidiSurface {
     this.root = null;
     this.cells = new Map();          // sourceKey -> element(s) lit by live touches
     const rerender = () => { if (this.root) this.render(); };
-    for (const ev of ['midi:surface', 'midi:status', 'midi:config', 'midi:wizard', 'midi:profiles', 'ui:selection']) this.bus.on(ev, rerender);
+    for (const ev of ['midi:surface', 'midi:status', 'midi:config', 'midi:wizard', 'midi:check', 'midi:profiles', 'ui:selection']) this.bus.on(ev, rerender);
     // Binding needs the rest of the app in view: shrink the panel the moment a control is armed (from either side),
     // restore it when the binding lands. The user can still toggle it by hand.
     this.bus.on('midi:bind', (e) => { if (e.armedSource || e.armedTarget) this.min = true; rerender(); });
@@ -134,6 +134,12 @@ export class MidiSurface {
     const bind = el('button', 'btn' + (m.bindMode ? ' accent' : ''), m.bindMode ? '● Binding — click a control' : 'Bind controls'); bind.type = 'button';
     bind.title = 'Touch a control on your controller, then click what it should drive in Oscine (or click one here first)';
     bind.addEventListener('click', () => map.setBindMode(!m.bindMode));
+    if (prof && !prof.generic && !m.wizard) {
+      const chk = el('button', 'btn' + (map.check ? ' accent' : ''), map.check ? '● Checking…' : (prof.custom || prof.verified ? 'Check again' : 'Check my controller')); chk.type = 'button';
+      chk.title = 'One minute: touch each control and Oscine confirms or corrects what this layout says it sends';
+      chk.addEventListener('click', () => (map.check ? map.cancelCheck() : map.startCheck()));
+      bar.append(chk);
+    }
     const wiz = el('button', 'btn', m.wizard ? 'Mapping…' : 'Map my controller'); wiz.type = 'button';
     wiz.title = 'Teach Oscine a controller it doesn\'t know: wiggle everything, name it, save';
     wiz.addEventListener('click', () => (m.wizard ? map.cancelWizard() : map.startWizard()));
@@ -157,6 +163,7 @@ export class MidiSurface {
 
     const body = el('div', 'msurf-body');
     if (m.wizard) body.append(this.wizardView());
+    else if (map.check) { body.append(this.checkView()); body.append(...this.surfaceView(map.check.profile)); }
     else if (prof && map.profile) body.append(...this.surfaceView(map.profile));   // the store holds a summary; the layout is map.profile
     else body.append(el('div', 'msurf-empty', m.enabled ? 'Plug in a MIDI controller. Known ones get a starter map the moment they appear; anything else you can teach with “Map my controller”.' : 'Turn MIDI on from the MIDI button to see your controller here.'));
     root.append(body);
@@ -205,9 +212,24 @@ export class MidiSurface {
       segs = [...heard.segments, ...segs.filter((s) => s.kind === 'keys' && !heard.segments.some((h) => h.kind === 'keys'))];
       if (!heard.segments.length) out.push(el('div', 'msurf-empty', 'Unknown controller. Move a knob or press a pad and it appears here — or use “Map my controller” to name and save it.'));
     }
+    // A profile may carry a physical layout (profile.layout: CSS grid columns + named areas); then the controller is
+    // drawn the way it sits on the desk: joystick top-left, pads in the middle, knobs right, keys along the bottom.
+    // Pad banks share one area; the bank on show is a tab (bank A by default).
+    const L = !profile.generic && profile.layout && segs.every((sg) => sg.area) ? profile.layout : null;
+    const bankShown = this.bank || 'A';
+    const wrap = L ? el('div', 'msurf-phys') : null;
+    if (wrap) { wrap.style.gridTemplateColumns = L.cols; wrap.style.gridTemplateAreas = L.areas.map((r) => `"${r}"`).join(' '); }
     for (const sg of segs) {
-      const box = el('section', 'msurf-seg msurf-' + sg.kind);
-      box.append(el('div', 'msurf-seg-h', sg.label || sg.id));
+      if (L && sg.bank && sg.bank !== bankShown) continue;
+      const box = el('section', 'msurf-seg msurf-' + sg.kind + (sg.local ? ' local' : ''));
+      if (L) box.style.gridArea = sg.area;
+      const head = el('div', 'msurf-seg-h', sg.label || sg.id);
+      if (L && sg.bank) {
+        const tab = el('button', 'msurf-bank', `Bank ${sg.bank}`); tab.type = 'button'; tab.title = 'Show the other pad bank (the BANK A/B button on the controller switches which one the hardware sends)';
+        tab.addEventListener('click', () => { this.bank = sg.bank === 'A' ? 'B' : 'A'; this.render(); });
+        head.append(tab);
+      }
+      box.append(head);
       if (sg.kind === 'keys') box.append(this.keysView(sg, boundOf));
       else {
         const grid = el('div', 'msurf-grid');
@@ -216,17 +238,28 @@ export class MidiSurface {
         for (const c of list) grid.append(this.controlView(sg, c, boundOf, ctx));
         box.append(grid);
       }
-      out.push(box);
+      if (wrap) wrap.append(box); else out.push(box);
     }
+    if (wrap) out.push(wrap);
     return out;
   }
 
   controlView(sg, c, boundOf, ctx) {
+    if (c.local) {                                   // a button that works inside the controller and sends nothing
+      const w = el('div', 'msurf-c k-button local'); w.title = (c.title ? c.title + '. ' : '') + 'Works inside the controller and sends no MIDI, so Oscine can\'t see or map it.';
+      w.append(el('div', 'msurf-face', '◘'), el('div', 'msurf-lbl', c.label));
+      return w;
+    }
     const key = c.src ? srcKey(c.src) : null;
     const bound = key ? boundOf(key) : null;
+    const st = this.map.check ? this.map.check.stateOf(sg.id, c.id) : null;
+    const isNow = this.map.check && this.map.check.current && this.map.check.current.seg === sg.id && this.map.check.current.ctl === c.id;
     const wrap = el('div', `msurf-c k-${c.kind}` + (bound ? ' bound' : '') + (key ? '' : ' slot') + (this.map.armedSource?.key === key && key ? ' armed' : ''));
     const bare = key ? key.split('@')[0] : null;          // lights and the unbind lookup ignore the channel
     wrap.dataset.src = bare || '';
+    if (st) wrap.classList.add('chk-' + st);
+    if (isNow) wrap.classList.add('chk-now');
+    if (!this.map.check && key && c.src && c.verified === false) wrap.classList.add('unverified');
     const face = el('div', 'msurf-face');
     face.append(el('span', 'msurf-ico', KIND_ICON[c.kind] || '•'));
     const val = el('span', 'msurf-val', ''); face.append(val); wrap._val = val;
@@ -240,6 +273,7 @@ export class MidiSurface {
       wrap.title = `${srcLabel(c.src)} → ${tgt}`;
     } else wrap.title = key ? `${srcLabel(c.src)} — click to bind, then click a control in Oscine` : 'This control\'s message isn\'t known yet: click it, then touch it on the controller';
     wrap.addEventListener('click', () => {
+      if (this.map.check) { const n = this.map.check.steps.findIndex((x) => x.seg === sg.id && x.ctl === c.id); if (n >= 0) this.map.checkRedo(n); return; }   // in a check, a click means "do this one next"
       if (!key) { this.map.armSlot(sg.id, c.id); this.hint(`Touch ${c.label} on the controller…`); return; }
       this.map.armSource({ key, t: c.src.t, n: c.src.n, ch: c.src.ch, label: c.label, kind: c.kind });
       if (!this.store.ui.midi.bindMode) this.map.setBindMode(true), this.map.armSource({ key, t: c.src.t, n: c.src.n, ch: c.src.ch, label: c.label, kind: c.kind });
@@ -257,10 +291,47 @@ export class MidiSurface {
       const key = srcKey({ t: 'note', n });
       if (n % 12 === 0) k.classList.add('c');
       if (boundOf(key)) k.classList.add('bound');
+      if (this.map.check) { const ks = this.map.check.steps.find((x) => x.id === 'keys'); if (ks) k.classList.add('chk-' + ks.state); }
       if (!this.cells.has(key)) this.cells.set(key, new Set()); this.cells.get(key).add(k);
       wrap.append(k);
     }
     return wrap;
+  }
+
+  // -- "Check my controller" ----------------------------------------------------------------------------------------------
+  // One prompt at a time ("Turn K1"), the controls on the surface below colour in as they're confirmed (green) or
+  // corrected (amber). Click any control to do it next; Skip leaves it unchecked. Finish saves the checked profile.
+  checkView() {
+    const c = this.map.check, box = el('div', 'msurf-check');
+    const n = c.counts, done = n.ok + n.fixed;
+    const head = el('div', 'msurf-check-h');
+    head.append(el('span', 'msurf-check-t', c.finished ? 'All checked' : 'Check my controller'), el('span', 'msurf-check-n', `${done + n.skipped} / ${c.total}`));
+    box.append(head);
+    const bar = el('div', 'msurf-check-bar'); const fill = el('i'); fill.style.width = `${Math.round(((done + n.skipped) / Math.max(1, c.total)) * 100)}%`; bar.append(fill); box.append(bar);
+    const cur = c.current;
+    box.append(el('div', 'msurf-check-now', cur ? cur.prompt : 'That was everything. Save it to keep the checked layout.'));
+    const r = this.map.checkLast;
+    if (r && r.step) {
+      const what = { ok: 'matches', other: 'matches', fixed: `is different from the layout: now ${c.fixes().find((f) => f.step === r.step.label)?.now ?? 'updated'}` }[r.kind];
+      if (what) box.append(el('div', 'msurf-check-last ' + (r.kind === 'fixed' ? 'fix' : 'ok'), `${r.step.label} ${what}`));
+    } else if (r && r.kind === 'stray') box.append(el('div', 'msurf-check-last stray', 'That was a different kind of control. Waiting for the one above.'));
+    else if (r && r.kind === 'bankb') box.append(el('div', 'msurf-check-last stray', 'Bank B pad: noted, not part of this check.'));
+    const act = el('div', 'msurf-check-act');
+    if (cur) {
+      const sk = el('button', 'btn', 'Skip'); sk.type = 'button'; sk.title = 'This control stays unchecked'; sk.addEventListener('click', () => this.map.checkSkip());
+      act.append(sk);
+    }
+    const fin = el('button', 'btn accent', c.finished ? 'Save' : 'Finish now'); fin.type = 'button';
+    fin.title = 'Keep what has been checked so far as your layout for this controller';
+    fin.addEventListener('click', async () => { const p = await this.map.finishCheck(); this.hint(p ? `Saved. ${p.checked.ok} confirmed, ${p.checked.fixed} corrected, ${p.checked.skipped} skipped` : 'Nothing was checked'); });
+    const cx = el('button', 'btn', 'Cancel'); cx.type = 'button'; cx.addEventListener('click', () => this.map.cancelCheck());
+    act.append(fin, cx); box.append(act);
+    if (n.fixed) {
+      const fx = el('div', 'msurf-check-fixes');
+      for (const f of c.fixes()) fx.append(el('div', '', `${f.step}: ${f.was ?? '?'} → ${f.now}`));
+      box.append(fx);
+    }
+    return box;
   }
 
   // -- the wizard ------------------------------------------------------------------------------------------------------

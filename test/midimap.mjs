@@ -249,5 +249,106 @@ console.log('\n[6] the midi command: bind / bindings / profiles (headless, as Co
   check('status exposes the detected controller slot (null headless) and outputs', 'controller' in r && Array.isArray(r.outputs));
 }
 
+console.log('\n[7] MPK mini mk3: layout + "Check my controller"');
+{
+  const { ControllerCheck } = await import(`${ROOT}/src/core/midicheck.js`);
+  const mk3 = C.profileById('akai-mpk-mini-3');
+  const all = C.allControls(mk3);
+  const real = all.filter((x) => !x.control.local);
+  check('layout: physical areas for every segment (stick, arp, pad modes, pads, pads-b, knobs, keys)',
+    mk3.layout && mk3.segments.every((s) => s.area) && ['stick', 'arp', 'pmode', 'pads', 'knobs', 'keys'].every((a) => mk3.layout.areas.join(' ').includes(a)));
+  check('8 knobs CC70-77 ch-any, 8 pads bank A notes 36-43 ch10, bank B 44-51',
+    real.filter((x) => x.control.kind === 'knob').every((x, i) => x.control.src.n === 70 + i) && mk3.segments.find((s) => s.id === 'pads').controls.every((c, i) => c.src.n === 36 + i && c.src.ch === 10)
+    && mk3.segments.find((s) => s.id === 'pads-b').controls.every((c, i) => c.src.n === 44 + i));
+  check('joystick: pitch bend + CC1 (up) known, down is an empty slot (not guessed)',
+    mk3.segments.find((s) => s.id === 'stick').controls.map((c) => c.src ? c.id : '-' + c.id).join() === 'pb,mod,-moddn');
+  check('every known source is flagged verified:false (default program, not read off the device)', real.filter((x) => x.control.src).every((x) => x.control.verified === false) && mk3.verified === false);
+  check('device-only buttons are marked local and carry no source (arp, tap, oct, full level, repeat, bank/CC/prog)',
+    all.filter((x) => x.control.local).length === 10 && all.filter((x) => x.control.local).every((x) => !x.control.src));
+  const dm = M.defaultMap(mk3);
+  check('default map still: K1-K8 -> params 1-8; pads and device buttons get NO binding (pads play the kit via padOf)',
+    ['70', '77'].every((k) => dm[k]?.k === 'param') && !Object.keys(dm).some((k) => k.startsWith('n')) && Object.keys(dm).length === 8);
+
+  // a clean run: everything matches
+  let c1 = new ControllerCheck(mk3);
+  check('steps: stick x3 + 8 knobs + 8 pads (bank A) + keys, bank B and device buttons excluded', c1.total === 3 + 8 + 8 + 1, String(c1.total));
+  check('first prompt is the joystick', /joystick/i.test(c1.current.prompt));
+  const feed = (c, ...b) => c.feed(b);
+  let r = feed(c1, 0xe0, 0, 0x7f);                                         // bend right
+  check('pitch bend confirms the pitch step', r.kind === 'ok' && r.step.id === 'stick.pb');
+  r = feed(c1, 0xe0, 0, 0x40);                                             // spring back to centre
+  check('bend near centre is ignored (spring-back)', r.kind === 'ignored');
+  r = feed(c1, 0xb0, 1, 90);
+  check('CC1 confirms mod up', r.kind === 'ok' && r.step.id === 'stick.mod');
+  check('next prompt asks for stick down', /down/i.test(c1.current.prompt));
+  c1.skip();
+  check('skipping leaves it unchecked; order follows the hardware (stick, pads, knobs, keys)', c1.counts.skipped === 1 && /PAD 1/.test(c1.current.prompt));
+
+  // out of order: Chaz hits PAD 3 while we ask for PAD 1
+  r = feed(c1, 0x99, 38, 100);
+  check('out of order: PAD 3 (note 38) is confirmed, the current step stays', r.kind === 'other' && r.step.label === 'PAD 3' && /PAD 1/.test(c1.current.prompt));
+  r = feed(c1, 0x89, 38, 0);
+  check('releases never count', r.kind === 'ignored');
+  r = feed(c1, 0x99, 38, 100);
+  check('a repeat of a settled pad is a repeat', r.kind === 'repeat');
+  r = feed(c1, 0x99, 44, 100);
+  check('a bank B pad is noted, not applied', r.kind === 'bankb' && /PAD 1/.test(c1.current.prompt));
+  r = feed(c1, 0x90, 60, 100);
+  check('a key press while a pad is wanted is stray, not a correction', r.kind === 'stray' && c1.stray === 1 && /PAD 1/.test(c1.current.prompt));
+  r = feed(c1, 0xb0, 70, 20);
+  check('a knob while a pad is wanted confirms that knob (out of order), pad step stays', r.kind === 'other' && r.step.label === 'K1' && /PAD 1/.test(c1.current.prompt));
+  for (const n of [36, 37, 39, 40, 41, 42, 43]) feed(c1, 0x99, n, 90);
+  check('all 8 pads done; next is a knob (K1 was already confirmed, so K2)', /K2/.test(c1.current.prompt), c1.current.prompt);
+  for (let i = 1; i < 8; i++) feed(c1, 0xb0, 70 + i, 60);
+  check('knobs done; keys prompt', /key/i.test(c1.current.prompt) && c1.counts.ok === 2 + 8 + 8, JSON.stringify(c1.counts));
+  r = feed(c1, 0x90, 60, 90);
+  check('a key on ch1 confirms the keys', r.kind === 'ok' && c1.finished);
+  const res = c1.result({ deviceName: 'MPK mini 3', maker: 'AKAI professional LLC' });
+  check('result: custom profile bound to this device name, verified, based on the built-in',
+    res.custom && res.verified && res.matchName === 'MPK mini 3' && res.based_on === 'akai-mpk-mini-3' && res.id === 'custom-mpk-mini-3' && res.checked.skipped === 1);
+  check('result: checked controls are verified, the skipped joystick-down slot stays unverified/empty',
+    res.segments.find((s) => s.id === 'knobs').controls.every((c) => c.verified) && !res.segments.find((s) => s.id === 'stick').controls.find((c) => c.id === 'moddn').verified);
+  check('the built-in profile is untouched by a check', mk3.segments.find((s) => s.id === 'knobs').controls[0].verified === false && mk3.verified === false);
+
+  // corrections: this unit sends K3 as CC74 and PAD 2 as note 45
+  let c2 = new ControllerCheck(mk3);
+  feed(c2, 0xe0, 0, 0x7f); feed(c2, 0xb0, 1, 100); c2.skip();
+  for (let n = 36; n <= 43; n++) feed(c2, 0x99, n, 90);
+  feed(c2, 0xb0, 70, 50); feed(c2, 0xb0, 71, 50);
+  r = feed(c2, 0xb0, 90, 50);                                              // K3 sends CC90 on this device
+  check('a different CC while K3 is asked for corrects K3', r.kind === 'fixed' && r.step.label === 'K3' && r.step.expect.n === 90);
+  check('correction is reported in words', c2.fixes()[0].step === 'K3' && /CC72/.test(c2.fixes()[0].was) && /CC90/.test(c2.fixes()[0].now), JSON.stringify(c2.fixes()));
+  const rr = c2.result({ deviceName: 'MPK mini 3' });
+  check('the saved profile carries the corrected source', rr.segments.find((s) => s.id === 'knobs').controls[2].src.n === 90 && rr.checked.fixes.length === 1);
+  const dm2 = M.defaultMap(rr);
+  check('and the default map is rebuilt on the corrected CC (CC90 -> param 3, CC72 gone)', dm2['90']?.slot === 2 && !dm2['72']);
+  c2.redo(c2.steps.findIndex((s) => s.label === 'K3'));
+  check('redo forgets a correction', c2.current.label === 'K3' && c2.current.expect.n === 72);
+
+  // keys on another channel get corrected
+  let c3 = new ControllerCheck(mk3);
+  const kIdx = c3.steps.findIndex((s) => s.id === 'keys');
+  for (let i = 0; i < kIdx; i++) c3.skip();
+  r = feed(c3, 0x93, 60, 90);
+  check('keys on ch4 corrects the keys channel', r.kind === 'fixed' && c3.result({ deviceName: 'x' }).segments.find((s) => s.kind === 'keys').ch === 4);
+
+  // generic profile / pure matching still behaves
+  check('MPK mini 3 name variants all match the mk3 profile',
+    ['MPK mini 3', 'MPK mini 3 MIDI 1', 'MPK mini mk3', 'MPK mini MK3', 'AKAI MPK mini 3'].every((n) => C.matchProfile(n, 'AKAI professional LLC')?.id === 'akai-mpk-mini-3'));
+  check('mk2 does not match the mk3 profile', C.matchProfile('MPK mini Mk2')?.id === 'akai-mpk-mini');
+}
+
+console.log('\n[8] input choice (hotplug): a recognised controller beats virtual ports');
+{
+  // midi.js is a browser module (no DOM at import time, so it loads headless)
+  const { preferInput } = await import(`${ROOT}/src/ui/midi.js`);
+  const port = (name, maker = '') => ({ id: 'in-' + name, name, manufacturer: maker });
+  check('no inputs -> null', preferInput([]) === null);
+  check('IAC bus listed first, MPK second -> the MPK', preferInput([port('IAC Driver Bus 1'), port('MPK mini 3', 'AKAI professional LLC')]).name === 'MPK mini 3');
+  check('only virtual + an unknown real device -> the unknown real device', preferInput([port('Midi Through Port-0'), port('Some Synth 9000')]).name === 'Some Synth 9000');
+  check('only virtual ports -> the first one (better than nothing)', preferInput([port('IAC Driver Bus 1')]).name === 'IAC Driver Bus 1');
+  check('two known devices -> the first known', preferInput([port('Minilab3 MIDI'), port('MPK mini 3')]).name === 'Minilab3 MIDI');
+}
+
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nall ok');

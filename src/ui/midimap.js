@@ -6,6 +6,7 @@
 import { decodeMessage, srcKey, srcLabel, lookupKeys, normOf } from '../core/midisrc.js';
 import { matchProfile, registerProfile, removeProfile, customProfiles, profileById, GENERIC, controlIndex, allControls } from '../core/controllers/index.js';
 import { Discovery } from '../core/mididiscover.js';
+import { ControllerCheck } from '../core/midicheck.js';
 import { applyMessage, findBinding, defaultMap, asTarget, targetLabel, describeTarget, cleanMap } from '../core/midimap.js';
 import { sidecarUrl } from '../core/sidecar.js';
 
@@ -21,6 +22,7 @@ export class MidiMap {
     this.touched = new Map();                 // sourceKey -> { t, v } last values, for the surface's live light-up
     this.discovery = new Discovery();         // the wizard's recorder (reset when it starts)
     this.heard = new Discovery();             // always on: what this device has sent so far (draws an unknown device)
+    this.check = null;                        // ControllerCheck while "Check my controller" is running
     this.armedSlot = null;                    // an unassigned layout slot waiting for the control to be touched
     this.armedSource = null;                  // bind mode: the hardware source waiting for a UI control
     this.armedTarget = null;                  // bind mode: the UI control waiting for a hardware touch
@@ -99,6 +101,7 @@ export class MidiMap {
     const bare = srcKey({ t: msg.t, n: msg.n });
     if (!(msg.t === 'note' && msg.on === false)) this.touched.set(bare, { t: performance.now(), v: normOf(msg), ch: msg.ch });
     if (this.profile?.generic) { const had = this.heard.seen.size; this.heard.feed(bytes); if (this.heard.seen.size !== had) this.bus.emit('midi:surface', {}); }
+    if (this.check) { this.checkFeed(bytes, key, msg); return true; }              // the check owns the hardware: nothing plays or moves
     if (this.armedSlot && !(msg.t === 'note' && !msg.on)) { this.fillSlot(msg); return true; }
     if (this.store.ui.midi.wizard?.on) { this.discovery.feed(bytes); this.syncWizard(); }
     if (this.store.ui.midi.learnParam && msg.t === 'cc') return false;   // legacy "learn this param": midi.js control() rebinds it
@@ -223,6 +226,57 @@ export class MidiMap {
     c.src = { t: msg.t, n: msg.n, ...(msg.t === 'note' ? { ch: msg.ch } : {}) };
     await this.saveProfile(p);
     this.detect(this.deviceName, this.maker);
+  }
+
+  // -- pads -> the drum kit --------------------------------------------------------------------------------------------
+  // A pad of the detected controller (a `pad` control in its profile) hits the drum kit no matter which track is
+  // selected: the selected track when it's a kit, else the first kit in the song. Pad N = lane N, in the order the
+  // profile lists them (bank A and B both fold onto the lanes). Returns the pad's index, or null when the message is
+  // not a pad or the pad has a binding of its own (Chaz's binding wins, as everywhere).
+  padOf(msg) {
+    if (msg.t !== 'note' || !this.profile || this.profile.generic) return null;
+    const key = srcKey({ t: 'note', n: msg.n, ch: msg.ch });
+    const hit = controlIndex(this.profile).get(key) || controlIndex(this.profile).get(key.split('@')[0]);
+    if (!hit || hit.control.kind !== 'pad') return null;
+    if (findBinding(this.store.ui.midi.knobs, msg)) return null;
+    return hit.seg.controls.indexOf(hit.control);
+  }
+
+  // -- "Check my controller" -----------------------------------------------------------------------------------------------
+  // A built-in profile is the published default program, not what the device really sends. This walks through each control,
+  // confirms or corrects it, then saves the result as Chaz's own profile for this exact device name.
+  startCheck() {
+    if (!this.profile || this.profile.generic) return false;
+    this.check = new ControllerCheck(this.profile);
+    this.checkLast = null;
+    this.armedSource = null; this.armedTarget = null; this.armedSlot = null;
+    this.store.reportMidi({ bindMode: false, wizard: null });
+    this.bus.emit('midi:check', {});
+    return true;
+  }
+  checkFeed(bytes, key, msg) {
+    const r = this.check.feed(bytes);
+    if (r.kind === 'ignored') return;
+    this.checkLast = r;
+    if (r.step) this.noteFeed(key, msg, null);
+    this.bus.emit('midi:check', { result: r });
+  }
+  checkSkip() { this.check?.skip(); this.bus.emit('midi:check', {}); }
+  checkRedo(n) { this.check?.redo(n); this.bus.emit('midi:check', {}); }
+  cancelCheck() { this.check = null; this.bus.emit('midi:check', {}); }
+  async finishCheck() {
+    const c = this.check; if (!c) return null;
+    const done = c.counts.ok + c.counts.fixed;
+    if (!done) { this.cancelCheck(); return null; }
+    const p = c.result({ deviceName: this.deviceName, maker: this.maker });
+    this.check = null;
+    const cur = this.store.ui.midi.knobs;
+    for (const [k, v] of Object.entries(cur)) if (v && typeof v === 'object' && v.auto) delete cur[k];       // old starter map: rebuilt below from the checked sources
+    await this.saveProfile(p);
+    this.detect(this.deviceName, this.maker);
+    this.applyDefaults(p, true);
+    this.bus.emit('midi:check', { done: p });
+    return p;
   }
 
   // -- the wizard ----------------------------------------------------------------------------------------------------

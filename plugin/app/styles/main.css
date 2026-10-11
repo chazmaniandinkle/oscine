@@ -1243,6 +1243,35 @@ select.settings-ctl, .settings-num { background: var(--bg-2); color: var(--text)
 .msurf-key.bound { box-shadow: inset 0 -4px 0 var(--accent); }
 .msurf-key.hot { background: var(--good); }
 .msurf-key.c:not(.black)::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--text-faint); }
+/* physical layout (profile.layout): joystick top-left, pads middle, knobs right, keys along the bottom */
+.msurf-phys { display: grid; gap: 8px 10px; align-items: start; }
+.msurf-phys .msurf-seg { margin-bottom: 0; min-width: 0; }
+.msurf-phys .msurf-keys { height: 44px; }
+.msurf-bank { margin-left: 8px; font: inherit; font-size: var(--fs-micro); letter-spacing: 0; text-transform: none; color: var(--accent); background: none; border: 1px solid var(--accent-line); border-radius: var(--radius-pill); padding: 0 7px; cursor: pointer; }
+.msurf-seg.local .msurf-c { cursor: default; opacity: 0.55; border-style: dotted; }
+.msurf-seg.local .msurf-face { height: 16px; font-size: 12px; }
+.msurf-seg.local .msurf-c:hover { background: var(--bg-2); border-color: var(--line); }
+.msurf-c.unverified .msurf-lbl::after { content: ' ·'; color: var(--text-faint); }
+/* check my controller */
+.msurf-check { border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.msurf-check-h { display: flex; justify-content: space-between; align-items: baseline; }
+.msurf-check-t { font-weight: 600; }
+.msurf-check-n { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--dim); }
+.msurf-check-bar { height: 3px; background: var(--bg-3); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
+.msurf-check-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.msurf-check-now { font-size: var(--fs-lg, 16px); font-weight: 600; padding: 2px 0 4px; }
+.msurf-check-last { font-size: var(--fs-xs); padding: 2px 0; }
+.msurf-check-last.ok { color: var(--good); }
+.msurf-check-last.fix { color: var(--warn); }
+.msurf-check-last.stray { color: var(--dim); }
+.msurf-check-act { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.msurf-check-fixes { margin-top: 6px; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--warn); }
+.msurf-c.chk-ok { border-color: var(--good); background: var(--good-soft); }
+.msurf-c.chk-fixed { border-color: var(--warn); background: var(--warn-soft); }
+.msurf-c.chk-skipped { opacity: 0.45; }
+.msurf-c.chk-now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); animation: pulse 0.8s infinite alternate; }
+.msurf-key.chk-ok { background: var(--good); }
+.msurf-key.chk-fixed { background: var(--warn); }
 .msurf-feed { border-top: 1px solid var(--line); padding: 6px 10px 8px; min-height: 18px; font-size: var(--fs-2xs); }
 .msurf-feed-empty { color: var(--dim); }
 .msurf-feed-row { display: flex; gap: 8px; align-items: baseline; }

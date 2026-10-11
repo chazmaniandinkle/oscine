@@ -4,6 +4,12 @@ import { el, Knob, NumberDrag, Btn, ToggleBtn, Select, Meter, openMenu, toast, b
 import { SLOT_NAMES, BAR_CHOICES } from '../core/schema.js';
 import { exportProject, importProjectFile, demoOrBlank, exportWav, copyShareLink, listProjects, openProjectPath, saveProjectPath, revealProjectFolder } from './fileops.js';
 
+// "MPK mini 3 MIDI 1" -> "MPK mini 3": drop the port suffix some systems append, and cap the length for the toolbar.
+function shortDevice(name) {
+  const n = String(name || '').replace(/\s+(midi\s*)?(in|out|port)?\s*\d*$/i, '').replace(/\s+/g, ' ').trim() || String(name || 'MIDI');
+  return n.length > 18 ? n.slice(0, 17) + '…' : n;
+}
+
 export class TransportBar {
   constructor(host, app) {
     this.app = app;
@@ -293,7 +299,9 @@ export class TransportBar {
     // Deferred: enabled here but another tab owns the hardware.
     this.midiBtn.classList.toggle('deferred', ownerElsewhere);
     // Show the open-tab count when more than just this tab is live.
-    this.midiBtn.textContent = peers > 1 ? `MIDI ${peers}` : 'MIDI';
+    // The pill names the device it is bound to ("MPK mini mk3"), so "is my controller seen" is answered without opening anything.
+    const label = bound ? (m.profile && !m.profile.generic ? m.profile.name : shortDevice(m.inputName)) : 'MIDI';
+    this.midiBtn.textContent = peers > 1 ? `${label} ${peers}` : label;
     const chan = m.channel ? `ch ${m.channel}` : 'omni';
     this.midiBtn.title = !m.enabled
       ? 'MIDI input: disabled (click to enable)'

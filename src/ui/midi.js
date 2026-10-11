@@ -11,10 +11,20 @@
 // only listens to 'midi:config', so there's no feedback loop.
 
 import { getInstrumentDef } from '../engine/instruments/index.js';
+import { matchProfile } from '../core/controllers/index.js';
 import { clamp, denorm, roundTo } from '../core/util.js';
 import { MidiMap } from './midimap.js';
 
 const LS_KEY = 'oscine.midi';
+// With no saved choice: a device the profile library recognises beats a virtual / pass-through port (the IAC bus, a
+// MIDI-through, a DAW loopback), which are listed first on some systems and would otherwise be picked blindly.
+const VIRTUAL = /\b(iac|through|virtual|loopback|network|bus\s*\d|rtpmidi|midi\s*monitor)\b/i;
+export function preferInput(inputs) {
+  if (!inputs.length) return null;
+  const known = inputs.find((i) => matchProfile(i.name, i.manufacturer || ''));
+  return known || inputs.find((i) => !VIRTUAL.test(i.name)) || inputs[0];
+}
+
 
 export class MidiInput {
   constructor(app) {
@@ -90,7 +100,7 @@ export class MidiInput {
       if (!saved) return;
       const patch = {};
       if ('enabled' in saved) patch.enabled = saved.enabled;
-      if ('inputId' in saved) patch.inputId = saved.inputId;
+      if ('inputId' in saved && saved.pinned) patch.inputId = saved.inputId;       // only a hand-picked device is remembered by id
       if ('channel' in saved) patch.channel = saved.channel;
       if ('knobs' in saved) patch.knobs = saved.knobs;
       this.store.configureMidi(patch);
@@ -102,7 +112,7 @@ export class MidiInput {
     const m = this.store.ui.midi;
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        enabled: m.enabled, inputId: m.inputId, channel: m.channel, knobs: m.knobs,
+        enabled: m.enabled, inputId: m.inputPinned ? m.inputId : null, pinned: !!m.inputPinned, channel: m.channel, knobs: m.knobs,
       }));
     } catch { /* quota/private mode: ignore */ }
   }
@@ -225,7 +235,7 @@ export class MidiInput {
     const devices = inputs.map(i => ({ id: i.id, name: i.name, maker: i.manufacturer || '' }));
     // No coordinator -> bind as today; coordinator present -> bind only if owner.
     const mayBind = !this.crosstab || this.owns;
-    const bound = mayBind ? (inputs.find(i => i.id === midi.inputId) || inputs[0] || null) : null;
+    const bound = mayBind ? ((midi.inputPinned && inputs.find(i => i.id === midi.inputId)) || preferInput(inputs) || null) : null;
     for (const input of inputs) {
       input.onmidimessage = (input === bound) ? (e) => this.onMessage(e) : null;
     }
@@ -235,6 +245,7 @@ export class MidiInput {
       outputs: [...this.access.outputs.values()].map(o => ({ id: o.id, name: o.name, maker: o.manufacturer || '' })),
       inputName: bound ? bound.name : null,
       inputId: bound ? bound.id : midi.inputId,
+      inputMaker: bound ? (bound.manufacturer || '') : '',
     });
     this.map.detect(bound ? bound.name : null, bound ? bound.manufacturer : '');
   }
@@ -259,8 +270,11 @@ export class MidiInput {
     if (this.map.handle(e.data)) return;                // a bound control / wizard / bind-mode capture consumed it
     if (type === 0x90 && d2 > 0) {
       this.store.observeMidiVelocity(d2);   // record the RAW value (before shaping)
-      this.noteOn(d1, this.shapeVel(d2));
-    } else if (type === 0x80 || (type === 0x90 && d2 === 0)) this.noteOff(d1);
+      const pad = this.map.padOf({ t: 'note', n: d1, ch: chan });
+      if (pad != null) this.padHit(pad, this.shapeVel(d2)); else this.noteOn(d1, this.shapeVel(d2));
+    } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
+      if (this.map.padOf({ t: 'note', n: d1, ch: chan }) == null) this.noteOff(d1);    // a pad is a one-shot: nothing to release
+    }
     else if (type === 0xB0) this.control(d1, d2);
     // pitch bend, channel pressure, program change: only meaningful when bound (MidiMap.handle above).
     // (velocity is only recorded for note-on, not note-off or CC.)
@@ -296,6 +310,20 @@ export class MidiInput {
   _beatNow() {
     const p = this.transport.getPosition();
     return p.playing ? p.localBeat : null;
+  }
+
+  // A pad on the controller (profile says it is a pad) hits the drum kit: the selected track when it's a kit, otherwise
+  // the first kit in the song. Pad N = lane N. Records into the step grid like any kit hit while record-armed.
+  padHit(idx, vel) {
+    const store = this.store;
+    const sel = this.track;
+    const kit = sel && this.defOf(sel).kind === 'drums' ? sel : store.project.tracks.find((t) => this.defOf(t).kind === 'drums');
+    if (!kit) { if (sel) this.noteOn(36 + idx, vel); return; }              // no kit anywhere: fall back to playing the note
+    const lanes = this.defOf(kit).lanes;
+    const lane = lanes[idx % lanes.length];
+    this.engine.previewHit(kit.id, lane.id, vel);
+    store.logInput({ kind: 'hit', trackId: kit.id, trackName: kit.name, lane: lane.id, vel, beat: this._beatNow() });
+    this.recordStep(kit, lane.id, vel);
   }
 
   noteOn(midi, vel) {
