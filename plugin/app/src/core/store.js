@@ -36,6 +36,7 @@ export class Store {
       midi: {
         enabled: false,     // user wants WebMIDI active
         inputId: null,      // preferred input device id; null = first available
+        inputPinned: false, // the user picked that device by hand (otherwise a recognised controller may take over when plugged in)
         channel: 0,         // 0 = omni; 1..16 = listen on that channel only
         record: false,      // record-arm
         knobs: {},          // { [ccNumber:int]: paramKey:string } for selected instrument
@@ -50,6 +51,12 @@ export class Store {
         devices: [],        // runtime: [{ id, name }]
         owner: false,       // runtime: this tab currently holds MIDI ownership
         peers: 1,           // runtime: count of live same-origin tabs (>=1 = self)
+        // Control surface (src/ui/midimap.js). `knobs` above is THE binding map: { [sourceKey]: legacy param string |
+        // target object } (src/core/midimap.js). Runtime fields below describe the detected device; never saved.
+        profile: null,      // runtime: { id, name, maker, verified, generic, custom } of the bound input
+        outputs: [],        // runtime: [{ id, name, maker }] MIDI outputs (LED feedback needs them)
+        bindMode: false,    // touch-a-control-then-click-a-control binding is armed
+        wizard: null,       // runtime: { on, name, sources:[{key,label,kind,count}] } while 'map my controller' listens
       },
       // Performance ledger: an always-on, bounded, time-stamped log of what the
       // user plays live (the "observer" half of the agent surface). Captured by
@@ -347,9 +354,32 @@ export class Store {
     if ('enabled' in patch) m.enabled = !!patch.enabled;
     if ('record' in patch) m.record = !!patch.record;
     if ('channel' in patch) m.channel = clamp(Math.round(patch.channel), 0, 16);
-    if ('inputId' in patch) m.inputId = patch.inputId == null ? null : String(patch.inputId);
+    if ('inputId' in patch) { m.inputId = patch.inputId == null ? null : String(patch.inputId); m.inputPinned = patch.inputId != null; }   // a hand pick pins the device; auto-binding (reportMidi) never does
     if ('knobs' in patch) m.knobs = patch.knobs ?? {};
     this.emit('midi:config', {});
+  }
+
+  // Bind one hardware source to a target (see core/midimap.js). `key` is a source key ("74", "74@2", "n36@10", "pb").
+  // A channel-specific key shadows the bare one, so binding "74@2" leaves a bare "74" alone, but binding the bare key
+  // drops its channel-specific twins (the user just said "this control, any channel").
+  bindMidi(key, entry) {
+    const m = this.ui.midi;
+    key = String(key);
+    if (!key.includes('@')) for (const k of Object.keys(m.knobs)) if (k.startsWith(key + '@')) delete m.knobs[k];
+    m.knobs[key] = entry;
+    if (m.learnParam) m.learnParam = null;
+    this.emit('midi:config', {});
+  }
+
+  // Remove every binding of a source (the bare key and any channel-specific twin). Returns how many went.
+  unbindMidi(key) {
+    const m = this.ui.midi;
+    key = String(key);
+    const base = key.split('@')[0];
+    let n = 0;
+    for (const k of Object.keys(m.knobs)) if (k === base || k.startsWith(base + '@')) { delete m.knobs[k]; n++; }
+    if (n) this.emit('midi:config', {});
+    return n;
   }
 
   mapMidiKnob(cc, paramKey) {

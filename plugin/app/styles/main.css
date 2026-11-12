@@ -1185,3 +1185,126 @@ select.settings-ctl, .settings-num { background: var(--bg-2); color: var(--text)
 .settings-keys summary { cursor: pointer; color: var(--dim); padding: 4px 0; }
 .settings-keytable { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; padding: 6px 0 2px; font-size: 11.5px; }
 .settings-k { font-family: ui-monospace, monospace; color: var(--accent); text-align: right; }
+
+/* ---------- MIDI controller surface (src/ui/midisurface.js) ----------
+   A docked, non-modal panel: binding means looking at the rest of the app while it is open. */
+.msurf {
+  position: fixed; right: 12px; bottom: 12px; z-index: 90; width: min(460px, calc(100vw - 24px)); max-height: min(78vh, 720px);
+  display: flex; flex-direction: column; background: var(--bg-1); border: 1px solid var(--line-strong); border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55); color: var(--text); font-size: var(--fs-sm);
+}
+.msurf.binding { border-color: var(--accent); }
+.msurf-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px 6px; }
+.msurf-head.drag { cursor: grab; touch-action: none; }
+.msurf-head.drag:active { cursor: grabbing; }
+/* shrunk: just the header and the hint, so the controls underneath stay clickable */
+.msurf.min { width: min(340px, calc(100vw - 24px)); }
+.msurf.min .msurf-devs, .msurf.min .msurf-bar, .msurf.min .msurf-body, .msurf.min .msurf-feed, .msurf.min .msurf-maker, .msurf.min .msurf-chip { display: none; }
+.msurf.min .msurf-hint { display: block; }
+.msurf.min .msurf-hint:empty { display: none; }
+.msurf-title { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.msurf-dev { font-weight: 600; font-size: var(--fs-md); }
+.msurf-maker { color: var(--dim); font-size: var(--fs-xs); }
+.msurf-chip { font-size: var(--fs-2xs); padding: 1px 7px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--dim); }
+.msurf-chip.good { color: var(--good); border-color: var(--good); }
+.msurf-chip.warn { color: var(--warn); border-color: var(--warn); }
+.msurf-devs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 6px; }
+.msurf-d { font: inherit; font-size: var(--fs-2xs); background: var(--bg-2); color: var(--dim); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 2px 8px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msurf-d.on { color: var(--good); border-color: var(--good); }
+.msurf-d.out { cursor: default; opacity: 0.7; }
+.msurf-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 10px 8px; }
+.msurf-bar .btn { font-size: var(--fs-xs); padding: 4px 9px; }
+.msurf-hint { display: none; margin: 0 10px 6px; padding: 6px 9px; border-radius: 6px; background: var(--accent-soft); color: var(--text); font-size: var(--fs-xs); line-height: 1.4; }
+.msurf-hint.on { display: block; }
+.msurf-body { overflow: auto; padding: 0 10px 8px; flex: 1 1 auto; min-height: 60px; }
+.msurf-empty { color: var(--dim); padding: 14px 4px; line-height: 1.5; }
+.msurf-seg { margin-bottom: 10px; }
+.msurf-seg-h { font-size: var(--fs-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+.msurf-grid { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 6px; }
+.msurf-c { position: relative; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px 4px; text-align: center; cursor: pointer; min-width: 0; transition: border-color 0.1s, background 0.1s; }
+.msurf-c:hover { border-color: var(--line-strong); background: var(--bg-3); }
+.msurf-c.bound { border-color: var(--accent-line); }
+.msurf-c.slot { border-style: dashed; opacity: 0.8; }
+.msurf-c.armed { border-color: var(--accent); background: var(--accent-soft); }
+.msurf-c.hot { border-color: var(--good); background: var(--good-soft); }
+.msurf-face { height: 26px; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--dim); font-size: 17px; line-height: 1; }
+.msurf-c.hot .msurf-face { color: var(--good); }
+.msurf-c.k-pad .msurf-face { font-size: 20px; }
+.msurf-val { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text); min-width: 18px; }
+.msurf-lbl { font-size: var(--fs-2xs); color: var(--text); }
+.msurf-to { font-size: var(--fs-micro); color: var(--dim); line-height: 1.25; min-height: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msurf-c.bound .msurf-to { color: var(--accent); }
+.msurf-un { position: absolute; top: 1px; right: 2px; background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; line-height: 1; padding: 1px 3px; opacity: 0; }
+.msurf-c:hover .msurf-un { opacity: 1; }
+@media (hover: none) { .msurf-un { opacity: 0.7; } }
+.msurf-keys { display: flex; height: 38px; align-items: stretch; padding: 0 2px; }
+.msurf-key { position: relative; flex: 1 1 0; min-width: 0; background: var(--key-white); border: 1px solid var(--bg-0); border-radius: 0 0 3px 3px; }
+.msurf-key.black { background: var(--bg-0); border-color: var(--line-strong); height: 62%; margin: 0 -2.5%; z-index: 1; flex: 0.7 1 0; }
+.msurf-key.bound { box-shadow: inset 0 -4px 0 var(--accent); }
+.msurf-key.hot { background: var(--good); }
+.msurf-key.c:not(.black)::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--text-faint); }
+/* physical layout (profile.layout): joystick top-left, pads middle, knobs right, keys along the bottom */
+.msurf.phys { width: min(640px, calc(100vw - 24px)); }
+.msurf.phys.min { width: min(340px, calc(100vw - 24px)); }
+.msurf-phys .msurf-face { height: 20px; font-size: 15px; }
+.msurf-phys .msurf-c { padding: 3px 2px 2px; }
+.msurf-phys .msurf-lbl { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.msurf-phys .msurf-seg-h { white-space: nowrap; overflow: hidden; }
+@media (max-width: 520px) { .msurf-phys .msurf-lbl { font-size: 8px; letter-spacing: -0.02em; } .msurf-phys .msurf-seg-h { font-size: 8px; letter-spacing: 0.04em; } .msurf-phys .msurf-bank { margin-left: 3px; padding: 0 4px; } }
+.msurf-phys { display: grid; gap: 8px 10px; align-items: start; }
+.msurf-phys .msurf-seg { margin-bottom: 0; min-width: 0; }
+.msurf-phys .msurf-keys { height: 44px; }
+.msurf-bank { margin-left: 8px; font: inherit; font-size: var(--fs-micro); letter-spacing: 0; text-transform: none; color: var(--accent); background: none; border: 1px solid var(--accent-line); border-radius: var(--radius-pill); padding: 0 7px; cursor: pointer; }
+.msurf-seg.local .msurf-c { cursor: default; opacity: 0.55; border-style: dotted; }
+.msurf-seg.local .msurf-face { height: 16px; font-size: 12px; }
+.msurf-seg.local .msurf-c:hover { background: var(--bg-2); border-color: var(--line); }
+.msurf-c.unverified .msurf-lbl::after { content: ' ·'; color: var(--text-faint); }
+/* check my controller */
+.msurf-check { border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.msurf-check-h { display: flex; justify-content: space-between; align-items: baseline; }
+.msurf-check-t { font-weight: 600; }
+.msurf-check-n { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--dim); }
+.msurf-check-bar { height: 3px; background: var(--bg-3); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
+.msurf-check-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.msurf-check-now { font-size: var(--fs-lg, 16px); font-weight: 600; padding: 2px 0 4px; }
+.msurf-check-last { font-size: var(--fs-xs); padding: 2px 0; }
+.msurf-check-last.ok { color: var(--good); }
+.msurf-check-last.fix { color: var(--warn); }
+.msurf-check-last.stray { color: var(--dim); }
+.msurf-check-act { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.msurf-check-fixes { margin-top: 6px; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--warn); }
+.msurf-c.chk-ok { border-color: var(--good); background: var(--good-soft); }
+.msurf-c.chk-fixed { border-color: var(--warn); background: var(--warn-soft); }
+.msurf-c.chk-skipped { opacity: 0.45; }
+.msurf-c.chk-now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); animation: pulse 0.8s infinite alternate; }
+.msurf-key.chk-ok { background: var(--good); }
+.msurf-key.chk-fixed { background: var(--warn); }
+.msurf-feed { border-top: 1px solid var(--line); padding: 6px 10px 8px; min-height: 18px; font-size: var(--fs-2xs); }
+.msurf-feed-empty { color: var(--dim); }
+.msurf-feed-row { display: flex; gap: 8px; align-items: baseline; }
+.msurf-feed-src { width: 78px; flex: none; color: var(--text); }
+.msurf-feed-v { width: 26px; flex: none; text-align: right; font-family: var(--font-mono); color: var(--dim); }
+.msurf-feed-to { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
+.msurf-feed-row.unbound .msurf-feed-to { color: var(--dim); }
+.msurf-wiz-h { font-weight: 600; margin-bottom: 4px; }
+.msurf-wiz-p { color: var(--dim); font-size: var(--fs-xs); line-height: 1.45; margin-bottom: 8px; }
+.msurf-wiz-list { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; margin-bottom: 8px; }
+.msurf-wiz-row { display: flex; gap: 8px; padding: 2px 0; font-size: var(--fs-xs); }
+.msurf-wiz-src { width: 84px; flex: none; }
+.msurf-wiz-kind { flex: 1; color: var(--good); }
+.msurf-wiz-kind.guess { color: var(--hot); }
+.msurf-wiz-n { color: var(--dim); font-family: var(--font-mono); }
+.msurf-wiz-act { display: flex; gap: 6px; }
+.msurf-wiz-name { flex: 1; min-width: 0; background: var(--bg-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font: inherit; }
+
+/* Bind mode: every bindable control in the app is outlined; ones that already have a binding are tinted. */
+body.midi-binding [data-midi] { outline: 1px dashed var(--accent-line); outline-offset: 1px; cursor: crosshair !important; }
+body.midi-binding [data-midi]:hover { outline: 2px solid var(--accent); background-color: var(--accent-soft); }
+body.midi-binding [data-midi].midi-bound { outline-style: solid; outline-color: var(--good); }
+body.midi-binding.midi-bind-armed [data-midi] { animation: msurf-pulse 0.9s infinite alternate; }
+@keyframes msurf-pulse { from { outline-color: var(--accent-line); } to { outline-color: var(--accent); } }
+.midi-bound:not(.menu-item)::after { content: none; }
+@media (max-width: 640px) {
+  .msurf { right: 6px; left: 6px; bottom: 6px; width: auto; max-height: 62vh; }
+  .msurf-grid { grid-template-columns: repeat(min(var(--cols, 4), 4), minmax(0, 1fr)); }
+}

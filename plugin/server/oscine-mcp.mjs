@@ -19,6 +19,7 @@
 
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { readFile, stat, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -28,6 +29,7 @@ import { COMMANDS } from '../app/src/api/commands.js';
 import { OscGateway } from './osc-gateway.js';
 import { SessionRegistry } from './sessions.js';
 import { scanLocal, importClips, fetchPublic, loadLibrary, summarizeLibrary, ingestFile } from './suno-library.mjs';
+import { writeMeta as jamWriteMeta, appendEvents as jamAppendEvents, appendAudio as jamAppendAudio, listJams, readJam, phrasesOf, clipOf, JAM_ID_RE } from './jam-store.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = resolve(ROOT, '..', 'app');
@@ -204,6 +206,29 @@ function broadcastSessions() {
       conn.send(JSON.stringify({ type: 'session', id: s.id, active: s.active, peers }));
     }
   }
+  // Whoever is active now feeds the signal; tell the consumers which project that is.
+  if (signalClients.size) { setAppSignal(true); const h = signalHello(); for (const c of signalClients) c.send(h); }
+}
+
+// The signal (src/engine/signal.js): ~60 Hz frames and scheduled notes for anything that moves with the music.
+// Consumers connect a WebSocket to /signal; the active instance streams while at least one is connected, and each
+// app event is fanned out as {type:'frame'|'notes', ...}. Read-only: a consumer cannot send commands here.
+const signalClients = new Set();
+let signalHz = 60;
+function setAppSignal(on) {
+  for (const s of registry.list()) {
+    const conn = registry.get(s.id)?.conn;
+    if (conn && !conn.closed) conn.send(JSON.stringify({ type: 'signal', on: on && s.active, hz: signalHz }));
+  }
+}
+function signalHello() {
+  const a = registry.active;
+  return JSON.stringify({ type: 'hello', server: 'oscine', version: SERVER_VERSION, signal: 1, app: !!a, project: a?.info?.project ?? null, hz: signalHz });
+}
+function relaySignal(name, data) {
+  if (!signalClients.size) return;
+  const out = JSON.stringify({ type: name === 'signal:frame' ? 'frame' : 'notes', ...data });
+  for (const c of signalClients) c.send(out);
 }
 
 const appUrl = () => `http://127.0.0.1:${actualPort}/`;
@@ -258,6 +283,7 @@ function handleAppMessage(conn, raw) {
     return;
   }
   if (msg.type === 'event') {
+    if ((msg.name === 'signal:frame' || msg.name === 'signal:notes') && registry.activeId === conn.sessionId) { relaySignal(msg.name, msg.data); return; }
     // Only the active instance feeds the OSC state stream.
     if (msg.name === 'state' && registry.activeId === conn.sessionId) gateway?.relayState(msg.data);
     return;
@@ -370,7 +396,7 @@ export function corsHeaders(origin, { preflight = false } = {}) {
   if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return null; // same-machine pages are same-origin
   const h = { 'Access-Control-Allow-Origin': u.origin, 'Vary': 'Origin' };
   if (preflight) Object.assign(h, {
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Path',
     'Access-Control-Allow-Private-Network': 'true',
     'Access-Control-Max-Age': '600',
@@ -502,6 +528,73 @@ async function serveStatic(req, res) {
       res.end(JSON.stringify({ ok: true, path: target.slice(projectRoot.length + 1), bytes: n }));
     } catch (err) { res.writeHead(500); res.end(String(err?.message || err)); }
     return;
+  }
+  // Jam mode storage (src/ui/jam.js streams here; see plugin/server/jam-store.mjs):
+  //   POST /jam/<id>/meta    JSON, merged per segment
+  //   POST /jam/<id>/events  jsonl text, appended
+  //   POST /jam/<id>/audio?seg=N  raw webm bytes, appended to audio[.N].webm
+  // Same-origin pages only (the stage proxy puts these behind its paired-device gate), ids are validated, 200 MB cap.
+  const jamM = /^\/jam\/([^/]+)\/(meta|events|audio)$/.exec(urlPath);
+  if (jamM && req.method === 'POST') {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const id = decodeURIComponent(jamM[1]);
+    if (!JAM_ID_RE.test(id)) { res.writeHead(400); res.end('bad jam id'); return; }
+    const chunks = []; let n = 0;
+    for await (const c of req) { n += c.length; if (n > 200 * 1024 * 1024) { res.writeHead(413); res.end('too large'); return; } chunks.push(c); }
+    const buf = Buffer.concat(chunks);
+    try {
+      const root = resolve(PROJECT_ROOT);
+      let out;
+      if (jamM[2] === 'meta') out = await jamWriteMeta(root, id, JSON.parse(buf.toString('utf8') || '{}'));
+      else if (jamM[2] === 'events') out = await jamAppendEvents(root, id, buf.toString('utf8'));
+      else out = await jamAppendAudio(root, id, new URL(req.url, 'http://x').searchParams.get('seg') || 0, buf);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, bytes: n, ...(out && out.file ? { file: out.file } : {}) }));
+    } catch (err) { res.writeHead(400); res.end(String(err?.message || err)); }
+    return;
+  }
+  // Controller profiles (MIDI control surface): GET /controllers -> {profiles:[...]}, PUT /controllers/<id> {profile},
+  // DELETE /controllers/<id>. Stored one file per device under <root>/.cog/run/oscine/controllers/<id>.json so a map
+  // made on one browser follows Chaz to any other. Same guard as /reveal: pages served by this sidecar only; ids are
+  // [a-z0-9-] so nothing escapes the directory; 256 KB cap.
+  if (urlPath === '/controllers' || urlPath.startsWith('/controllers/')) {
+    const o = req.headers.origin;
+    let local = !o;
+    try { const h = new URL(o).hostname; local = local || h === '127.0.0.1' || h === 'localhost'; } catch {}
+    if (!local) { res.writeHead(403); res.end('only available from a page served by this sidecar'); return; }
+    const dir = resolve(PROJECT_ROOT, '.cog', 'run', 'oscine', 'controllers');
+    const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    const id = decodeURIComponent(urlPath.slice('/controllers/'.length));
+    try {
+      if (req.method === 'GET' && urlPath === '/controllers') {
+        const out = [];
+        let names = []; try { names = await readdir(dir); } catch {}
+        for (const n of names.filter(n => /^[a-z0-9-]{1,80}\.json$/.test(n))) {
+          try { out.push(JSON.parse(await readFile(resolve(dir, n), 'utf8'))); } catch {}
+        }
+        return json(200, { profiles: out });
+      }
+      if (!/^[a-z0-9-]{1,80}$/.test(id)) return json(400, { error: 'bad controller id' });
+      const file = resolve(dir, id + '.json');
+      if (req.method === 'PUT') {
+        let body = '', n = 0;
+        for await (const c of req) { n += c.length; if (n > 256 * 1024) return json(413, { error: 'too large' }); body += c; }
+        let doc; try { doc = JSON.parse(body); } catch { return json(400, { error: 'bad json' }); }
+        if (!doc || typeof doc !== 'object' || !Array.isArray(doc.segments) || doc.id !== id) return json(400, { error: 'not a controller profile (needs id === url id and segments[])' });
+        await mkdir(dir, { recursive: true });
+        await writeFile(file, JSON.stringify(doc, null, 2) + '\n', 'utf8');
+        return json(200, { ok: true, id });
+      }
+      if (req.method === 'DELETE') {
+        const { rm } = await import('node:fs/promises');
+        await rm(file, { force: true });
+        return json(200, { ok: true, id });
+      }
+      return json(405, { error: 'GET /controllers, PUT|DELETE /controllers/<id>' });
+    } catch (err) { return json(500, { error: String(err?.message || err) }); }
   }
   if (urlPath === '/reveal' && req.method === 'POST') {
     const o = req.headers.origin;
@@ -641,12 +734,12 @@ function startHttp(port, attemptsLeft = 9) {
   server.on('upgrade', (req, socket) => {
     const key = req.headers['sec-websocket-key'];
     const urlPath = new URL(req.url, 'http://x').pathname;
-    if (urlPath !== '/bridge' || !key) {
+    if ((urlPath !== '/bridge' && urlPath !== '/signal') || !key) {
       socket.destroy();
       return;
     }
     if (!originAllowed(req.headers.origin)) {
-      log(`bridge rejected origin ${req.headers.origin} (set OSCINE_ALLOWED_ORIGINS to allow)`);
+      log(`${urlPath.slice(1)} rejected origin ${req.headers.origin} (set OSCINE_ALLOWED_ORIGINS to allow)`);
       socket.destroy();
       return;
     }
@@ -656,6 +749,20 @@ function startHttp(port, attemptsLeft = 9) {
       'Connection: Upgrade\r\n' +
       `Sec-WebSocket-Accept: ${wsAccept(key)}\r\n\r\n`
     );
+    if (urlPath === '/signal') {
+      // A signal consumer: listen-only. ?hz=N asks for a frame rate (20-120); the last asker wins.
+      const hz = Number(new URL(req.url, 'http://x').searchParams.get('hz'));
+      if (Number.isFinite(hz) && hz >= 20 && hz <= 120) signalHz = Math.round(hz);
+      const client = new WSConn(socket, {
+        onMessage: () => {},
+        onClose: () => { signalClients.delete(client); if (!signalClients.size) setAppSignal(false); },
+      });
+      signalClients.add(client);
+      client.send(signalHello());
+      setAppSignal(true);
+      log(`signal consumer connected (${signalClients.size}); ${signalHz} Hz`);
+      return;
+    }
     const conn = new WSConn(socket, {
       onMessage: (raw) => handleAppMessage(conn, raw),
       onClose: () => handleAppClose(conn),
@@ -841,7 +948,7 @@ const PROJECT_OPEN_FILE_TOOL = {
 // composing with patterns never touches the arrangement/Suno tools. Set
 // OSCINE_TOOLS=compose to list only the pattern-composition surface (~21 KB).
 // Hidden tools still execute if called by name; this only trims tools/list.
-const ARRANGEMENT_TOOLS = new Set(['arrangement', 'clip', 'lane', 'marker', 'cycle', 'range', 'automation', 'words', 'asset', 'suno', 'ledger', 'share']);
+const ARRANGEMENT_TOOLS = new Set(['arrangement', 'clip', 'lane', 'marker', 'cycle', 'range', 'automation', 'words', 'asset', 'suno', 'ledger', 'jam', 'share']);
 const TOOL_PROFILE = (process.env.OSCINE_TOOLS || 'full').toLowerCase();
 
 function toolList() {
@@ -966,6 +1073,24 @@ async function dispatchTool(name, args) {
   const selector = args?.session ?? null;
   const forwardArgs = { ...(args || {}) };
   delete forwardArgs.session;
+
+  // Jam mode: list/read come straight from disk (they work with no app open and don't touch the audio engine);
+  // start/stop/status need the app (audio + live state) and fall through to callApp below.
+  if (cmdName === 'jam' && ['list', 'read'].includes(forwardArgs.action || 'status')) {
+    const root = resolve(PROJECT_ROOT);
+    if (forwardArgs.action === 'list') return { ok: true, jams: await listJams(root) };
+    return await readJam(root, { id: forwardArgs.id, readerId: forwardArgs.readerId || 'cog', all: !!forwardArgs.all, peek: !!forwardArgs.peek, limit: forwardArgs.limit });
+  }
+  // phrases / clip are also answered from disk. A clip with toSlot is then written into the pattern by the app (one undo step).
+  if (cmdName === 'jam' && forwardArgs.action === 'phrases') return await phrasesOf(resolve(PROJECT_ROOT), forwardArgs);
+  if (cmdName === 'jam' && forwardArgs.action === 'clip') {
+    const out = await clipOf(resolve(PROJECT_ROOT), forwardArgs, { ffmpeg: process.env.OSCINE_FFMPEG || (existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg') });
+    if (out.ok && forwardArgs.toSlot) {
+      try { out.placed = await callApp('jam', { action: 'place', clip: out.clip, toSlot: forwardArgs.toSlot, toTrack: forwardArgs.toTrack, mode: forwardArgs.mode }, 15000, selector); }
+      catch (e) { out.placed = { ok: false, error: String(e?.message || e) }; }
+    }
+    return out;
+  }
 
   if (cmdName === 'status' && registry.size === 0) {
     return {

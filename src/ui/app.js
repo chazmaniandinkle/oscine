@@ -11,6 +11,7 @@ import { Inspector } from './inspector.js';
 import { Mixer } from './mixer.js';
 import { KeyboardBar } from './keyboard.js';
 import { MidiInput } from './midi.js';
+import { MidiSurface } from './midisurface.js';
 import { Timeline } from './timeline.js';
 import { AssetBin } from './assetbin.js';
 import { Toolbar } from './toolbar.js';
@@ -102,6 +103,8 @@ export class App {
     this.mixer = new Mixer(mixerHost, this);
     this.keys = new KeyboardBar(keysHost, this);
     this.midi = new MidiInput(this);
+    this.midiSurface = new MidiSurface(this);       // docked controller panel (opened from the MIDI menu)
+    this.midiMap.attachBindTargets();
     this.midi.init();
     // Bars: toolbar under the transport, lyrics under the editor, status at
     // the very bottom. Built after the components they read from.

@@ -72,6 +72,15 @@ const unlock = () => { ensureRunning(); };
 window.addEventListener('pointerdown', unlock, { once: true });
 window.addEventListener('keydown', unlock, { once: true });
 
+// A jam that was recording when the page reloaded continues as a new segment of the same jam (same id; events keep
+// appending, audio goes to audio.<seg>.webm so each segment's start time stays exact). Audio needs a click to unlock,
+// so the first segment after a reload may record events only; the segment says so in meta.json.
+try {
+  if (sessionStorage.getItem('oscine.jam.open')) {
+    api.jamOf().then(j => j.audio = api._jamAudio).then(() => api.jamOf()).then(j => j.resume()).catch(() => {});
+  }
+} catch { /* no sessionStorage (node, locked-down frames) */ }
+
 // Console access for poking at the internals (and future scripting).
 // Try: oscine.api.execute('status').then(console.log)
 window.oscine = { bus, store, engine, transport, app, api, bridge, crosstab };

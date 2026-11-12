@@ -312,7 +312,8 @@ const { CommandAPI } = await import(`${ROOT}/src/api/api.js`);
   // range, insert, automation, words) took the count from 21 to 30. The e2e
   // tool-count check is derived from COMMANDS.length, so it tracks this.
   // 2026-10-08 fitting pass: + listen, song, pattern_automation.
-  check('catalog command count is 37', COMMANDS.length === 37, `got ${COMMANDS.length}`);
+  // 2026-11-11: + signal (the stream for visual instruments).
+  check('catalog command count is 39', COMMANDS.length === 39, `got ${COMMANDS.length}`);
   check('every command has description + object schema',
     COMMANDS.every(c => c.description?.length > 20 && c.input?.type === 'object'));
   check('every command has a handler',

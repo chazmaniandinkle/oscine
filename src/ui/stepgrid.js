@@ -4,7 +4,7 @@
 //   shift+click    cycle velocity (soft / med / hard)
 //   lane label     audition the sound
 
-import { el } from './widgets.js';
+import { el, bindable } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 
 const VEL_LEVELS = [0.45, 0.75, 1];
@@ -78,6 +78,7 @@ export class StepGrid {
       const label = el('button', 'sg-label', lane.label);
       label.type = 'button';
       label.title = 'Click to audition';
+      bindable(label, { k: 'drum', lane: lane.id }, `${lane.label} (drum lane)`);   // a pad can trigger this lane
       label.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         this.app.engine.previewHit(this.trackId, lane.id);

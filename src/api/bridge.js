@@ -13,6 +13,8 @@
 //   server -> app  {type:'ping'}  ->  {type:'pong'}
 //   viewer -> app  {type:'ear', on, hz}   start/stop the live ear stream (a proxy in the middle may inject it)
 //   app -> server  {type:'event', name:'ear:frame', data}   while the live ear streams (the `ear` command)
+//   server -> app  {type:'signal', on, hz}  start/stop the signal (the sidecar, while /signal has clients)
+//   app -> server  {type:'event', name:'signal:frame'|'signal:notes', data}   while the signal streams (the `signal` command)
 
 import { servedWithSidecar, bridgeUrlHere, sidecarPort } from '../core/sidecar.js';
 
@@ -59,6 +61,14 @@ export class Bridge {
       if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) return;
       this.ws.send(JSON.stringify({ type: 'event', name: 'ear:frame', data }));
     });
+    // The signal (src/engine/signal.js): frames and scheduled notes for whatever moves with the music. Same opt-in rule:
+    // nothing emits unless the `signal` command started it (the sidecar does, while /signal has clients).
+    for (const name of ['signal:frame', 'signal:notes']) {
+      this.bus.on?.(name, (data) => {
+        if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) return;
+        this.ws.send(JSON.stringify({ type: 'event', name, data }));
+      });
+    }
   }
 
   sendHello() {
@@ -110,6 +120,11 @@ export class Bridge {
         this.api.execute('ear', { action: msg.on ? 'start' : 'stop', hz: msg.hz }).catch(() => {});
         return;
       }
+      if (msg.type === 'signal') {
+        // The sidecar turns the signal on while /signal has clients, off when the last one leaves.
+        this.api.execute('signal', { action: msg.on ? 'start' : 'stop', hz: msg.hz }).catch(() => {});
+        return;
+      }
       if (msg.type === 'session') {
         // Sidecar tells us whether this tab is the active command target and
         // how many instances are connected, for a multi-session indicator.
@@ -128,6 +143,7 @@ export class Bridge {
     ws.onclose = () => {
       this.setStreaming(false);
       try { this.api._liveEar?.stop(); } catch { /* no ear running */ }   // a viewer that left can't be streamed to
+      try { this.api._signalTap?.stop(); } catch { /* no tap running */ }
       if (this.connected) {
         this.connected = false;
         this.bus.emit('bridge:status', { connected: false });

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### The signal
+- New `signal` command (and MCP tool `oscine_signal`): the engine's output shaped for something that moves with the music. `signal:frame` at 20-120 Hz (default 60) carries rms, peak, the five ear bands as levels 0..1, onset, kick, per-track levels and the playhead as phases (`beatPhase`, `barPhase`); `signal:notes` carries every pattern note and drum hit when the transport schedules it, about 100 ms before it sounds, each stamped with the epoch-millisecond time it reaches the speaker.
+- The sidecar serves it at `ws://127.0.0.1:<port>/signal` (listen-only, same origin rule as `/bridge`; `?hz=N` picks the rate). The active instance streams while a consumer is connected and stops when the last one leaves. Audio-clip arrangements drive frames only: clips have no notes.
+- The engine reports its schedule on the bus (`notes:scheduled`) only while the signal runs. Autosave and jam mode ignore all three events.
+
 ### The live ear
 - New `ear` command (and MCP tool `oscine_ear`): what is playing right now, sampled from the running audio graph. `snapshot` reads one frame (levels, five band shares, a 64-bin spectrum, per-track meters, bar/beat/slot, onset/kick and which tracks are loud or silent); `start`/`stop` stream those frames (5-30 Hz) as `ear:frame` events over the bridge for a viewer such as the Stage's ear widget. The bands are the same as the offline `listen` (sub <60, bass 60-250, lowmid 250-800, mid 800-4k, high 4k+), so the numbers compare. Opt-in; analysers exist only while it runs.
 

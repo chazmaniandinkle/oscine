@@ -10,6 +10,9 @@ import { COMMANDS, getCommand, API_VERSION } from './commands.js';
 import { SLOT_NAMES, BAR_CHOICES, demoProject, createProject, validateProject } from '../core/schema.js';
 import { listInstrumentDefs, getInstrumentDef, presetParams } from '../engine/instruments/index.js';
 import { clamp, deepClone, midiName, downloadBlob } from '../core/util.js';
+import { isSrcKey, srcKey, srcLabel } from '../core/midisrc.js';
+import { asTarget, targetLabel, describeTarget, defaultMap } from '../core/midimap.js';
+import { listProfiles, profileById, allControls } from '../core/controllers/index.js';
 import { encodeWav } from '../core/wav.js';
 import { chordPitches } from '../core/chords.js';
 import { validateEffectParams } from '../core/arrangement.js';
@@ -545,6 +548,10 @@ export class CommandAPI {
       learn: m.learnParam,
       devices: m.devices.map(d => ({ ...d })),
       knobs: { ...m.knobs },
+      bindings: this.midiBindings(),                  // the same map, resolved to readable targets
+      controller: m.profile ? { ...m.profile } : null, // the detected device (null = none bound)
+      outputs: (m.outputs || []).map(d => ({ ...d })),
+      bindMode: !!m.bindMode,
       velocity: { floor: m.velFloor, curve: m.velCurve, fixed: m.velFixed },
       monitor: {                                      // raw 0..127 incoming velocity
         last: m.velMonitor.last,
@@ -578,7 +585,17 @@ export class CommandAPI {
     return p.key;
   }
 
-  cmd_midi({ action, device, channel, record, floor, curve, fixed, bytes, reset, cc, param }) {
+  // Every binding as { source, label, target, text, auto } so Cog can read the map without decoding keys.
+  midiBindings() {
+    const { store } = this;
+    const ctx = { store, transport: this.transport, engine: this.engine, api: this };
+    return Object.entries(store.ui.midi.knobs).map(([source, entry]) => {
+      const t = asTarget(entry);
+      return { source, label: srcLabel(source), target: t, text: targetLabel(ctx, entry), auto: !!t?.auto, relative: t?.rel || null };
+    });
+  }
+
+  cmd_midi({ action, device, channel, record, floor, curve, fixed, bytes, reset, cc, param, source, target, profile, rel, pickup }) {
     const { store } = this;
     switch (action) {
       case 'status':
@@ -669,6 +686,55 @@ export class CommandAPI {
         if (cc !== undefined) store.mapMidiKnob(cc, null);
         else store.configureMidi({ knobs: {} });
         return this.midiState();
+      case 'bind': {
+        // Bind one hardware source to a target. `source` is a key ("74", "74@2", "n36@10", "pb", "cp"); a bare `cc`
+        // number works too. Replaces any existing binding for that source.
+        const key = source !== undefined ? String(source) : cc !== undefined ? String(Math.round(cc)) : null;
+        if (!key || !isSrcKey(key)) throw new Error("action 'bind' needs a 'source' key: a CC number (\"74\"), \"74@2\" (channel 2 only), \"n36@10\" (note 36 on channel 10), \"pb\" (pitch bend) or \"cp\" (pressure).");
+        if (!target || typeof target !== 'object' || typeof target.k !== 'string') {
+          if (param !== undefined) { store.bindMidi(key, this.resolveMidiParam(param)); return this.midiState(); }
+          throw new Error("action 'bind' needs a 'target' object: { k: 'param'|'channel'|'master'|'fx'|'setting'|'transport'|'slot'|'drum'|'select'|'command', ... } (see this command's description).");
+        }
+        const t = { ...target };
+        if (rel) t.rel = rel;
+        if (pickup === false) t.pickup = false;
+        const ctx = { store, transport: this.transport, engine: this.engine, api: this };
+        if (!describeTarget(ctx, t)) throw new Error(`That target doesn't resolve right now (no such track/lane/param, or nothing selected): ${JSON.stringify(t)}`);
+        store.bindMidi(key, t);
+        return this.midiState();
+      }
+      case 'unbind': {
+        const key = source !== undefined ? String(source) : cc !== undefined ? String(Math.round(cc)) : null;
+        if (!key) throw new Error("action 'unbind' needs a 'source' (or 'cc').");
+        const n = store.unbindMidi(key);
+        return { ...this.midiState(), note: n ? `Removed ${n} binding(s).` : 'Nothing was bound to that source.' };
+      }
+      case 'bindings':
+        return { bindings: this.midiBindings(), controller: store.ui.midi.profile };
+      case 'bind_mode':
+        // The touch-then-click binding mode of the surface panel. Headless it just sets the flag.
+        store.reportMidi({ bindMode: record !== undefined ? !!record : !store.ui.midi.bindMode });
+        this.bus.emit('midi:config', {});
+        return this.midiState();
+      case 'profiles': {
+        const list = listProfiles().map(p => ({ id: p.id, name: p.name, maker: p.maker || '', verified: !!p.verified, custom: !!p.custom, controls: allControls(p).length }));
+        return { profiles: list, active: store.ui.midi.profile?.id ?? null };
+      }
+      case 'profile': {
+        // Describe one profile (default: the detected one): its segments and what each control sends.
+        const p = profile ? profileById(String(profile)) : (store.ui.midi.profile ? profileById(store.ui.midi.profile.id) : null);
+        if (!p) throw new Error(profile ? `No profile '${profile}'. Use action 'profiles' to list them.` : "No controller is bound; pass a 'profile' id (action 'profiles' lists them).");
+        return { id: p.id, name: p.name, maker: p.maker, verified: !!p.verified, source: p.source, segments: p.segments.map(sg => ({ id: sg.id, kind: sg.kind, label: sg.label, range: sg.range,
+          controls: (sg.controls || []).map(c => ({ id: c.id, label: c.label, kind: c.kind, source: c.src ? srcKey(c.src) : null, rel: c.rel || null })) })) };
+      }
+      case 'defaults': {
+        // Rebuild the starter map for the detected (or named) device; replaces bindings on those sources.
+        const p = profile ? profileById(String(profile)) : (store.ui.midi.profile ? profileById(store.ui.midi.profile.id) : null);
+        if (!p) throw new Error("No controller is bound; pass a 'profile' id (action 'profiles' lists them).");
+        const map = defaultMap(p);
+        store.configureMidi({ knobs: { ...store.ui.midi.knobs, ...map } });
+        return { ...this.midiState(), note: `Applied ${Object.keys(map).length} default bindings for ${p.name}.` };
+      }
       case 'claim':
         // Take MIDI ownership for this tab. Intent only: the browser MIDI
         // manager reacts to 'midi:claim' and steals the lock + binds. Headless
@@ -768,6 +834,104 @@ export class CommandAPI {
     if (action === 'status') return ear.status();
     if (action === 'snapshot') return await ear.snapshot();
     throw new Error(`Bad action '${action}'. Use snapshot, start, stop or status.`);
+  }
+
+  async signalTapOf() {
+    if (!this._signalTap) {
+      const { SignalTap } = await import('../engine/signal.js');
+      this._signalTap = new SignalTap({ engine: this.engine, transport: this.transport, store: this.store, bus: this.bus });
+    }
+    return this._signalTap;
+  }
+
+  async cmd_signal({ action = 'status', hz } = {}) {
+    if (!this.engine?.ctx) throw new Error('The signal needs the running audio engine (open the app).');
+    const tap = await this.signalTapOf();
+    if (action === 'start') return tap.start({ hz });
+    if (action === 'stop') return tap.stop();
+    if (action === 'status') return tap.status();
+    throw new Error(`Bad action '${action}'. Use start, stop or status.`);
+  }
+
+  // Jam mode (src/ui/jam.js, src/core/jam.js, plugin/server/jam-store.mjs). Built lazily: a headless/test API that never
+  // starts a jam loads none of it. list/read are normally answered by the sidecar from disk (they need no app); the
+  // handlers here exist so the in-app command surface is complete and testable.
+  async jamOf() {
+    if (!this._jam) {
+      const [{ JamSession }, { JamAudio }] = await Promise.all([import('../ui/jam.js'), import('../ui/jamaudio.js')]);
+      const post = async (route, body, kind) => {
+        const init = { method: 'POST' };
+        if (kind === 'json') { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); }
+        else if (kind === 'text') { init.headers = { 'Content-Type': 'text/plain' }; init.body = body; }
+        else { init.headers = { 'Content-Type': 'application/octet-stream' }; init.body = body; }
+        const res = await fetch(sidecarUrl('/' + route), init);
+        if (!res.ok) throw new Error(`jam upload ${route}: ${res.status}`);
+      };
+      const KEY = 'oscine.jam.open';
+      const persist = {
+        get: () => { try { return JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch { return null; } },
+        set: (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch {} },
+        clear: () => { try { sessionStorage.removeItem(KEY); } catch {} },
+      };
+      const audio = new JamAudio({ engine: this.engine, transport: this.transport });
+      this._jam = new JamSession({ store: this.store, bus: this.bus, engine: this.engine, transport: this.transport, audio, post, persist });
+      this._jamNoAudio = { start: async () => ({ ok: false, reason: 'audio recording off for this jam' }), stop: async () => ({ chunks: [] }), drain: () => [] };
+      this._jamAudio = audio;
+    }
+    return this._jam;
+  }
+
+  async cmd_jam({ action = 'status', audio = true, note } = {}) {   // also: place { clip, toSlot, toTrack, mode } (the sidecar sends it for clip + toSlot)
+    if (['list', 'read', 'phrases', 'clip'].includes(action)) throw new Error(`'${action}' is answered by the sidecar from disk; call it through the MCP tool (oscine_jam) or POST /mcp.`);
+    if (action === 'place') return this.jamPlace(arguments[0]);
+    const jam = await this.jamOf();
+    if (action === 'status') return jam.status();
+    if (action === 'start') {
+      jam.audio = audio ? this._jamAudio : this._jamNoAudio;
+      return await jam.start(note ? { note } : {});
+    }
+    if (action === 'stop') return await jam.stop();
+    throw new Error(`Bad action '${action}'. Use status, start, stop, list, read, phrases, clip or place.`);
+  }
+
+  // Put a jam clip (from the sidecar's 'clip') into a pattern slot as ONE undo step.
+  //   clip    { kind:'synth', notes:[{start,pitch,dur,vel}], bars } | { kind:'drums', lanes:{lane:[steps]}, bars }
+  //   toSlot  'A'..'H' (default: the active slot)   toTrack  id or name (default: the track the phrase was played on)
+  //   mode    'replace' (default: the track's pattern in that slot becomes the clip) | 'add' (merge into it)
+  // The slot is lengthened to fit the clip (never shortened). Undo restores both the slot length and the notes.
+  jamPlace({ clip, toSlot, toTrack, mode = 'replace' } = {}) {
+    if (!clip || typeof clip !== 'object') throw new Error("place needs a 'clip' (from oscine_jam {action:'clip', ...}).");
+    if (!['replace', 'add'].includes(mode)) throw new Error("mode is 'replace' or 'add'.");
+    let t = null, lastErr = null;
+    for (const ref of [toTrack, clip.track, clip.trackName]) {
+      if (ref === undefined || ref === null || ref === '') continue;
+      try { t = this.resolveTrack(ref); break; } catch (e) { lastErr = e; }
+    }
+    if (!t) throw new Error(toTrack ? lastErr.message : `Which track? The phrase's track is gone${lastErr ? ` (${lastErr.message})` : ''}; pass toTrack.`);
+    const want = clip.kind === 'drums' ? 'drums' : 'synth';
+    this.requireKind(t, want, want === 'drums' ? 'set_notes' : 'set_steps');
+    const slotIdx = this.resolveSlot(toSlot);
+    const { store } = this;
+    const bars = BAR_CHOICES.find(b => b >= (Number(clip.bars) || 1)) ?? BAR_CHOICES[BAR_CHOICES.length - 1];
+    // One undo step: setSlotBars checkpoints when it resizes; checkpoint ourselves only when it didn't.
+    const depth = store.undoStack.length;
+    if (store.project.slots[slotIdx].bars < bars) store.setSlotBars(bars, slotIdx);
+    if (store.undoStack.length === depth) store.checkpoint();
+    const slotBars = store.project.slots[slotIdx].bars;
+    let placed;
+    if (want === 'drums') {
+      const valid = new Set(getInstrumentDef(t.instrument.type).lanes.map(l => l.id));
+      const bad = Object.keys(clip.lanes || {}).filter(l => !valid.has(l));
+      if (bad.length) { store.undo(); throw new Error(`Track '${t.name}' has no lane(s) ${bad.join(', ')}. Lanes: ${[...valid].join(', ')}.`); }
+      store.setLanes(t.id, clip.lanes || {}, slotIdx, mode === 'replace');
+      placed = { lanes: Object.keys(clip.lanes || {}) };
+    } else {
+      const { out } = this.validateNotes(clip.notes || [], slotBars * 4);
+      const merged = mode === 'add' ? [...store.getPattern(t.id, slotIdx).notes, ...out] : out;
+      store.setNotes(t.id, merged, slotIdx);
+      placed = { notes: out.length };
+    }
+    return { ok: true, track: t.name, slot: SLOT_NAMES[slotIdx], bars: slotBars, mode, ...placed, undo: 'one undo step' };
   }
 
   async cmd_listen({ slot, loops = 1, song = false, solo, from, to, save }) {

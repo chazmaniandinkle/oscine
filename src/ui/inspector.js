@@ -3,7 +3,7 @@
 // `group`), plus the channel section (pan + sends). Any instrument added
 // to the registry gets a working inspector for free.
 
-import { el, Knob, Select } from './widgets.js';
+import { el, Knob, Select, bindable } from './widgets.js';
 import { getInstrumentDef } from '../engine/instruments/index.js';
 import { ClipInspector, LaneInspector, AssetInspector, OverlapInspector, RangeInspector, InsertInspector } from './clipinspector.js';
 
@@ -112,6 +112,7 @@ export class Inspector {
       const w = Knob({
         label, min, max, value: track.channel[key], default: dflt, format,
         color: track.color,
+        midi: { k: 'channel', key }, // the selected track's pan / sends (follows the selection)
         onInput: v => store.setChannel(track.id, key, v),
       });
       this.controls.set('ch:' + key, w);
@@ -147,6 +148,7 @@ export class Inspector {
       curve: p.curve, unit: p.unit,
       value: current, default: p.default,
       color: track.color,
+      midi: { k: 'param', key: p.key },  // a param of the SELECTED track's instrument (follows the selection)
       onInput: v => store.setTrackParam(track.id, p.key, v),
     });
     this.controls.set(p.key, w);

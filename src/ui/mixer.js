@@ -1,7 +1,7 @@
 // Bottom panel: one strip per track (fader, meter, pan, sends, mute/solo)
 // plus a master section with the shared FX controls. Collapsible.
 
-import { el, Knob, Fader, Meter, Select, openMenu } from './widgets.js';
+import { el, Knob, Fader, Meter, Select, openMenu, bindable } from './widgets.js';
 import { DELAY_DIVISIONS } from '../engine/effects/delay.js';
 import { listEffectDefs, getEffectDef } from '../engine/effects/index.js';
 
@@ -180,6 +180,7 @@ export class Mixer {
     const strip = el('div', 'strip lane-strip');
     strip.dataset.strip = lane.id;
     strip.classList.toggle('selected', lane.id === app.timeline?.selectedLane);
+    const laneN = (store.project.arrangement?.lanes ?? []).findIndex(l => l.id === lane.id) + 1;
     const name = el('div', 'strip-name', lane.name || lane.id);
     name.style.color = lane.color || '';
     name.title = lane.name || lane.id;
@@ -198,7 +199,7 @@ export class Mixer {
     };
     const knobRow = el('div', 'strip-knobs');
     const pan = Knob({
-      label: 'Pan', min: -1, max: 1, value: lane.pan ?? 0, default: 0, small: true, color: lane.color,
+      label: 'Pan', min: -1, max: 1, value: lane.pan ?? 0, default: 0, small: true, color: lane.color, midi: { k: 'channel', strip: laneN, key: 'pan' },
       format: v => Math.abs(v) < 0.01 ? 'C' : (v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`),
       onInput: v => preview([['setLane', lane.id, { pan: v }]], ['inserts:changed']),
       onCommit: () => commitGesture(['lanes:changed', 'inserts:changed', 'arrangement:changed']),
@@ -213,7 +214,7 @@ export class Mixer {
     // Fader in dB: 0..1 maps -60..+12 with unity at ~0.83.
     const toF = db => Math.max(0, Math.min(1, (db + 60) / 72)), toDb = f => f * 72 - 60;
     const fader = Fader({
-      value: toF(lane.gainDb ?? 0), default: toF(0),
+      value: toF(lane.gainDb ?? 0), default: toF(0), midi: { k: 'channel', strip: laneN, key: 'gain' }, label: `${lane.name || lane.id} volume`,
       onInput: v => { const db = Math.round(toDb(v) * 10) / 10; preview([['setLane', lane.id, { gainDb: db }]], ['lanes:changed']); dbLbl.textContent = fmtDb(db); },
       onCommit: () => commitGesture(['lanes:changed', 'arrangement:changed']),
     });
@@ -229,8 +230,10 @@ export class Mixer {
     const ms = el('div', 'strip-ms');
     const m = el('button', 'btn mini ms-m' + (lane.mute ? ' on-warn' : ''), 'M');
     const laneNow = () => store.project.arrangement?.lanes?.find(l => l.id === lane.id) ?? lane;
+    bindable(m, { k: 'channel', strip: laneN, key: 'mute' }, `${lane.name || lane.id} mute`);
     m.addEventListener('click', () => { const on = !laneNow().mute; store.laneSet(lane.id, { mute: on }); m.classList.toggle('on-warn', on); redraw(); });
     const s = el('button', 'btn mini ms-s' + (lane.solo ? ' on-accent' : ''), 'S');
+    bindable(s, { k: 'channel', strip: laneN, key: 'solo' }, `${lane.name || lane.id} solo`);
     s.addEventListener('click', () => { const on = !laneNow().solo; store.laneSet(lane.id, { solo: on }); s.classList.toggle('on-accent', on); redraw(); });
     ms.append(m, s);
     strip.appendChild(ms);
@@ -246,7 +249,7 @@ export class Mixer {
     const dbOut = el('div', 'strip-db', '');
     const showDb = (v) => { const g = v * 1.2; dbOut.textContent = g > 0 ? `${(20 * Math.log10(g)).toFixed(1)} dB` : '−∞ dB'; };
     const fader = Fader({
-      value: store.project.masterVolume / 1.2, default: 0.85 / 1.2,
+      value: store.project.masterVolume / 1.2, default: 0.85 / 1.2, midi: { k: 'master' }, label: 'Master volume',
       onInput: v => { store.setSetting('masterVolume', v * 1.2); showDb(v); },
     });
     this.widgets.set('masterVolume', { set: v => { fader.set(v / 1.2); showDb(v / 1.2); } });
@@ -262,6 +265,7 @@ export class Mixer {
   buildStrip(track) {
     const { store } = this;
     const strip = el('div', 'strip');
+    const stripN = store.project.tracks.findIndex(t => t.id === track.id) + 1;   // bindings point at the Nth strip, so they survive a song swap
     strip.dataset.strip = track.id;
     strip.classList.toggle('selected', track.id === store.ui.selectedTrackId);
 
@@ -276,7 +280,7 @@ export class Mixer {
       const w = Knob({
         label, min: key === 'pan' ? -1 : 0, max: 1,
         value: track.channel[key], default: key === 'pan' ? 0 : 0,
-        small: true, color: track.color,
+        small: true, color: track.color, midi: { k: 'channel', strip: stripN, key },
         format: key === 'pan'
           ? v => Math.abs(v) < 0.01 ? 'C' : (v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)
           : undefined,
@@ -292,7 +296,7 @@ export class Mixer {
 
     const fadeWrap = el('div', 'strip-fade');
     const fader = Fader({
-      value: track.channel.gain, default: 0.8,
+      value: track.channel.gain, default: 0.8, midi: { k: 'channel', strip: stripN, key: 'gain' }, label: `${track.name} volume`,
       onInput: v => store.setChannel(track.id, 'gain', v),
     });
     this.faders.set(track.id, fader);
@@ -305,8 +309,10 @@ export class Mixer {
     const ms = el('div', 'strip-ms');
     const m = el('button', 'btn mini ms-m' + (track.channel.mute ? ' on-warn' : ''), 'M');
     m.addEventListener('click', () => store.setChannel(track.id, 'mute', !track.channel.mute));
+    bindable(m, { k: 'channel', strip: stripN, key: 'mute' }, `${track.name} mute`);
     const s = el('button', 'btn mini ms-s' + (track.channel.solo ? ' on-accent' : ''), 'S');
     s.addEventListener('click', () => store.setChannel(track.id, 'solo', !track.channel.solo));
+    bindable(s, { k: 'channel', strip: stripN, key: 'solo' }, `${track.name} solo`);
     ms.appendChild(m);
     ms.appendChild(s);
     strip.appendChild(ms);
@@ -332,12 +338,12 @@ export class Mixer {
     dlyCol.appendChild(divSel.root);
     const fb = Knob({
       label: 'Fdbk', min: 0, max: 0.9, value: store.project.fx.delayFeedback, default: 0.38, small: true,
-      onInput: v => store.setFx('delayFeedback', v),
+      midi: { k: 'fx', key: 'delayFeedback' }, onInput: v => store.setFx('delayFeedback', v),
     });
     this.widgets.set('fx:delayFeedback', fb);
     const dret = Knob({
       label: 'Return', min: 0, max: 1, value: store.project.fx.delayReturn, default: 0.7, small: true,
-      onInput: v => store.setFx('delayReturn', v),
+      midi: { k: 'fx', key: 'delayReturn' }, onInput: v => store.setFx('delayReturn', v),
     });
     this.widgets.set('fx:delayReturn', dret);
     const dlyKnobs = el('div', 'strip-knobs');
@@ -350,12 +356,12 @@ export class Mixer {
     verbCol.appendChild(el('div', 'insp-group-title', 'Reverb'));
     const size = Knob({
       label: 'Size', min: 0.4, max: 6, value: store.project.fx.verbSize, default: 2.2, small: true, unit: 's',
-      onInput: v => store.setFx('verbSize', v),
+      midi: { k: 'fx', key: 'verbSize' }, onInput: v => store.setFx('verbSize', v),
     });
     this.widgets.set('fx:verbSize', size);
     const vret = Knob({
       label: 'Return', min: 0, max: 1, value: store.project.fx.verbReturn, default: 0.8, small: true,
-      onInput: v => store.setFx('verbReturn', v),
+      midi: { k: 'fx', key: 'verbReturn' }, onInput: v => store.setFx('verbReturn', v),
     });
     this.widgets.set('fx:verbReturn', vret);
     const verbKnobs = el('div', 'strip-knobs');
@@ -368,7 +374,7 @@ export class Mixer {
 
     const fadeWrap = el('div', 'strip-fade');
     const fader = Fader({
-      value: store.project.masterVolume / 1.2, default: 0.85 / 1.2,
+      value: store.project.masterVolume / 1.2, default: 0.85 / 1.2, midi: { k: 'master' }, label: 'Master volume',
       onInput: v => store.setSetting('masterVolume', v * 1.2),
     });
     this.widgets.set('masterVolume', { set: v => fader.set(v / 1.2) });
