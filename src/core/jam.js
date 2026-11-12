@@ -20,7 +20,7 @@
 // Audio alignment: meta.json carries audio_t0_ct = AudioContext.currentTime when the MediaRecorder started, so an
 // event at ct lands at (ct - audio_t0_ct) seconds into the recording. audioWindow() does that arithmetic.
 
-export const SKIP_BUS = new Set(['schedule:window', 'ear:frame', 'track:trigger', 'midi:status', 'ledger:cleared', 'transport:looped']);
+export const SKIP_BUS = new Set(['schedule:window', 'ear:frame', 'track:trigger', 'midi:status', 'ledger:cleared', 'transport:looped', 'signal:frame', 'signal:notes', 'notes:scheduled']);
 const DROP_KEYS = new Set(['project', 'beatToTime', 'swingOffset', 'params']);   // large or non-data payload fields
 const MAX_STR = 200, MAX_ARR = 16, MAX_KEYS = 14;
 

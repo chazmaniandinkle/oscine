@@ -166,6 +166,8 @@ export class AudioEngine {
     }
     if (w.fromLocal < 1e-9) this._lastAutoSlot = slot;
 
+    // The signal tap (src/engine/signal.js) sets reportNotes while something outside wants the schedule itself.
+    const report = this.reportNotes ? [] : null;
     for (const track of store.project.tracks) {
       const ch = this.channels.get(track.id);
       if (!ch) continue;
@@ -184,6 +186,7 @@ export class AudioEngine {
             if (vel > 0) {
               const time = w.beatToTime(w.loopStartAbs + localBeat) + w.swingOffset(localBeat);
               ch.instrument.trigger(lane.id, time, vel);
+              report?.push({ track: track.id, name: track.name, kind: 'drum', lane: lane.id, vel, time });
               any = true;
             }
           }
@@ -194,12 +197,14 @@ export class AudioEngine {
           if (note.start >= w.fromLocal - 1e-9 && note.start < w.toLocal - 1e-9) {
             const time = w.beatToTime(w.loopStartAbs + note.start) + w.swingOffset(note.start);
             ch.instrument.noteOn(time, note.pitch, note.vel, note.dur * spb);
+            report?.push({ track: track.id, name: track.name, kind: 'note', pitch: note.pitch, vel: note.vel, time, dur: note.dur * spb });
             triggered = true;
           }
         }
       }
       if (triggered) this.emitTrigger(track.id);
     }
+    if (report?.length) this.bus.emit('notes:scheduled', { events: report });
   }
 
   allOff() {

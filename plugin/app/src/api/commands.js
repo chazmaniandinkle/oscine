@@ -281,6 +281,18 @@ export const COMMANDS = [
     },
   },
   {
+    name: 'signal',
+    description: "The SIGNAL: the engine's output shaped for something that moves with the music (a visual instrument, lights), where 'ear' is shaped for something that reads it. 'start' streams two bridge events until 'stop': signal:frame (hz 20-120, default 60: rms and peak 0..1, the five ear bands as LEVELS 0..1 [sub, bass, lowmid, mid, high], onset, kick, per-track levels, bpm, slot/bar/beat, beatPhase and barPhase 0..1, seconds and marker on an arrangement) and signal:notes (every pattern note and drum hit, sent when the transport SCHEDULES it, about 100 ms before it sounds, each with 'at': the epoch-millisecond time it reaches the speaker, so a consumer can land exactly on it or anticipate it). The sidecar fans both out to WebSocket clients of /signal and turns the stream on while any are connected, so a consumer normally never calls this. Audio clips carry no notes: an arrangement drives frames only. 'status' reports running, hz, frame/note counts and the output latency folded into every time. Opt-in; one analyser exists only while it runs.",
+    readOnly: true,
+    input: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['start', 'stop', 'status'], description: "Default 'status'." },
+        hz: { type: 'integer', minimum: 20, maximum: 120, description: "For 'start': frames per second (default 60)." },
+      },
+    },
+  },
+  {
     name: 'song',
     description: "Song mode for the pattern side: an ordered list of slots that plays and renders as one song (a slot may repeat, e.g. ['A','B','B','C','B','D']). 'get' returns the sequence with each section's start/length in bars and seconds; 'set' replaces it; 'clear' removes it. export_wav and listen take song:true to render it.",
     input: {

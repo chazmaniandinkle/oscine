@@ -836,6 +836,23 @@ export class CommandAPI {
     throw new Error(`Bad action '${action}'. Use snapshot, start, stop or status.`);
   }
 
+  async signalTapOf() {
+    if (!this._signalTap) {
+      const { SignalTap } = await import('../engine/signal.js');
+      this._signalTap = new SignalTap({ engine: this.engine, transport: this.transport, store: this.store, bus: this.bus });
+    }
+    return this._signalTap;
+  }
+
+  async cmd_signal({ action = 'status', hz } = {}) {
+    if (!this.engine?.ctx) throw new Error('The signal needs the running audio engine (open the app).');
+    const tap = await this.signalTapOf();
+    if (action === 'start') return tap.start({ hz });
+    if (action === 'stop') return tap.stop();
+    if (action === 'status') return tap.status();
+    throw new Error(`Bad action '${action}'. Use start, stop or status.`);
+  }
+
   // Jam mode (src/ui/jam.js, src/core/jam.js, plugin/server/jam-store.mjs). Built lazily: a headless/test API that never
   // starts a jam loads none of it. list/read are normally answered by the sidecar from disk (they need no app); the
   // handlers here exist so the in-app command surface is complete and testable.

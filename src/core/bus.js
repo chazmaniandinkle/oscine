@@ -21,6 +21,9 @@
 //   transport:loop     {}
 //   schedule:window    { fromLocal, toLocal, loopStartAbs, slotIndex, beatToTime, swingOffset }
 //   track:trigger      { trackId }             UI activity blip
+//   notes:scheduled    { events }              what the engine just scheduled, in audio time (only while the signal tap runs)
+//   signal:frame       { ... }                 ~60 Hz level/bands/phase frame (src/engine/signal.js; opt-in)
+//   signal:notes       { notes }               scheduled notes stamped with the wall-clock time they sound (opt-in)
 
 export class EventBus {
   constructor() {

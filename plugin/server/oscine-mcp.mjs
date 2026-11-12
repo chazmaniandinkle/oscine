@@ -206,6 +206,29 @@ function broadcastSessions() {
       conn.send(JSON.stringify({ type: 'session', id: s.id, active: s.active, peers }));
     }
   }
+  // Whoever is active now feeds the signal; tell the consumers which project that is.
+  if (signalClients.size) { setAppSignal(true); const h = signalHello(); for (const c of signalClients) c.send(h); }
+}
+
+// The signal (src/engine/signal.js): ~60 Hz frames and scheduled notes for anything that moves with the music.
+// Consumers connect a WebSocket to /signal; the active instance streams while at least one is connected, and each
+// app event is fanned out as {type:'frame'|'notes', ...}. Read-only: a consumer cannot send commands here.
+const signalClients = new Set();
+let signalHz = 60;
+function setAppSignal(on) {
+  for (const s of registry.list()) {
+    const conn = registry.get(s.id)?.conn;
+    if (conn && !conn.closed) conn.send(JSON.stringify({ type: 'signal', on: on && s.active, hz: signalHz }));
+  }
+}
+function signalHello() {
+  const a = registry.active;
+  return JSON.stringify({ type: 'hello', server: 'oscine', version: SERVER_VERSION, signal: 1, app: !!a, project: a?.info?.project ?? null, hz: signalHz });
+}
+function relaySignal(name, data) {
+  if (!signalClients.size) return;
+  const out = JSON.stringify({ type: name === 'signal:frame' ? 'frame' : 'notes', ...data });
+  for (const c of signalClients) c.send(out);
 }
 
 const appUrl = () => `http://127.0.0.1:${actualPort}/`;
@@ -260,6 +283,7 @@ function handleAppMessage(conn, raw) {
     return;
   }
   if (msg.type === 'event') {
+    if ((msg.name === 'signal:frame' || msg.name === 'signal:notes') && registry.activeId === conn.sessionId) { relaySignal(msg.name, msg.data); return; }
     // Only the active instance feeds the OSC state stream.
     if (msg.name === 'state' && registry.activeId === conn.sessionId) gateway?.relayState(msg.data);
     return;
@@ -710,12 +734,12 @@ function startHttp(port, attemptsLeft = 9) {
   server.on('upgrade', (req, socket) => {
     const key = req.headers['sec-websocket-key'];
     const urlPath = new URL(req.url, 'http://x').pathname;
-    if (urlPath !== '/bridge' || !key) {
+    if ((urlPath !== '/bridge' && urlPath !== '/signal') || !key) {
       socket.destroy();
       return;
     }
     if (!originAllowed(req.headers.origin)) {
-      log(`bridge rejected origin ${req.headers.origin} (set OSCINE_ALLOWED_ORIGINS to allow)`);
+      log(`${urlPath.slice(1)} rejected origin ${req.headers.origin} (set OSCINE_ALLOWED_ORIGINS to allow)`);
       socket.destroy();
       return;
     }
@@ -725,6 +749,20 @@ function startHttp(port, attemptsLeft = 9) {
       'Connection: Upgrade\r\n' +
       `Sec-WebSocket-Accept: ${wsAccept(key)}\r\n\r\n`
     );
+    if (urlPath === '/signal') {
+      // A signal consumer: listen-only. ?hz=N asks for a frame rate (20-120); the last asker wins.
+      const hz = Number(new URL(req.url, 'http://x').searchParams.get('hz'));
+      if (Number.isFinite(hz) && hz >= 20 && hz <= 120) signalHz = Math.round(hz);
+      const client = new WSConn(socket, {
+        onMessage: () => {},
+        onClose: () => { signalClients.delete(client); if (!signalClients.size) setAppSignal(false); },
+      });
+      signalClients.add(client);
+      client.send(signalHello());
+      setAppSignal(true);
+      log(`signal consumer connected (${signalClients.size}); ${signalHz} Hz`);
+      return;
+    }
     const conn = new WSConn(socket, {
       onMessage: (raw) => handleAppMessage(conn, raw),
       onClose: () => handleAppClose(conn),
